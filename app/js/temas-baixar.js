@@ -17,6 +17,14 @@ const temasNoApp = () => nativo('temasNoApp') === true; // as imagens vêm dentr
 // Endereço da imagem: a do APK ou a baixada e conferida ('' = ainda não está pronta: use o desenho de reserva).
 const temaImg = (k, parte) => TEMAS_IMG[k] && temasNoApp() ? `temas/${k}-${parte}.webp` : temaImgUrls[k + '-' + parte] || '';
 const temaImgsProntas = k => !!TEMAS_IMG[k] && (temasNoApp() || TEMA_PARTES.every(p => temaImgUrls[k + '-' + p]));
+// Miniatura do personagem na lista de temas (Configurações › Temas especiais) de um tema cujas imagens não estão no
+// aparelho (versão web e APK antigo): só para ver, direto de temas/ do cofrim-updater e só quando aparece na tela
+// (loading="lazy"). Por baixo fica o desenho de sempre; quando a imagem chega, ela o cobre (classe foto, abaixo). Usar o
+// tema continua passando pela conferência do SHA-256 (temaImgsCarregar).
+const temaMiniatura = k => !TEMAS_IMG[k] || temaImg(k, 'ok') ? '' : `<img class="temaMini" loading="lazy" src="${TEMAS_BASE}${k}-ok.webp" alt="">`;
+document.addEventListener('load', e => {
+  if (e.target.classList && e.target.classList.contains('temaMini')) e.target.parentElement.classList.add('foto');
+}, true);
 // Banco das imagens. Se o IndexedDB não responder em 2 s (há navegadores que nunca respondem em algumas origens), segue
 // sem guardar: as imagens são baixadas e usadas do mesmo jeito.
 function temasBanco(){

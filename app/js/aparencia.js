@@ -4,7 +4,7 @@
 
 // ---------- Aparência: tema e ordem das abas ----------
 const TABS = {resumo:['chart','Resumo'], ganhos:['income','Ganhos'], gastos:['receipt','Gastos'], invest:['trend','Investir'],
-  noticias:['news','Notícias'], chat:['chat','Assistente']};
+  noticias:['news','Notícias'], chat:['chat','Assistente'], explorar:['more','Explorar']};
 // nome, par de cores para o modo claro (também usado nos cartões de destaque), par para o modo escuro,
 // e matiz + saturação da cor: delas saem o fundo, os cartões, as linhas e os tons dos gráficos.
 const COLORS = {
@@ -135,8 +135,9 @@ const visTabs = () => db.prefs.tabs.filter(t => t !== 'chat' && !db.prefs.tabsOf
 const layoutOf = tab => tab === 'resumo' ? db.prefs.resumo : db.prefs.layout[tab];
 // Monta a tela: os blocos ligados da aba, na ordem escolhida. B = {chave: () => html}.
 // Um bloco com erro (dado inesperado) não derruba a tela: no lugar dele fica um aviso, e o erro vai para o Diagnóstico.
+// Cada bloco leva antes uma âncora vazia (b-<aba>-<bloco>), para a aba Explorar levar direto a ele (irBloco).
 const blocks = (tab, B) => layoutOf(tab).filter(b => b.on && B[b.k]).map(b => {
-  try { return B[b.k](); }
+  try { const h = B[b.k](); return h ? `<i class="ancora" id="b-${tab}-${b.k}"></i>${h}` : ''; }
   catch(e){ logErr(`bloco ${tab}.${b.k}`, e); return `<div class="card hint" style="margin-bottom:12px">Não foi possível mostrar esta parte da tela. O erro ficou registrado em Configurações › Diagnóstico.</div>`; }
 }).join('');
 function applyTheme(){

@@ -293,7 +293,7 @@ function viewChat(){
   </form>`;
 }
 
-const VIEWS = {resumo:viewResumo, ganhos:viewGanhos, gastos:viewGastos, invest:viewInvest, noticias:viewNoticias, chat:viewChat};
+const VIEWS = {resumo:viewResumo, ganhos:viewGanhos, gastos:viewGastos, invest:viewInvest, noticias:viewNoticias, chat:viewChat, explorar:viewExplorar};
 // O botão + some ao rolar para baixo (para não cobrir os valores da lista) e volta ao rolar para cima.
 let lastScroll = 0;
 addEventListener('scroll', () => {
@@ -333,12 +333,12 @@ function render(){
   try { tela = VIEWS[state.tab](); } catch(e){ logErr('tela ' + state.tab, e); tela = telaErro(); }
   document.getElementById('app').innerHTML = tela;
   document.getElementById('tabs').innerHTML = visTabs().map(t => `<button class="${t === state.tab ? 'on' : ''}" ${t === state.tab ? 'aria-current="page"' : ''} data-onclick="go('${t}')"><span>${I(TABS[t][0], 23)}</span>${TABS[t][1]}</button>`).join('');
-  const noFab = ['resumo', 'noticias', 'chat'].includes(state.tab);
+  const noFab = ['resumo', 'noticias', 'chat', 'explorar'].includes(state.tab);
   document.getElementById('fab').hidden = noFab;
   document.getElementById('fab').classList.remove('away');
-  // Assistente: botão flutuante em todas as telas, ao lado do "+" quando ele existe; some dentro do próprio assistente.
+  // Assistente: botão flutuante em todas as telas, ao lado do "+" quando ele existe; some dentro do próprio assistente e na aba Explorar.
   const fc = document.getElementById('fabChat');
-  fc.hidden = state.tab === 'chat'; fc.classList.remove('away'); fc.classList.toggle('alto', !noFab);
+  fc.hidden = state.tab === 'chat' || state.tab === 'explorar'; fc.classList.remove('away'); fc.classList.toggle('alto', !noFab);
   document.getElementById('app').classList.toggle('hasFab', !noFab);
   document.getElementById('app').classList.toggle('cols', state.tab !== 'chat' && state.tab !== 'noticias'); // tela larga: duas colunas
   drawTopbar();

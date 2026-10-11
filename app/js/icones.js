@@ -114,5 +114,6 @@ const ICONS = {
   smile:'<circle class="d" cx="12" cy="12" r="9"/><path d="M8.500 14a4.500 4.500 0 0 0 7 0M9 9.500h.01M15 9.500h.01"/>',
   sparkle:'<path class="d" d="M12 3l1.800 5.200L19 10l-5.200 1.800L12 17l-1.800-5.200L5 10l5.200-1.800z"/><path d="M19 15v4M17 17h4M5 4v3M3.500 5.500h3"/>',
   menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
+  more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
   sliders:'<path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle class="d" cx="16" cy="7" r="2.5"/><circle class="d" cx="8" cy="17" r="2.5"/>'
 };

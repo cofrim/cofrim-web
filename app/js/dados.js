@@ -48,7 +48,7 @@ function logErr(onde, e){
 }
 addEventListener('error', e => logErr('erro na tela', (e.error && e.error.stack) || (e.message || '') + ' @' + (e.lineno || 0) + ':' + (e.colno || 0)));
 addEventListener('unhandledrejection', e => logErr('promessa', e.reason));
-const APP_VERSION = '2.31'; // manter igual ao versionName do build.gradle
+const APP_VERSION = '2.40'; // manter igual ao versionName do build.gradle
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const I = (name, size = 18) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 // Categorias: [ícone, nome, cor]

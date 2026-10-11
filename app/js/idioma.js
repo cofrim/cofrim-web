@@ -544,6 +544,13 @@ const T = {
   'Voltar a sugerir':['Suggest again','Volver a sugerir'],
   'Fundo animado':['Animated background','Fondo animado'], 'Usar a cor do app':['Use the app color','Usar el color de la app'],
   'Segue a cor do app; toque numa cor para fixar':['Follows the app color; tap a color to keep it','Sigue el color de la app; toca un color para fijarlo'],
+  'Explorar':['Explore','Explorar'], 'Organizar':['Organize','Organizar'], 'Planejar':['Plan','Planificar'], 'Acompanhar':['Track','Seguimiento'],
+  'Ferramentas':['Tools','Herramientas'], 'Cartões e faturas':['Cards and bills','Tarjetas y facturas'],
+  'Parceladas e financiamentos':['Installments and loans','Cuotas y financiamientos'], 'Vales (refeição e alimentação)':['Meal and food vouchers','Vales (comida y alimentación)'],
+  'Dívidas e quitação':['Debts and payoff','Deudas y liquidación'], 'Saúde financeira':['Financial health','Salud financiera'],
+  'Notificações':['Notifications','Notificaciones'], 'Versões salvas na conta':['Versions saved in the account','Versiones guardadas en la cuenta'],
+  'Temas especiais':['Special themes','Temas especiales'], 'Personagem, cenário animado e estilo de interface próprios':['Their own character, animated scenery and interface style','Personaje, escenario animado y estilo de interfaz propios'],
+  'Incluir um retrato da tela':['Include a snapshot of the screen','Incluir una captura de la pantalla'], 'Ver o que vai':['See what is sent','Ver lo que se envía'],
   'Idioma e região':['Language and region','Idioma y región'], 'Sugestões e bugs':['Suggestions and bugs','Sugerencias y errores'],
   'Mande uma ideia ou informe um problema':['Send an idea or report a problem','Envía una idea o informa un problema'],
   'Enviar sugestão':['Send suggestion','Enviar sugerencia'], 'Informar um problema':['Report a problem','Informar un problema'], 'Idioma, moeda e país':['Language, currency and country','Idioma, moneda y país'],
@@ -590,6 +597,9 @@ function trText(s){
   if (c.map.has(t)) return s.replace(t, c.map.get(t));
   return s.replace(c.re, m => c.map.get(m) ?? m);
 }
+// Texto já traduzido não passa de novo: traduzir a tradução estragava ("Sign out" virava "Sign Oct") e a que contém a
+// frase original ("Quanto gastei este mês? (spending this month)") crescia sem parar, travando a tela.
+const trFeito = new WeakMap();
 // Traduz uma parte da tela já desenhada: textos e os atributos lidos por leitor de tela e campos vazios.
 function tr(root){
   if (lang() === 'pt' || !root) return;
@@ -597,12 +607,17 @@ function tr(root){
   for (let n; (n = w.nextNode());){
     const p = n.parentElement;
     if (!p || p.closest('script,style,textarea,.notr')) continue;
-    const v = trText(n.nodeValue);
-    if (v !== n.nodeValue) n.nodeValue = v;
+    trNo(n);
   }
   root.querySelectorAll('[placeholder],[aria-label],[title]').forEach(e => ['placeholder', 'aria-label', 'title'].forEach(a => {
     const v = e.getAttribute(a); if (v){ const t = trText(v); if (t !== v) e.setAttribute(a, t); }
   }));
+}
+function trNo(n){
+  if (trFeito.get(n) === n.nodeValue) return;
+  const v = trText(n.nodeValue);
+  if (v !== n.nodeValue) n.nodeValue = v;
+  trFeito.set(n, v);
 }
 // Tela inteira (troca de idioma e partes fixas do index.html: login, bloqueio, avisos).
 function trAll(){ for (const id of ['app', 'tabs', 'topbar', 'sheet', 'picker', 'dlg', 'snack', 'gate', 'lockAsk', 'saveWarn']) tr(document.getElementById(id));
@@ -611,11 +626,11 @@ function trAll(){ for (const id of ['app', 'tabs', 'topbar', 'sheet', 'picker', 
 const trObs = new MutationObserver(ms => {
   if (lang() === 'pt') return;
   for (const m of ms){
-    if (m.type === 'characterData'){ const p = m.target.parentElement, v = trText(m.target.nodeValue);
-      if (v !== m.target.nodeValue && p && !p.closest('script,style,textarea,.notr')) m.target.nodeValue = v; }
+    if (m.type === 'characterData'){ const p = m.target.parentElement;
+      if (p && !p.closest('script,style,textarea,.notr')) trNo(m.target); }
     else m.addedNodes.forEach(n => {
-      if (n.nodeType === 3){ const p = n.parentElement, v = trText(n.nodeValue);
-        if (v !== n.nodeValue && p && !p.closest('script,style,textarea,.notr')) n.nodeValue = v; }
+      if (n.nodeType === 3){ const p = n.parentElement;
+        if (p && !p.closest('script,style,textarea,.notr')) trNo(n); }
       else if (n.nodeType === 1 && !n.closest('script,style')) tr(n);
     });
   }

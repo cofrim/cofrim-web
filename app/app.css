@@ -404,6 +404,18 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 .setGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
 .setTile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 12px;border-radius:18px;background:var(--bg);color:var(--text);text-align:left;font:inherit;border:0;cursor:pointer;min-height:112px}
 .setTile span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--hero1),var(--hero2));color:#fff;margin-bottom:4px}
+/* ---------- Aba Explorar (telas-explorar.js): destaque dos temas e listas por assunto ---------- */
+.ancora{display:block;height:0;scroll-margin-top:130px}
+.explorarDestaque{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;width:100%;margin-bottom:16px;padding:18px 18px 18px 20px;border:0;border-radius:22px;background:linear-gradient(135deg,var(--hero1),var(--hero2));color:#fff;font:inherit;text-align:left;box-shadow:var(--shadow);cursor:pointer}
+.explorarDestaque b{display:flex;align-items:center;gap:8px;font-size:19px}
+.explorarDestaque small{padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.22);font-size:11px;font-weight:700;letter-spacing:.03em}
+.explorarDestaque span{grid-column:1;opacity:.9;font-size:14px}
+.explorarDestaque>.ic:last-child{grid-column:2;grid-row:1/3;transform:rotate(-90deg)}
+.explorarLista{padding:4px 16px}
+.explorarLista button{display:flex;align-items:center;gap:14px;width:100%;padding:12px 0;border:0;border-bottom:1px solid var(--line);background:none;color:var(--text);font:inherit;font-size:16px;font-weight:600;text-align:left;cursor:pointer}
+.explorarLista button:last-child{border-bottom:0}
+.explorarLista button>span{width:42px;height:42px;flex:none;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
+.explorarLista button>.ic:last-child{margin-left:auto;transform:rotate(-90deg);color:var(--muted)}
 .setTile b{font-size:14.5px}
 .setTile small{font-size:12px;color:var(--muted);line-height:1.3}
 .setHead{display:flex;align-items:center;gap:8px}
@@ -570,6 +582,8 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 /* Temas especiais (Configurações): três por linha, cada um com o mascote sobre as cores do tema. */
 .icoGrid.t3{grid-template-columns:repeat(3,1fr);margin-bottom:10px}
 .temaM{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:20px}
+.temaM{position:relative}.temaMini{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);object-fit:contain;opacity:0}
+.temaM.foto>svg{visibility:hidden}.temaM.foto>.temaMini{opacity:1}
 .icoGrid.t3 small{text-align:center;line-height:1.2}
 
 /* Resumo: mês e ano lado a lado no mesmo cartão de destaque; rosca do mês com a legenda ao lado; calendário de dias. */

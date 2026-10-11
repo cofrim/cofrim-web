@@ -82,7 +82,7 @@ function openSettings(sec){
     ${sorteioBtn('tema', 'Tema aleatório todo dia')}
     ${WEB_APP ? '<div class="hint">No iPhone, adicione de novo à Tela de Início para trocar o ícone.</div>' : ''}
     ${TEMA_CATS.map(([c, nome, ks]) => `<details class="grp" ${ks.includes(p.skin) || (!p.skin && c === 'estilos') ? 'open' : ''}><summary>${nome}<small>${ks.length}</small>${I('chev')}</summary>
-      <div class="icoGrid t3">${ks.map(k => `<button class="${p.skin === k ? 'on' : ''}" data-onclick="setSkin('${k}')"><span class="temaM" style="background:linear-gradient(135deg,${SKINS[k][4]},${SKINS[k][5]})">${mascoteEm(k, 'ok', 0, 0, 46)}</span><small>${SKINS[k][0]}</small></button>`).join('')}</div></details>`).join('')}`],
+      <div class="icoGrid t3">${ks.map(k => `<button class="${p.skin === k ? 'on' : ''}" data-onclick="setSkin('${k}')"><span class="temaM" style="background:linear-gradient(135deg,${SKINS[k][4]},${SKINS[k][5]})">${mascoteEm(k, 'ok', 0, 0, 46)}${temaMiniatura(k)}</span><small>${SKINS[k][0]}</small></button>`).join('')}</div></details>`).join('')}`],
   ['menu', 'sliders', 'Menu de baixo', 'Ordem das abas', `
     <div class="semTopo hint">O Resumo fica sempre no menu.</div>
     <div>${p.tabs.map((t,i) => { if (t === 'chat' || (WEB_APP && t === 'noticias')) return ''; const off = p.tabsOff.includes(t);
@@ -172,7 +172,10 @@ function openSettings(sec){
     <input id="sugEmail" type="email" maxlength="120" autocomplete="email" placeholder="voce@exemplo.com">
     <div class="btns"><button class="btn" data-onclick="enviarSugestao('sugestao', this)">${I('sparkle')}Enviar sugestão</button>
       <button class="btn" data-onclick="enviarSugestao('problema', this)">${I('alert')}Informar um problema</button></div>
-    <div class="hint">Num problema, vai junto o Diagnóstico do app (versão, aparelho e erros, sem os seus dados), para achar a causa mais rápido.</div>`],
+    <div class="btns"><button class="btn on" id="sugRetrato" data-onclick="sugRetratoAlternar(this)">${I('checked', 22)}Incluir um retrato da tela</button>
+      <button class="btn" data-onclick="sugRetratoVer()">${I('eye', 20)}Ver o que vai</button></div>
+    <div class="hint">O retrato mostra o que estava na tela em texto, com valores, datas, nomes e descrições trocados por •••. Num problema, vai junto
+      também o Diagnóstico do app (versão, aparelho e erros, sem os seus dados), para achar a causa mais rápido.</div>`],
   ['dados', 'box', 'Dados e ajustes', 'Categorias, backup e lixeira', `
     <label>Investimentos</label>
     <div class="semTopo btns"><button class="btn" data-onclick="openRates()">${I('trend')}Taxas de referência (CDI, Selic, IPCA)</button></div>
@@ -299,9 +302,32 @@ function diagErrors(){ try { return JSON.parse(localStorage.getItem(ERR_KEY) || 
 // Sugestões e bugs: enviadas de dentro do app pelo Web3Forms (api.web3forms.com, na CSP), que entrega no e-mail da
 // equipe (diaslab.apps@gmail.com, cadastrado no Web3Forms: a chave abaixo é pública e só serve para esse envio).
 let SUGESTAO_CHAVE = '57040c27-ab59-4c06-81f8-cb1f511c356c'; // let: os testes trocam pela de teste
+// Retrato da tela em texto, no lugar de uma print (o Web3Forms gratuito não aceita anexos): qual aba, janela e aviso
+// estavam abertos e o texto que aparecia neles, sem os dados da pessoa. Saem todos os números (valores, datas, saldos), o
+// que ela digitou (descrições, nomes, bancos, metas, categorias próprias), o nome e o e-mail dela.
+let telaRetrato = ''; // tirado na hora do erro (relatarProblema), antes de as Configurações cobrirem a tela
+function retratoTela(semFolha){
+  const proprios = new Set([myName(), sync.account, ...Object.values(db.membros || {}).map(m => m && (m.nome || m.name || m)),
+    ...['gasto', 'ganho'].flatMap(t => Object.values((db.cats || {})[t] || {}).map(c => c.name))]);
+  for (const c of COLS) for (const r of db[c] || []) for (const k of ['desc', 'name', 'bank', 'conta', 'credor', 'obs', 'by']) proprios.add(r[k]);
+  const lista = [...proprios].filter(t => typeof t === 'string' && t.trim().length >= 3).map(t => t.trim()).sort((a, b) => b.length - a.length);
+  const censura = t => lista.reduce((s, p) => s.split(p).join('•••'), t).replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '•••@•••').replace(/\d/g, '•');
+  const vis = id => { const e = document.getElementById(id); return e && !e.hidden && e.offsetParent !== null ? e : null; };
+  const folha = !semFolha && vis('sheet'), aviso = vis('dlg');
+  const partes = [`Tela: ${TABS[state.tab] ? TABS[state.tab][1] : state.tab}${state.tab === 'gastos' ? ' (' + state.gsub + ')' : ''}`,
+    aviso && 'Aviso aberto:\n' + aviso.innerText.trim(), folha && 'Janela aberta:\n' + folha.innerText.trim(),
+    'Conteúdo da tela:\n' + document.getElementById('app').innerText.trim()];
+  return censura(partes.filter(Boolean).join('\n\n')).replace(/\n{3,}/g, '\n\n').slice(0, 4000);
+}
+const sugRetratoLigado = () => { const b = document.getElementById('sugRetrato'); return !b || b.classList.contains('on'); };
+function sugRetratoAlternar(btn){
+  btn.classList.toggle('on'); btn.innerHTML = I(btn.classList.contains('on') ? 'checked' : 'unchecked', 22) + 'Incluir um retrato da tela';
+}
+function sugRetratoVer(){ tell('Vai junto com a mensagem (os seus dados aparecem como •••):\n\n' + (telaRetrato || retratoTela(true))); }
 // Erro do próprio app (avisoErro, tela que não abre, sincronização, travamento): abre Sugestões e bugs com a mensagem
-// começada; a pessoa completa e toca em "Informar um problema", que manda junto o Diagnóstico.
+// começada; a pessoa completa e toca em "Informar um problema", que manda junto o Diagnóstico e o retrato da tela.
 function relatarProblema(oQue){
+  telaRetrato = retratoTela();
   openSettings('sugestoes');
   const t = document.getElementById('sugTexto');
   t.value = `O app mostrou: "${oQue}"\nO que eu estava fazendo: `;
@@ -312,13 +338,14 @@ async function enviarSugestao(tipo, btn){
   if (!txt) return toast('Escreva a mensagem antes de enviar.');
   if (!SUGESTAO_CHAVE){ tell('O envio de sugestões ainda não está ligado nesta versão.'); return; }
   const assunto = `Cofrim ${APP_VERSION} · ${tipo === 'problema' ? 'Problema' : 'Sugestão'}`;
-  const info = tipo === 'problema' ? diagText() : `Cofrim ${APP_VERSION}\nAparelho: ${navigator.userAgent}`;
+  const info = (tipo === 'problema' ? diagText() : `Cofrim ${APP_VERSION}\nAparelho: ${navigator.userAgent}`)
+    + (sugRetratoLigado() ? '\n\n--- Retrato da tela (dados escondidos) ---\n' + (telaRetrato || retratoTela(true)) : '');
   btn.disabled = true;
   try {
     const r = await fetch('https://api.web3forms.com/submit', {method:'POST', headers:{'Content-Type':'application/json', Accept:'application/json'},
       body:JSON.stringify({access_key:SUGESTAO_CHAVE, subject:assunto, from_name:'Cofrim', ...(email ? {email} : {}), message:`${txt}\n\n---\n${info}`})});
     if (!r.ok || !(await r.json()).success) throw new Error('Web3Forms: HTTP ' + r.status);
-    document.getElementById('sugTexto').value = '';
+    document.getElementById('sugTexto').value = ''; telaRetrato = '';
     toast('Mensagem enviada. Obrigado!');
   } catch(e){ logErr('sugestão', e); avisoErro('internet'); }
   finally { btn.disabled = false; }

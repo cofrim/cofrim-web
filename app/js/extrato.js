@@ -142,13 +142,34 @@ async function importStatement(input){
   openStatement();
 }
 const stmtIsExpense = x => (stmt.arqs[x.a].flip ? -x.amount : x.amount) < 0;
+// Pagamento da fatura do cartão: no extrato da conta é a saída que paga compras que já são gastos (as da fatura); na
+// fatura é o crédito desse pagamento, que parecia um ganho. Não é gasto nem ganho: vem desmarcado.
+const STMT_FATURA = /\bpag(amento|to|\.)?\s*(d[aeo]\s+)?fatura|\bpagamento recebido\b|\bfatura (d[oe] )?cart|\bpgto\.? (d[aeo] )?cart/;
+const stmtFatura = x => STMT_FATURA.test(plain(x.desc));
+// Gasto do extrato que já está no app como gasto fixo ou parcela do mesmo mês: valor igual (até 2% ou R$ 1 de diferença)
+// e uma palavra da descrição do app no começo de uma palavra da do banco ("Netflix" e "NETFLIX.COM"). Devolve o texto
+// para a tela ("gasto fixo Netflix", "parcela 3/10 de Geladeira") ou ''.
+function stmtCadastrado(x){
+  if (!stmtIsExpense(x)) return '';
+  const v = Math.abs(x.amount), d = ' ' + plain(x.desc).replace(/[^a-z0-9]+/g, ' ') + ' ';
+  const e = expensesAll(x.date.slice(0, 7)).find(e => (e.kind === 'installment' || e.fixed) && Math.abs((e.full ?? e.value) - v) <= Math.max(1, v * .02)
+    && plain(e.desc).split(/[^a-z0-9]+/).some(w => w.length >= 4 && d.includes(' ' + w)));
+  return !e ? '' : e.kind === 'installment' ? `parcela ${e.num}/${e.n} de ${e.desc}` : `gasto fixo ${e.desc}`;
+}
 // Já existe um lançamento igual (mesma descrição, valor e mês)? Vem desmarcado para não duplicar.
 const stmtDup = x => (stmtIsExpense(x) ? db.expenses : db.incomes).some(e => e.desc === x.desc && Math.abs(e.value - Math.abs(x.amount)) < .005 && e.start === x.date.slice(0, 7) && (!e.day || e.day === +x.date.slice(8)));
 // Período de um arquivo: "05/10/2026" ou "01/09/2026 a 31/10/2026".
 const stmtPeriodo = a => a.de === a.ate ? fmtDate(a.de) : `${fmtDate(a.de)} a ${fmtDate(a.ate)}`;
 function openStatement(){
   settingsOpen = false; F = null;
-  stmt.rows.forEach(x => { const d = stmtDup(x); if (d && !x.dup) x.on = false; x.dup = d; });
+  // Pagamento de fatura, gasto fixo ou parcela já cadastrados e lançamento igual vêm desmarcados (uma vez: depois vale a
+  // escolha da pessoa); trocar entre extrato e fatura refaz a conta.
+  stmt.rows.forEach(x => {
+    const fat = stmtFatura(x), cad = fat ? '' : stmtCadastrado(x), d = !fat && !cad && stmtDup(x), fora = fat || !!cad || d;
+    if (fora && !x.fora) x.on = false;
+    Object.assign(x, {fora, fat, cad, dup:d});
+  });
+  const nFat = stmt.rows.filter(x => x.fat).length, nCad = stmt.rows.filter(x => x.cad).length;
   const varios = stmt.arqs.length > 1, shown = stmt.rows.slice(0, 300), meses = [...new Set(stmt.rows.map(x => x.date.slice(0, 7)))];
   const arqHtml = (a, k) => `${varios ? `<div class="stmtArq"><b>${esc(a.nome)}</b><span class="muted">${a.n} lançamentos · ${stmtPeriodo(a)}</span></div>` : ''}
     <label>${varios ? 'Este extrato é' : 'Este arquivo é'}</label>
@@ -160,13 +181,16 @@ function openStatement(){
   showSheet(`<h3>${varios ? `Importar ${stmt.arqs.length} extratos` : 'Importar extrato'}</h3>
     <div class="semTopo hint">${stmt.rows.length} lançamentos encontrados${varios ? ` em ${stmt.arqs.length} arquivos` : ''}${meses.length > 1 ? `, de ${meses.length} meses` : ''}. Cada um entra no dia e no mês da data dele. Valores negativos entram como gastos e positivos como ganhos.</div>
     ${stmt.ruins.length ? `<div class="hint warn">Não li: ${stmt.ruins.map(esc).join('; ')}</div>` : ''}
+    ${nFat || nCad ? `<div class="hint">Vêm desmarcados: ${[nFat && `${nFat} pagamento${nFat > 1 ? 's' : ''} da fatura do cartão (não é gasto nem ganho)`,
+      nCad && `${nCad} gasto${nCad > 1 ? 's' : ''} que já ${nCad > 1 ? 'estão' : 'está'} no app como gasto fixo ou parcela`].filter(Boolean).join(' e ')}.
+      Toque para importar mesmo assim.</div>` : ''}
     ${stmt.arqs.map(arqHtml).join('')}
     <label>Forma de pagamento dos gastos (opcional)</label>
     <button type="button" class="pickBtn" data-onclick="pickList('Forma de pagamento',[['','Não informar'],...Object.entries(PAY)],stmt.pay,v=>{stmt.pay=v;openStatement()})"><span>${PAY[stmt.pay] || 'Não informar'}</span>${I('chev')}</button>
     <label>Lançamentos</label>
     ${shown.map((x, i) => { const exp = stmtIsExpense(x), m = x.date.slice(0, 7), cab = meses.length > 1 && m !== mesAntes ? `<div class="stmtMes">${cap(monthName(m))}</div>` : ''; mesAntes = m;
       return `${cab}<div class="stmt"><button type="button" class="iconbtn ${x.on ? 'in' : 'muted'}" data-onclick="stmtToggle(${i},this)" aria-label="Importar este lançamento">${I(x.on ? 'checked' : 'unchecked', 24)}</button>
-      <div class="mid"><b>${esc(x.desc)}</b><span class="muted">${fmtDate(x.date)}${varios ? ' · ' + esc(stmt.arqs[x.a].bank || stmt.arqs[x.a].nome) : ''}${x.dup ? ' · já existe' : x.rep ? ' · repetido em outro extrato' : ''}</span>
+      <div class="mid"><b>${esc(x.desc)}</b><span class="muted">${fmtDate(x.date)}${varios ? ' · ' + esc(stmt.arqs[x.a].bank || stmt.arqs[x.a].nome) : ''}${x.fat ? ' · pagamento da fatura' : x.cad ? ' · já no app: ' + esc(x.cad) : x.dup ? ' · já existe' : x.rep ? ' · repetido em outro extrato' : ''}</span>
       ${exp ? `<button type="button" class="pickBtn sm" style="margin-top:4px;width:auto;max-width:100%" data-onclick="pickList('Categoria',opts(CAT_GASTO),stmt.rows[${i}].cat,v=>{stmt.rows[${i}].cat=v;openStatement()})"><span>${esc((CAT_GASTO[x.cat] || CAT_GASTO.outros)[1])}</span>${I('chev', 14)}</button>` : ''}</div>
       <b class="${exp ? 'out' : 'in'}">${fmt(Math.abs(x.amount))}</b></div>`; }).join('')}
     ${stmt.rows.length > shown.length ? `<div class="hint">Mostrando os primeiros ${shown.length}; os demais também serão importados.</div>` : ''}
