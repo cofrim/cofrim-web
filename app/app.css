@@ -18,8 +18,10 @@ body{background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-syste
 #app{max-width:520px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
 #app.hasFab{padding-bottom:calc(160px + env(safe-area-inset-bottom))} /* espaço para rolar o fim da página acima dos botões flutuantes */
 h1{font-size:22px;margin:4px 0 14px;display:flex;justify-content:space-between;align-items:center}
-h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 4px 8px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 4px 8px;font-weight:600;display:flex;align-items:center;column-gap:10px}
 h2 button{font-size:12.5px;color:var(--brand);font-weight:700;text-transform:none;letter-spacing:0;white-space:nowrap;flex:none;margin-left:10px}
+/* O título fica à esquerda (logo depois do enfeite dos temas, h2::before) e os botões dele, à direita. */
+h2>button,h2>span:last-child{margin-left:auto}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .card{background:var(--card);border-radius:18px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
 .hero{background:linear-gradient(135deg,var(--hero1),var(--hero2));color:#fff;border-radius:22px;padding:20px;box-shadow:var(--shadow);margin-bottom:12px}
@@ -270,6 +272,10 @@ textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,monospace;color:var(
 .item.swPay{background:var(--in)}
 .item.swDel *,.item.swPay *{color:#fff!important}
 .grp{background:var(--bg);border-radius:16px;padding:0 12px;margin-bottom:8px}
+.ico.banco.logo{overflow:hidden;box-shadow:none}.ico.banco.logo img{width:76%;height:76%;object-fit:contain}.ico.banco.cheio img{width:100%;height:100%}
+.valeTit{display:flex;align-items:center;gap:8px}.valeTit>.ico{width:30px;height:30px;border-radius:9px}.valeTit>.ico.banco b{font-size:11px}
+.ico.banco b{font-size:15px;font-weight:800;letter-spacing:-.02em;line-height:1}.ico.banco.longo b{font-size:12px}
+.catNova{margin-bottom:12px} /* Categorias: espaço entre "Nova categoria" e o primeiro grupo */
 .grp summary{list-style:none;display:flex;align-items:center;gap:8px;padding:13px 2px;font-weight:700;cursor:pointer}
 .grp summary::-webkit-details-marker{display:none}
 .grp summary small{color:var(--muted);font-weight:600;flex:1}
@@ -316,6 +322,8 @@ h1{flex-wrap:wrap;gap:4px 8px}
   #app.cols>h1,#app.cols>.nav,#app.cols>.seg,#app.cols>.offline,#app.cols>.muted,#app.cols>.btns,#app.cols>.hint{column-span:all}
   #app.cols .card,#app.cols .hero,#app.cols .quick,#app.cols .item,#app.cols .catrow{break-inside:avoid}
   #app.cols h2{break-after:avoid}
+  .explorarGrupos{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:0 18px;align-items:start}
+  .explorarGrupos>.explorarDestaque{grid-column:1/-1}
 }
 /* Celular deitado: pouca altura, então as folhas usam quase a tela toda e o cabeçalho ocupa menos. */
 @media (max-height:480px){
@@ -414,8 +422,17 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 .explorarLista{padding:4px 16px}
 .explorarLista button{display:flex;align-items:center;gap:14px;width:100%;padding:12px 0;border:0;border-bottom:1px solid var(--line);background:none;color:var(--text);font:inherit;font-size:16px;font-weight:600;text-align:left;cursor:pointer}
 .explorarLista button:last-child{border-bottom:0}
-.explorarLista button>span{width:42px;height:42px;flex:none;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
+.explorarLista button>span:first-child{width:42px;height:42px;flex:none;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
 .explorarLista button>.ic:last-child{margin-left:auto;transform:rotate(-90deg);color:var(--muted)}
+.explorarLista button>.txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.explorarLista button>.txt small{color:var(--muted);font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.explorarLista em.novo{margin-left:auto;padding:2px 9px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-style:normal;font-weight:800;letter-spacing:.03em}
+.explorarLista em.novo+.ic{margin-left:8px}
+.explorarLista .hint{padding:14px 0}
+.explorarBusca{margin-bottom:14px;background:var(--card)}
+.blocoJanela>h2:first-child{justify-content:flex-end;margin-top:0}
+.realce{box-shadow:0 0 0 3px var(--brand)!important}
+.explorarLink{padding:0;border:0;background:none;color:var(--brand);font:inherit;font-weight:700;cursor:pointer}
 .setTile b{font-size:14.5px}
 .setTile small{font-size:12px;color:var(--muted);line-height:1.3}
 .setHead{display:flex;align-items:center;gap:8px}
@@ -633,6 +650,7 @@ html[data-fun=on] .fab.chat{animation:none}
    legíveis. Só posição e opacidade se movem. Com as animações desligadas, ou com o app fora da tela, tudo para. */
 #cena{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
 #cena:empty{display:none}
+html[data-tema-escuro=sim] #cena{filter:brightness(.45) saturate(.85)} /* tema claro no modo escuro: o texto claro do topo fica legível */
 .cenaCeu{position:absolute;inset:0 0 auto 0;height:540px}
 .cenaVeu{position:absolute;inset:0;background:linear-gradient(180deg,transparent 170px,color-mix(in srgb,var(--bg) 74%,transparent) 440px)}
 .cenaAstro{position:absolute;top:22px;width:76px;height:76px;opacity:.7;animation:cenaAstro 9s ease-in-out infinite alternate}
@@ -1038,7 +1056,7 @@ html[data-ui=pixel]{--fT:monospace,"Courier New",ui-monospace;--fN:monospace,"Co
 :where([data-ui=pixel]) .bar i{background:repeating-linear-gradient(90deg,var(--brand) 0 10px,var(--brand2) 10px 12px)}
 :where([data-ui=pixel]) .btn{box-shadow:0 3px 0 color-mix(in srgb,var(--text) 35%,transparent)}
 :where([data-ui=pixel]) .btn:active{transform:translateY(2px);box-shadow:0 1px 0 color-mix(in srgb,var(--text) 35%,transparent)}
-:where([data-ui=pixel]) h2::before{content:"♥";margin-right:6px;color:var(--brand)}
+:where([data-ui=pixel]) h2::before{content:"♥";color:var(--brand)}
 /* neon */
 html[data-ui=neon]{--fT:"sans-serif-condensed","Roboto Condensed","Arial Narrow",sans-serif;--fN:"sans-serif-condensed","Roboto Condensed","Arial Narrow",sans-serif;
   --tex:linear-gradient(transparent 70%,color-mix(in srgb,var(--brand) 60%,transparent) 70% calc(70% + 1px),transparent 0) 0 0/100% 100%,
@@ -1065,7 +1083,7 @@ html[data-ui=magia]{--fT:serif,Georgia,"Times New Roman";--fN:serif,Georgia,"Tim
 :where([data-ui=magia]) :is(.card,.nav){border-radius:16px;box-shadow:0 0 0 1px color-mix(in srgb,#fbbf24 45%,transparent),0 0 16px color-mix(in srgb,#fbbf24 16%,transparent)}
 :where([data-ui=magia]) .bar i{background:radial-gradient(circle at calc(100% - 4px) 50%,#fff 0 2px,transparent 3px),linear-gradient(90deg,var(--brand),var(--brand2))}
 :where([data-ui=magia]) .btn.primary{box-shadow:0 0 12px color-mix(in srgb,var(--brand) 45%,transparent)}
-:where([data-ui=magia]) h2::before{content:"✦";margin-right:6px;color:#fbbf24}
+:where([data-ui=magia]) h2::before{content:"✦";color:#fbbf24}
 /* contodefadas */
 html[data-ui=contodefadas]{--fT:cursive,"Brush Script MT",serif;
   --tex:radial-gradient(circle,#f9a8d4 2px,transparent 2.5px) 0 0/34px 34px,radial-gradient(circle,#a5f3fc 2px,transparent 2.5px) 17px 17px/34px 34px;--texO:.12}
@@ -1136,7 +1154,7 @@ html[data-ui=natureza]{--tex:radial-gradient(ellipse 40px 18px at 50% 50%,curren
 :where([data-ui=natureza]) :is(.btn,.chips button){border-radius:99px}
 :where([data-ui=natureza]) .bar i{border-radius:0 99px 99px 0/0 99px 99px 0;
   background:radial-gradient(ellipse 5px 3px at calc(100% - 6px) 50%,#bbf7d0 90%,transparent),linear-gradient(90deg,var(--brand),var(--brand2))}
-:where([data-ui=natureza]) h2::before{content:"❦";margin-right:6px;color:var(--brand)}
+:where([data-ui=natureza]) h2::before{content:"❦";color:var(--brand)}
 /* guerreiro */
 html[data-ui=guerreiro]{--fT:serif,Georgia,"Times New Roman";--fN:serif,Georgia,"Times New Roman";
   --tex:repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 3px,currentColor 3px 3.5px,transparent 3.5px 7px);--texO:.04}
@@ -1147,14 +1165,14 @@ html[data-ui=guerreiro]{--fT:serif,Georgia,"Times New Roman";--fN:serif,Georgia,
   background-size:8px 8px;background-position:12px 12px,calc(100% - 12px) 12px,12px calc(100% - 12px),calc(100% - 12px) calc(100% - 12px)}
 :where([data-ui=guerreiro]) .bar i{border-radius:0;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)}
 :where([data-ui=guerreiro]) .btn{border-radius:6px 6px 16px 16px}
-:where([data-ui=guerreiro]) h2::before{content:"⚔";margin-right:6px;color:var(--brand)}
+:where([data-ui=guerreiro]) h2::before{content:"⚔";color:var(--brand)}
 /* desenho */
 html[data-ui=desenho]{--fT:casual,"Comic Sans MS","Comic Neue",cursive;--fN:casual,"Comic Sans MS","Comic Neue",cursive;
   --tex:radial-gradient(circle,currentColor 2px,transparent 2.5px) 0 0/26px 26px;--texO:.06}
 :where([data-ui=desenho]) :is(.card,.nav){border-radius:18px;box-shadow:inset 0 0 0 2.5px color-mix(in srgb,var(--text) 80%,transparent),3px 3px 0 color-mix(in srgb,var(--text) 80%,transparent)}
 :where([data-ui=desenho]) .bar{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--text) 80%,transparent)}
 :where([data-ui=desenho]) .btn:active{transform:scale(1.06,.94)}
-:where([data-ui=desenho]) h2::before{content:"★";margin-right:6px;color:var(--brand)}
+:where([data-ui=desenho]) h2::before{content:"★";color:var(--brand)}
 /* seriado */
 html[data-ui=seriado]{--fT:"sans-serif-smallcaps",sans-serif;--fN:"sans-serif-condensed","Roboto Condensed","Arial Narrow",sans-serif;
   --tex:repeating-radial-gradient(circle at 17% 32%,currentColor 0 .5px,transparent .5px 2px),repeating-radial-gradient(circle at 73% 61%,currentColor 0 .5px,transparent .5px 3px);--texO:.05}

@@ -55,6 +55,15 @@ function hslHex(h, s, l){
   f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, '0'); };
   return '#' + f(0) + f(8) + f(4);
 }
+// Cor do tema (#rrggbb) clara o bastante para o fundo escuro: mistura com branco até a luminância relativa (WCAG) chegar a
+// .3, o que dá contraste de 4,5:1 ou mais com os fundos e cartões escuros e com o texto escuro dos botões.
+function corParaEscuro(hex){
+  const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)), lin = x => (x /= 255) <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+  const lum = v => .2126 * lin(v[0]) + .7152 * lin(v[1]) + .0722 * lin(v[2]);
+  let v = c;
+  for (let t = .05; lum(v) < .3 && t <= 1; t += .05) v = c.map(x => Math.round(x + (255 - x) * t));
+  return '#' + v.map(x => x.toString(16).padStart(2, '0')).join('');
+}
 let theme = {h:245, s:80, dark:false}; // preenchido por applyTheme
 // Tom i de n da cor do tema, do mais forte ao mais suave (fatias e legendas dos gráficos).
 const shade = (i, n) => hslHex(theme.h, theme.s * .9, theme.dark ? 76 - i * 44 / Math.max(n, 1) : 34 + i * 44 / Math.max(n, 1));
@@ -63,7 +72,7 @@ const MODES = {auto:'Automático', light:'Claro', dark:'Escuro'};
 const RESUMO = {mascote:['Porquinho (modo divertido)', 1, 1], atalhos:['Atalhos para adicionar', 1, 1],
   destaque:['Gastos do mês e do ano', 1, 1], rosca:['Gastos por categoria no mês', 1, 1], dias:['Calendário de gastos do mês', 1, 1],
   alertas:['Contas a vencer e avisos de orçamento', 1], saldo:['Saldo do ano', 1], grafico:['Gráfico de ganhos e gastos', 1],
-  numeros:['Média de gastos e total investido', 1], previsao:['Previsão dos próximos meses', 1], contas:['Contas bancárias', 1],
+  numeros:['Média de gastos e total investido', 1], previsao:['Previsão dos próximos meses', 1],
   planejar:['Planejamento (reserva, assinaturas, dívidas)', 1], categorias:['Gastos por categoria', 1], bancos:['Gastos por banco', 1],
   pagamentos:['Gastos por forma de pagamento', 1], mes:['Resumo do mês atual', 0], faturas:['Faturas do cartão do mês', 0], parcelas:['Compras parceladas', 0],
   metas:['Metas', 0], invest:['Investimentos', 0], vales:['Vale-refeição e alimentação', 1], conquistas:['Conquistas (modo divertido)', 1]};
@@ -73,7 +82,8 @@ const FUN_BLOCKS = ['mascote', 'conquistas']; // só existem com o modo divertid
 const LAYOUT = {
   resumo:RESUMO,
   ganhos:{total:['Total de ganhos do mês', 1], fixos:['Fixos (todo mês)', 1], anuais:['Anuais (uma vez por ano)', 1], avulsos:['Ganhos avulsos', 1]},
-  gastos:{mes:['Ganhos, gastos e saldo do mês', 1], saude:['Saúde financeira', 1, 'mes'], orcamento:['Orçamento do mês', 1],
+  gastos:{mes:['Ganhos, gastos e saldo do mês', 1], contas:['Contas bancárias', 1, 'mes'], saude:['Saúde financeira', 1, 'mes'],
+    orcamento:['Orçamento do mês', 1],
     previsoes:['Previsões', 1, 'orcamento'], comparativo:['Comparativo por categoria', 1], receber:['A receber de gastos divididos', 1],
     faturas:['Faturas do cartão', 1], lancamentos:['Lançamentos', 1], acoes:['Importar extrato, relatório e planilha', 1]},
   // Linhas do widget Resumo da tela inicial (não é uma aba: ver updateWidget e Configurações > Widgets).
@@ -95,6 +105,8 @@ function ensurePrefs(){
   const p = db.prefs = Object.assign({mode:'auto', color:'indigo', tabs:[], remind:0, anim:true, notifyCats:{}, font:1, fun:false, rollBudget:false,
     catColor:false, skin:''}, db.prefs);
   if (!SKINS[p.skin]) p.skin = '';
+  // Itens da aba Explorar já abertos (tiram a etiqueta "Novo"): só textos.
+  if (!Array.isArray(p.explorarVistos)) delete p.explorarVistos; else p.explorarVistos = p.explorarVistos.filter(t => typeof t === 'string');
   // Notificações: notify liga/desliga tudo; remind = dias de antecedência; notifyCats[categoria] === false silencia a categoria.
   // resumo = blocos da aba Resumo, na ordem escolhida, cada um ligado ou desligado.
   // Bloco que ainda não está na lista salva (criado numa versão mais nova) entra no fim, no começo se d[2] = 1, ou logo
@@ -112,7 +124,7 @@ function ensurePrefs(){
   // "Ver mais informações no resumo" até a primeira personalização; resumoAuto = blocos que ainda ligam sozinhos com o
   // primeiro vale ou parcelamento (ver resumoAutoLiga). Quem já tem a lista salva não muda nada.
   if (!Array.isArray(p.resumo)){
-    const ess = ['atalhos', 'destaque', 'alertas', 'rosca', 'contas'];
+    const ess = ['atalhos', 'destaque', 'alertas', 'rosca']; // as contas bancárias ficam na aba Gastos (2.50)
     p.resumo = ['mascote', ...ess,
       ...Object.keys(RESUMO).filter(k => k !== 'mascote' && !ess.includes(k))].map(k => ({k, on:ess.includes(k) || FUN_BLOCKS.includes(k)}));
     p.resumoEnxuto = true; p.resumoAuto = ['vales', 'parcelas'];
@@ -135,25 +147,32 @@ const visTabs = () => db.prefs.tabs.filter(t => t !== 'chat' && !db.prefs.tabsOf
 const layoutOf = tab => tab === 'resumo' ? db.prefs.resumo : db.prefs.layout[tab];
 // Monta a tela: os blocos ligados da aba, na ordem escolhida. B = {chave: () => html}.
 // Um bloco com erro (dado inesperado) não derruba a tela: no lugar dele fica um aviso, e o erro vai para o Diagnóstico.
-// Cada bloco leva antes uma âncora vazia (b-<aba>-<bloco>), para a aba Explorar levar direto a ele (irBloco).
+// Cada bloco leva antes uma âncora vazia (b-<aba>-<bloco>), para a aba Explorar levar direto a ele (irBloco) ou
+// mostrá-lo numa janela (explorarBloco).
 const blocks = (tab, B) => layoutOf(tab).filter(b => b.on && B[b.k]).map(b => {
   try { const h = B[b.k](); return h ? `<i class="ancora" id="b-${tab}-${b.k}"></i>${h}` : ''; }
   catch(e){ logErr(`bloco ${tab}.${b.k}`, e); return `<div class="card hint" style="margin-bottom:12px">Não foi possível mostrar esta parte da tela. O erro ficou registrado em Configurações › Diagnóstico.</div>`; }
-}).join('');
+}).join('') + '<i class="ancora"></i>'; // marca o fim do último bloco (explorarBloco para nela)
 function applyTheme(){
-  const p = db.prefs, sk = SKINS[p.skin]; // tema especial: define tudo, inclusive claro ou escuro
+  const p = db.prefs; // tema especial: define as cores e se é claro ou escuro
   if (!moeda || moeda.cod !== (p.moeda || 'BRL')) definirMoeda(p.moeda || 'BRL'); // a moeda dos valores (util.js)
-  const dark = sk ? sk[1] : p.mode === 'dark' || (p.mode === 'auto' && darkQuery.matches),
-  c = sk ? [sk[0], sk[2], sk[3], sk[2], sk[3], sk[11], sk[12]] : COLORS[p.color] || COLORS.indigo;
+  // Tema especial claro com o app no modo escuro (ou no automático com o celular escuro): fica escuro, com o fundo, os
+  // cartões e as linhas no tom do tema (como as cores comuns) e a cor dele clareada se precisar; personagem e cenário
+  // não mudam. Os temas escuros ficam sempre escuros.
+  const querEscuro = p.mode === 'dark' || (p.mode === 'auto' && darkQuery.matches), skin = SKINS[p.skin];
+  const skEscuro = !!skin && !skin[1] && querEscuro, sk = skEscuro ? null : skin, dark = skin ? skin[1] || querEscuro : querEscuro;
+  const c = skin ? [skin[0], skin[2], skin[3], skEscuro ? corParaEscuro(skin[2]) : skin[2], skEscuro ? corParaEscuro(skin[3]) : skin[3], skin[11], skin[12]]
+    : COLORS[p.color] || COLORS.indigo;
   const st = document.documentElement.style;
   document.documentElement.dataset.mode = dark ? 'dark' : 'light';
   document.documentElement.dataset.anim = p.anim ? 'on' : 'off';
   document.documentElement.dataset.fun = p.fun ? 'on' : 'off';
-  document.documentElement.dataset.skin = sk ? p.skin : '';
-  document.documentElement.dataset.ui = sk && TEMAS_IMG[p.skin] ? TEMAS_IMG[p.skin][0] : ''; // estilo de interface do tema (app.css)
+  document.documentElement.dataset.skin = skin ? p.skin : '';
+  document.documentElement.dataset.temaEscuro = skEscuro ? 'sim' : ''; // tema claro no modo escuro: cenário mais escuro (app.css)
+  document.documentElement.dataset.ui = skin && TEMAS_IMG[p.skin] ? TEMAS_IMG[p.skin][0] : ''; // estilo de interface do tema (app.css)
   document.body.style.zoom = p.font; // tamanho do texto: amplia ou reduz a tela inteira por igual
   st.setProperty('--brand', c[dark ? 3 : 1]); st.setProperty('--brand2', c[dark ? 4 : 2]);
-  st.setProperty('--hero1', sk ? sk[4] : c[1]); st.setProperty('--hero2', sk ? sk[5] : c[2]);
+  st.setProperty('--hero1', skin ? skin[4] : c[1]); st.setProperty('--hero2', skin ? skin[5] : c[2]);
   // Fundo, cartões, linhas e texto secundário levam um toque da cor do tema.
   const h = c[5], s = c[6];
   theme = {h, s, dark};
@@ -163,7 +182,7 @@ function applyTheme(){
   st.setProperty('--muted', sk ? sk[9] : dark ? hslHex(h, s * .22, 68) : hslHex(h, s * .2, 37));
   if (sk) st.setProperty('--text', sk[10]); else st.removeProperty('--text');
   // Cores da tela de abertura da próxima vez (lidas pelo index.html antes de tudo).
-  try { localStorage.setItem('financas-abre', JSON.stringify([sk ? sk[4] : c[1], sk ? sk[5] : c[2]])); } catch(e){}
+  try { localStorage.setItem('financas-abre', JSON.stringify([skin ? skin[4] : c[1], skin ? skin[5] : c[2]])); } catch(e){}
   if (window.webIcone) webIcone(); // versão web: o ícone indicado pela página acompanha o tema
   if (window.cenaAplicar) cenaAplicar(); // fundo animado do tema especial (js/cena.js)
   // barras do sistema no APK

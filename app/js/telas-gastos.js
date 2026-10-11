@@ -38,8 +38,21 @@ function viewGastos(){
   <div class="card">${Object.entries(owed.reduce((g, {x}) => (g[x.who] = (g[x.who] || 0) + x.share, g), {})).map(([who, v]) => `<div class="hint" style="margin:0 0 6px">${esc(who)} te deve <b>${fmt(v)}</b></div>`).join('')}
     ${owed.map(({x, m: om}) => `<div class="semCursor item"><div class="mid"><b>${esc(x.desc)}</b><small>${esc(x.who)} · ${monthName(om)}</small></div>
       <div class="val in">${fmt(x.share)}</div><button class="btn" style="flex:none;padding:8px 10px" data-onclick="settle('${x.id}','${om}')">${I('check', 15)}Recebi</button></div>`).join('')}</div>` : '',
+  // Contas bancárias (antes no Resumo): saldo de hoje e no fim do mês, transferências.
+  contas: () => `<h2>Contas <span>${db.accounts.length > 1 ? `<button data-onclick="openForm('transfers')">Transferir</button> · ` : ''}
+    <button data-onclick="openForm('accounts')">+ Conta</button></span></h2>
+  ${db.accounts.length ? `<div class="card">${db.accounts.map(a => { const b = accountBalance(a); return `
+    <div class="item" data-onclick="edit('accounts','${a.id}')">${bancoSelo(a.name)}<div class="mid"><b>${esc(a.name)}</b>
+      <small>saldo de hoje · fim do mês: ${fmt(accountBalance(a, monthEnd(curYM)))}${bySmall(a)}</small></div>
+      <div class="val ${b < 0 ? 'out' : ''}">${fmt(b)}</div></div>`; }).join('')}
+    <div class="semCursor item"><div class="mid"><b>Total nas contas</b></div><div class="val">${fmt(sum(db.accounts, accountBalance))}</div></div></div>
+    ${db.transfers.length ? `<div class="card"><b>Transferências</b>${[...db.transfers].sort((a,b) => b.month.localeCompare(a.month)).slice(0, 5).map(t => `
+    <div class="item" data-onclick="edit('transfers','${t.id}')"><div class="mid"><b style="font-weight:500">${esc(t.from)} → ${esc(t.to)}</b>
+      <small>${monthName(t.month)}${bySmall(t)}</small></div><div class="val">${fmt(t.value)}</div></div>`).join('')}</div>` : ''}`
+  : '<div class="hint" style="margin:0 4px 12px">Cadastre suas contas para acompanhar o saldo de cada uma.'
+    + ' O saldo considera os ganhos e gastos em que você informar o mesmo nome no campo de banco/conta.</div>'}`,
   faturas: () => inv.length ? `<h2>Faturas do cartão <button data-onclick="openForm('cardClose', db.cardClose)">Configurar cartões</button></h2>
-  <div class="card">${inv.map(([bank, v]) => `<div class="semCursor item">${tile('card')}<div class="mid"><b>${esc(bank)}</b>
+  <div class="card">${inv.map(([bank, v]) => `<div class="semCursor item">${bancoSelo(bank)}<div class="mid"><b>${esc(bank)}</b>
     ${[db.cardClose[bank] ? 'Fecha no dia ' + db.cardClose[bank] : 'Sem dia de fechamento definido',
       db.cardLimit[bank] && 'Limite: ' + fmt(db.cardLimit[bank]),
       db.cardLimit[bank] && `Comprometido: ${fmt(cardUsed(bank))} (${Math.round(cardUsed(bank) / db.cardLimit[bank] * 100)}%)`,

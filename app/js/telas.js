@@ -3,6 +3,25 @@
 // ---------- Telas ----------
 // Bloco com o ícone, na cor do tema; c = [ícone, nome, cor própria (não usada na tela: tudo segue o tema)].
 const tile = (icon, color) => `<div class="ico" style="background:linear-gradient(135deg,${color ? color + ',' + color + 'cc' : 'var(--hero1),var(--hero2)'})">${I(icon, 22)}</div>`;
+// Selo do banco nas contas, faturas e vales (a empresa do cartão): o logotipo dele (js/dados-bancos.js); sem logotipo, a
+// cor e a sigla dele; carteira e dinheiro, o desenho de uma carteira; os outros, as iniciais numa cor tirada do nome
+// (sempre a mesma). [trecho do nome sem acento, logotipo (BANCO_LOGOS) ou sigla, fundo, letra]
+const BANCO_SELOS = [[/nubank|^nu\b/, 'nubank'], [/itau/, 'itau'], [/bradesco/, 'bradesco'], [/banco do brasil|^bb\b/, 'bb'],
+  [/caixa/, 'caixa'], [/santander/, 'santander'], [/\binter\b/, 'inter'], [/\bc6\b/, 'c6'], [/picpay/, 'picpay'],
+  [/mercado ?pago/, 'mercadopago'], [/\bxp\b/, 'xp'], [/btg/, 'btg'], [/neon/, 'neon'], [/pagbank|pagseguro/, 'pagbank'],
+  [/sicoob/, 'sicoob'], [/sicredi/, 'sicredi'], [/original/, 'original'], [/banrisul/, 'banrisul'], [/safra/, 'safra'],
+  [/\bpan\b/, 'pan'], [/stone/, 'stone'], [/infinite ?pay/, 'infinitepay'], [/\bcora\b/, 'cora'], [/\bbmg\b/, 'bmg'],
+  [/magalu/, 'magalu'], [/recarga ?pay/, 'recargapay'], [/ifood/, 'ifood'],
+  [/\bwill\b/, 'will'], [/alelo/, 'alelo'], [/pluxee|sodexo/, 'pluxee'], [/ticket/, 'ticket'], [/^vr\b/, 'vr'],
+  [/flash/, 'flash'], [/caju/, 'caju'], [/swile/, 'swile'], [/^ben\b/, 'pluxee']]; // o Ben Visa Vale virou Pluxee
+function bancoSelo(nome){
+  const t = plain(String(nome || '').trim()), b = BANCO_SELOS.find(([re]) => re.test(t)), logo = b && BANCO_LOGOS[b[1]];
+  if (logo) return `<div class="ico banco logo${logo[1] ? '' : ' cheio'}" style="background:${logo[1] || 'none'}"><img src="${logo[0]}" alt=""></div>`;
+  if (!b && /carteira|dinheiro|especie|cofre/.test(t)) return tile('wallet');
+  const [sigla, fundo, letra] = b ? [b[1], b[2], b[3] || '#ffffff'] : [t.replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean).slice(0, 2)
+    .map(w => w[0].toUpperCase()).join('') || '?', hslHex([...t].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7), 55, 40), '#ffffff'];
+  return `<div class="ico banco${sigla.length > 3 ? ' longo' : ''}" style="background:${fundo};color:${letra}" aria-hidden="true"><b>${esc(sigla)}</b></div>`;
+}
 // Ícone de uma categoria: na cor do tema ou, com a opção "Por categoria" ligada, na cor própria dela (c[2]).
 const ico = (c) => tile(c[0], (db.prefs.catColor || db.prefs.skin) && c[2]); // num tema especial, as categorias ficam com a cor própria
 // Valor curto para as escalas dos gráficos ("R$ 5,2 mil", com o símbolo da moeda escolhida).
@@ -211,14 +230,6 @@ function viewResumo(){
     <div class="card stat"><small>Média mensal de gastos em ${y}</small><b class="out">${fmt(tout/12)}</b></div>
     <div class="card stat" style="cursor:pointer" data-onclick="go('invest')"><small>Investido hoje ›</small><b>${fmt(invNow)}</b></div>
   </div>`,
-  contas: () => `<h2>Contas <span>${db.accounts.length > 1 ? `<button data-onclick="openForm('transfers')">Transferir</button> · ` : ''}<button data-onclick="openForm('accounts')">+ Conta</button></span></h2>
-  ${db.accounts.length ? `<div class="card">${db.accounts.map(a => { const b = accountBalance(a); return `
-    <div class="item" data-onclick="edit('accounts','${a.id}')">${tile('bank')}<div class="mid"><b>${esc(a.name)}</b><small>saldo de hoje · fim do mês: ${fmt(accountBalance(a, monthEnd(curYM)))}${bySmall(a)}</small></div>
-      <div class="val ${b < 0 ? 'out' : ''}">${fmt(b)}</div></div>`; }).join('')}
-    <div class="semCursor item"><div class="mid"><b>Total nas contas</b></div><div class="val">${fmt(sum(db.accounts, accountBalance))}</div></div></div>
-    ${db.transfers.length ? `<div class="card"><b>Transferências</b>${[...db.transfers].sort((a,b) => b.month.localeCompare(a.month)).slice(0, 5).map(t => `
-    <div class="item" data-onclick="edit('transfers','${t.id}')"><div class="mid"><b style="font-weight:500">${esc(t.from)} → ${esc(t.to)}</b><small>${monthName(t.month)}${bySmall(t)}</small></div><div class="val">${fmt(t.value)}</div></div>`).join('')}</div>` : ''}`
-  : '<div class="hint" style="margin:0 4px 12px">Cadastre suas contas para acompanhar o saldo de cada uma. O saldo considera os ganhos e gastos em que você informar o mesmo nome no campo de banco/conta.</div>'}`,
   // Gastos por categoria do ano: a mesma rosca do mês.
   categorias: () => `<h2>Gastos por categoria em ${y}</h2>${roscaCats(Object.entries(cats), y, 'Nenhum gasto cadastrado neste ano.')}`,
   bancos: () => catList.length ? `<h2>Gastos por banco em ${y}</h2>${breakdown(banks)}` : '',
@@ -240,7 +251,7 @@ function viewResumo(){
   // Resumo do mês: o mesmo cartão de destaque do saldo do ano. Tocar leva aos gastos do mês.
   mes: () => { const a = totalIn(rm), b = totalOut(rm), r = reservaPrevisoes(rm); return `<div class="hero" style="cursor:pointer" data-onclick="goMonth('${rm}')"><small>Saldo de ${monthName(rm)}</small>${bigNum(a - b - r)}${r ? `<small class="prevInc">${prevInclui(r)}</small>` : ''}
     <div class="row cores"><div><small>Ganhos</small><b class="hIn">${fmt(a)}</b></div><div><small>Gastos</small><b class="hOut">${fmt(b)}</b></div><div style="margin-left:auto;align-self:flex-end"><small>Ver gastos ›</small></div></div></div>`; },
-  faturas: () => `<h2>Faturas de ${monthName(rm)}</h2>${inv.length ? `<div class="card">${inv.map(([bank, v]) => `<div class="semCursor item">${tile('card')}<div class="mid"><b>${esc(bank)}</b></div><div class="val out">${fmt(v)}</div></div>`).join('')}</div>`
+  faturas: () => `<h2>Faturas de ${monthName(rm)}</h2>${inv.length ? `<div class="card">${inv.map(([bank, v]) => `<div class="semCursor item">${bancoSelo(bank)}<div class="mid"><b>${esc(bank)}</b></div><div class="val out">${fmt(v)}</div></div>`).join('')}</div>`
     : '<div class="hint" style="margin:0 4px 12px">Nenhuma compra no crédito neste mês.</div>'}`,
   parcelas: () => `<h2>Compras parceladas <button data-onclick="state.gsub='parc';go('gastos')">Ver todas</button></h2>${open.length ? `<div class="card grid2">
       <div class="stat"><small>Falta pagar (${open.length})</small><b class="out">${fmt(sum(open, parcFalta))}</b></div>
@@ -304,7 +315,8 @@ function viewVales(lado){
   const novo = k => `event.stopPropagation();novoVale('${lado}','${k}')`;
   return `<div class="nav"><button data-onclick="state.month=addMonths(state.month,-1);renderIn()">‹</button><b data-onclick="pickMonth()">${monthName(m)} ▾</b><button data-onclick="state.month=addMonths(state.month,1);renderIn()">›</button></div>
   ${Object.keys(VALES).map(k => { const c = sum(valeIn(m, k), x => x.value), g = sum(valeOut(m, k), x => x.value), s = valeSaldo(k, m); return `
-    <div class="card" style="cursor:pointer" data-onclick="openVale('${k}')"><b>${I(CAT_GANHO[k][0])} ${VALES[k]}${valeEmp(k) ? ' · ' + esc(valeEmp(k)) : ''}</b>
+    <div class="card" style="cursor:pointer" data-onclick="openVale('${k}')"><b class="valeTit">${valeEmp(k) ? bancoSelo(valeEmp(k)) : I(CAT_GANHO[k][0])}
+      ${VALES[k]}${valeEmp(k) ? ' · ' + esc(valeEmp(k)) : ''}</b>
       <div class="grid3" style="margin-top:10px">
         <div class="stat"><small>Crédito do mês</small><b class="in" style="font-size:14px">${fmt(c)}</b></div>
         <div class="stat"><small>Gasto do mês</small><b class="out" style="font-size:14px">${fmt(g)}</b></div>
@@ -329,7 +341,7 @@ function openVale(k){
   n = sum(meses, ([, e, s]) => e.length + s.length);
   const linha = (x, entra) => `<div class="item" data-onclick="edit('${entra ? 'incomes' : x.kind === 'installment' ? 'installments' : 'expenses'}','${x.pid || x.id}')"><div class="mid"><b>${esc(x.desc)}</b>
     <small>${entra ? 'crédito' : 'gasto'}${entra ? (diaGanhoTexto(x) ? ' · ' + diaGanhoTexto(x) : '') : x.day ? ' · dia ' + x.day : ''}${x.emp ? `<span class="tag">${esc(x.emp)}</span>` : ''}${byTag(x)}</small></div><div class="val ${entra ? 'in' : 'out'}">${entra ? '+' : '−'} ${fmt(x.value)}</div></div>`;
-  showSheet(`<h3>${VALES[k]}${valeEmp(k) ? ' · ' + esc(valeEmp(k)) : ''}</h3>
+  showSheet(`<h3 class="valeTit">${valeEmp(k) ? bancoSelo(valeEmp(k)) : ''}${VALES[k]}${valeEmp(k) ? ' · ' + esc(valeEmp(k)) : ''}</h3>
     <div class="hero" style="margin-bottom:10px"><small>Saldo do vale</small>${bigNum(saldo)}
       <div class="row"><div><small>Entrou no total</small><b>${fmt(tin)}</b></div><div><small>Saiu no total</small><b>${fmt(tout)}</b></div></div></div>
     <div class="semTopo btns"><button class="btn" data-onclick="novoVale('ganhos','${k}')">+ Crédito</button><button class="btn primary" data-onclick="novoVale('gastos','${k}')">+ Gasto</button></div>

@@ -19,6 +19,7 @@ function onLockChanged(){ if (settingsShown()) openSettings(); }
 let setSec = '';
 const settingsShown = () => sheetOpen() && !!document.querySelector('#sheet .setGrid, #sheet .setHead');
 function openSettings(sec){
+  if (explorarVoltaAqui(sec)) return closeForm(); // "Voltar" de uma janela aberta pela Explorar
   if (sec !== undefined) setSec = sec; else if (!settingsShown()) setSec = '';
   const p = db.prefs, n = p.tabs.length;
   // Opções que só existem no APK (ícone, bloqueio). Number()/!! porque os valores vêm do lado nativo.
@@ -53,6 +54,8 @@ function openSettings(sec){
   ['aparencia', 'sun', 'Aparência', 'Tema, cores e animações', `
     <label>Tema</label>
     <div class="semTopo btns">${Object.entries(MODES).map(([k,v]) => `<button class="btn ${p.mode === k ? 'primary' : ''}" data-onclick="setPref('mode','${k}')">${v}</button>`).join('')}</div>
+    ${p.skin ? `<div class="hint">Com um tema especial claro, o modo escuro (ou o automático com o celular escuro) deixa o app
+      escuro, com as cores do tema. Os temas escuros ficam sempre escuros.</div>` : ''}
     <label>Cor</label>
     <div class="swatches">${Object.entries(COLORS).map(([k,c]) => `<button class="sw ${p.color === k ? 'on' : ''}" style="background:linear-gradient(135deg,${c[1]},${c[2]})" data-onclick="setCor('${k}')" aria-label="${c[0]}" title="${c[0]}"></button>`).join('')}</div>
     ${sorteioBtn('cor', 'Cor aleatória todo dia')}
@@ -436,7 +439,7 @@ function openCats(){
       <button class="btn" style="flex:none;padding:8px 12px" data-onclick="editCat('${type}','${k}')">Editar</button>
       ${BASE_CATS[type][k] ? '' : `<button class="iconbtn out" data-onclick="deleteCat('${type}','${k}')" aria-label="Excluir categoria">${I('close', 20)}</button>`}
       ${k === 'outros' ? '' : `<button class="iconbtn ${c[3] ? 'muted' : 'in'}" data-onclick="toggleCat('${type}','${k}')" aria-label="${c[3] ? 'Mostrar' : 'Esconder'}">${I(c[3] ? 'unchecked' : 'checked', 24)}</button>`}</div>`;
-  const novo = type => `<div class="semTopo btns"><button class="btn" data-onclick="editCat('${type}','')">${I('plus', 16)}Nova categoria de ${type}</button></div>`;
+  const novo = type => `<div class="semTopo btns catNova"><button class="btn" data-onclick="editCat('${type}','')">${I('plus', 16)}Nova categoria de ${type}</button></div>`;
   const groups = {};
   for (const [k, c] of Object.entries(CAT_GASTO)) (groups[catGroup(k) || 'Suas categorias'] = groups[catGroup(k) || 'Suas categorias'] || []).push([k, c]);
   const ordem = ['Suas categorias', ...Object.keys(CAT_GROUPS)].filter(g => groups[g]);

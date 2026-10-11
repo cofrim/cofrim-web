@@ -307,7 +307,8 @@ addEventListener('scroll', () => {
 // Os botões flutuantes (o "+" e o do assistente) não ficam por cima de um botão da tela (ex.: o "Pago" das contas a
 // vencer): com a tela parada e um botão embaixo, cada um encolhe numa aba na beirada direita, fora do conteúdo (os
 // dois juntos, um acima do outro); um toque na aba faz o mesmo que o botão. Volta ao tamanho normal quando a área fica
-// livre. Só no celular: na tela larga há espaço dos lados.
+// livre. Só no celular: na tela larga há espaço dos lados. As linhas da Explorar não contam: cada uma é um botão da
+// largura toda (o assistente sempre viraria aba), e o toque no texto da linha continua abrindo o item.
 let fabDesviaT = 0;
 function fabDesvia(){
   const fabs = ['fab', 'fabChat'].map(id => document.getElementById(id)).filter(b => !b.hidden && !b.classList.contains('away'));
@@ -317,7 +318,7 @@ function fabDesvia(){
     const pontos = [[r.left + m, r.top + m], [r.right - m, r.top + m], [r.left + m, r.bottom - m], [r.right - m, r.bottom - m],
       [(r.left + r.right) / 2, (r.top + r.bottom) / 2]];
     return pontos.some(([x, y]) => document.elementsFromPoint(x, y)
-      .some(el => !el.closest('.fab, .tabs') && el.matches('button, a, input, select, textarea'))); });
+      .some(el => !el.closest('.fab, .tabs, .explorarLista') && el.matches('button, a, input, select, textarea'))); });
   for (const b of cobre) b.classList.add('aba');
 }
 addEventListener('resize', () => { clearTimeout(fabDesviaT); fabDesviaT = setTimeout(fabDesvia, 150); });
@@ -336,15 +337,18 @@ function render(){
   const noFab = ['resumo', 'noticias', 'chat', 'explorar'].includes(state.tab);
   document.getElementById('fab').hidden = noFab;
   document.getElementById('fab').classList.remove('away');
-  // Assistente: botão flutuante em todas as telas, ao lado do "+" quando ele existe; some dentro do próprio assistente e na aba Explorar.
+  // Assistente: botão flutuante em todas as telas, ao lado do "+" quando ele existe; some só dentro do próprio assistente.
   const fc = document.getElementById('fabChat');
-  fc.hidden = state.tab === 'chat' || state.tab === 'explorar'; fc.classList.remove('away'); fc.classList.toggle('alto', !noFab);
-  document.getElementById('app').classList.toggle('hasFab', !noFab);
-  document.getElementById('app').classList.toggle('cols', state.tab !== 'chat' && state.tab !== 'noticias'); // tela larga: duas colunas
+  fc.hidden = state.tab === 'chat'; fc.classList.remove('away'); fc.classList.toggle('alto', !noFab);
+  document.getElementById('app').classList.toggle('hasFab', !noFab || state.tab === 'explorar');
+  // Tela larga: duas colunas (a Explorar tem a grade dela).
+  document.getElementById('app').classList.toggle('cols', !['chat', 'noticias', 'explorar'].includes(state.tab));
   drawTopbar();
   nuvemAlinhar(document.getElementById('app'));
   a11y(document.getElementById('app'));
   fabDesvia();
+  // Janela de uma parte de aba aberta pela Explorar: os dados mudaram, ela é refeita junto.
+  if (explorarJanela && document.querySelector('#sheet .blocoJanela')) explorarBloco(...explorarJanela);
   if (db.prefs.fun && !window.TESTE) setTimeout(funCheck, 0); // conquista nova: aviso com confete
 }
 // As regras avisam quando os dados mudam sozinhos (telaAtualizar, em util.js): redesenha, salvo com uma folha aberta.
@@ -382,7 +386,9 @@ function renderIn(){
   funCount();
 }
 // antesChat = a tela de onde o assistente foi aberto: é para ela que o "voltar" do assistente leva.
-function go(t){ if (t === 'chat' && state.tab !== 'chat') state.antesChat = state.tab; state.tab = t; state.parcDet = ''; renderIn(); scrollTo(0,0);
+function go(t){
+  explorarOrigem = explorarJanela = null;
+  if (t === 'chat' && state.tab !== 'chat') state.antesChat = state.tab; state.tab = t; state.parcDet = ''; renderIn(); scrollTo(0,0);
   if (t === 'invest') refreshQuotes(); }
 const sairChat = () => go(visTabs().includes(state.antesChat) ? state.antesChat : visTabs()[0]);
 // Botão "voltar" do Android (chamado pelo APK). Retorna false quando o app deve fechar.
@@ -395,6 +401,7 @@ function onBack(){
   if (!document.getElementById('lockAsk').hidden){ answerLock(false); return true; }
   if (pickerOpen()){ closePicker(); return true; }
   if (sheetOpen()){ closeForm(); return true; }
+  if (explorarOrigem && explorarOrigem.aba === state.tab){ go('explorar'); return true; } // veio de um item da Explorar
   if (state.tab === 'gastos' && state.parcDet){ fecharParc(); return true; } // detalhe de uma parcela: volta para a lista
   if (state.tab === 'gastos' && state.gsub === 'saude'){ fecharSaude(); return true; } // detalhe da saúde financeira: volta para Gastos
   if (state.tab === 'chat'){ sairChat(); return true; }

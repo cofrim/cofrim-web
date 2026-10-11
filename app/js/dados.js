@@ -48,7 +48,7 @@ function logErr(onde, e){
 }
 addEventListener('error', e => logErr('erro na tela', (e.error && e.error.stack) || (e.message || '') + ' @' + (e.lineno || 0) + ':' + (e.colno || 0)));
 addEventListener('unhandledrejection', e => logErr('promessa', e.reason));
-const APP_VERSION = '2.40'; // manter igual ao versionName do build.gradle
+const APP_VERSION = '2.50'; // manter igual ao versionName do build.gradle
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const I = (name, size = 18) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 // Categorias: [ícone, nome, cor]
@@ -84,8 +84,9 @@ const CAT_INV = {
 const PARC_TIPOS = {financiamento:'Financiamento', emprestimo:'Empréstimo'};
 const PAY = {credito:'Crédito', debito:'Débito', pix:'Pix', dinheiro:'Dinheiro', boleto:'Boleto', va:'Vale-alimentação', vr:'Vale-refeição',
   vt:'Vale-transporte', outro:'Outro'};
-const BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','PicPay','Mercado Pago',
-  'Alelo','Pluxee (Sodexo)','Ticket','VR','Flash','Caju','iFood Benefícios','Swile','Ben Visa Vale']; // os últimos são cartões de vale-alimentação/refeição
+// Bancos sugeridos nas contas e no campo "Banco / conta". As empresas de vale não entram: os vales ficam na aba Vales
+// (Gastos e Ganhos), com a empresa no campo próprio (VALE_EMPRESAS).
+const BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','PicPay','Mercado Pago'];
 // Sugestões do campo "Banco / conta": os que você já usou primeiro, depois os mais comuns.
 // Corretora dos investimentos (texto livre, até 40 letras): as já usadas viram sugestões, e um nome que só muda nas
 // maiúsculas ("Xp" com "XP" já cadastrada) fica com a grafia que já existe, para não duplicar.

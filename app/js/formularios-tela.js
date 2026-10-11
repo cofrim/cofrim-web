@@ -110,6 +110,9 @@ const histHtml = item => item && item.h && item.h.length ? `<label>Histórico de
   `<div class="hint" style="margin-top:4px"><b>${new Date(h.t).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'})}</b> · ${esc(h.d)}</div>`).join('')}` : '';
 function closeForm(){
   settingsOpen = false;
+  if (explorarOrigem && explorarOrigem.raiz !== undefined) explorarOrigem = null;
+  // Janela de uma parte de aba (Explorar): fechar ela esquece; fechar um formulário aberto por ela faz a janela voltar.
+  if (document.querySelector('#sheet .blocoJanela')) explorarJanela = null; else if (explorarJanela) setTimeout(explorarReabre, 0);
   welcomeOn = false;
   closePicker();
   try { localStorage.removeItem(DRAFT); } catch(e){}
