@@ -27,11 +27,14 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .hero{background:linear-gradient(135deg,var(--hero1),var(--hero2));color:#fff;border-radius:22px;padding:20px;box-shadow:var(--shadow);margin-bottom:12px}
 .hero small{opacity:.85;display:block}
 .hero .big{font-size:32px;font-weight:700;letter-spacing:-.02em;margin:2px 0 4px}
-.hero .row{display:flex;gap:18px;margin-top:10px;flex-wrap:wrap}
+/* Valores lado a lado: colunas de largura igual numa linha só, com qualquer valor e tema (valoresCabem diminui a fonte
+   dos valores da linha quando um deles não cabe na coluna). */
+.hero .row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px;margin-top:10px}
+.hero .row.ponta{display:flex;justify-content:space-between}
 .hero .row b{display:block;font-size:16px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.grid3{display:flex;flex-wrap:wrap;gap:8px 12px}
-.grid3>*{flex:1 1 auto} /* valores grandes passam para a linha de baixo em vez de vazar do cartão */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px}
+:is(.grid2,.grid3)>.stat>b{display:block}
 .stat small{color:var(--muted);display:block;font-size:12px}
 .stat b{font-size:17px;white-space:nowrap}
 .in{color:var(--in)} .out{color:var(--out)} .muted{color:var(--muted)} .warn{color:var(--yield)}
@@ -67,6 +70,9 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .sugDestaque{outline:2px solid var(--brand);outline-offset:-2px;border-radius:12px}
 .empty{text-align:center;color:var(--muted);padding:26px 10px}
 .empty span{display:block;margin-bottom:6px;color:var(--brand)}
+.emptyBtn{display:block;margin:14px auto 0;padding:11px 18px}
+.vazioParte{display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:14px 16px;border:1.5px dashed var(--line);border-radius:18px;color:var(--muted);font-size:14px}
+.vazioParte>span{flex:1}.vazioParte>.btn{flex:none;padding:10px 14px}
 .bar{height:9px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px 0}
 .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--brand2))}
 .chart{display:flex;align-items:flex-end;gap:4px;height:150px;margin-top:8px}
@@ -124,6 +130,7 @@ input:focus,select:focus{border-color:var(--brand)}
 .sugTopo{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .sugTopo .btn{flex:none;padding:6px 10px;font-size:13px}
 .stmtMes{margin:14px 0 2px;font-weight:700;font-size:13px;color:var(--muted)}
+.impCat{margin-top:4px;width:auto;max-width:100%} /* categoria de um lançamento a importar (extrato e planilha) */
 .stmt .mid b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .stmt select{width:auto;max-width:150px;padding:4px 6px;font-size:12px;margin-top:3px}
 @media print{
@@ -216,12 +223,14 @@ input,select{padding:13px;border-radius:14px}
 .tabs button.on span{background:color-mix(in srgb,var(--brand) 18%,transparent);transform:none}
 /* O + sai da frente ao rolar para baixo e volta ao rolar para cima */
 .fab{transition:transform .22s ease-out}
-.fab.away{transform:translateY(170px)}
 /* Folha: alça no topo e botões de ação presos ao rodapé, sempre à vista */
 .sheet{padding-top:10px;padding-bottom:0;scroll-padding-bottom:90px}
 .sheet::before{content:"";display:block;width:40px;height:4px;border-radius:9px;background:var(--line);margin:0 auto 14px}
 .sheet::after{content:"";display:block;height:calc(16px + env(safe-area-inset-bottom))}
 .btns.foot{position:sticky;bottom:0;z-index:2;background:var(--card);padding:10px 0;margin:6px 0 -6px;box-shadow:0 -12px 12px -12px rgba(0,0,0,.3)}
+/* Excluir / Cancelar / Salvar: sempre numa linha só, em qualquer tema, estilo e idioma, até em 360 px; cada botão
+   ganha a largura do seu texto e a letra diminui um pouco se faltar espaço */
+.btns.foot .btn{flex:1 1 auto;min-width:0;white-space:nowrap;padding-inline:8px;font-size:min(1em,4.3vw)}
 #saveWarn{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));z-index:45;max-width:496px;margin:0 auto;background:var(--out);color:#fff;border-radius:14px;padding:10px 14px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow)}
 textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,monospace;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:10px;resize:none;outline:none}
 /* Componentes próprios dos formulários (no lugar das janelas do Android) */
@@ -230,6 +239,10 @@ textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,monospace;color:var(
 .optPick{display:flex;flex-wrap:wrap;gap:7px}
 .optPick button{padding:10px 13px;border-radius:14px;background:var(--bg);border:1.5px solid var(--line);font-size:13.5px;font-weight:600;text-align:left}
 .optPick button.on{background:color-mix(in srgb,var(--brand) 22%,var(--bg));border-color:var(--brand)}
+/* Meses escolhidos (Tipo "Meses escolhidos" no formulário): os 12 meses em grade, para marcar */
+.mesGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.mesGrid button{padding:10px 0;border-radius:12px;background:var(--bg);border:1.5px solid var(--line);font-size:13.5px;font-weight:600;text-transform:capitalize}
+.mesGrid button.on{background:color-mix(in srgb,var(--brand) 22%,var(--bg));border-color:var(--brand)}
 .pickBtn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:16px;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:13px;text-align:left}
 .pickBtn span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pickBtn .ic{color:var(--muted)}
@@ -263,8 +276,13 @@ textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,monospace;color:var(
 .search .iconbtn{width:36px;height:36px}
 .filters .pickBtn{min-width:0}
 #dlg{position:fixed;inset:0;z-index:35;background:rgba(2,6,23,.6);display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .2s ease-out}
-#dlg .box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px 20px 18px;max-width:360px;width:100%;box-shadow:var(--shadow);animation:pop .18s ease-out}
-#dlgMsg{white-space:pre-line;font-size:15.5px;line-height:1.45}
+/* Aviso comprido (ex.: o retrato da tela): a caixa não passa da altura da tela; o texto rola e os botões ficam à vista. */
+#dlg .box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px 20px 18px;max-width:360px;width:100%;box-shadow:var(--shadow);animation:pop .18s ease-out;
+  max-height:100%;display:flex;flex-direction:column}
+#dlgMsg{white-space:pre-line;font-size:15.5px;line-height:1.45;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+#dlgBtns{flex:none}
+/* Lido pelo retrato da tela (retratoTela): as etiquetas "Novo" da Explorar não entram no texto. */
+.semEtiquetas .novo{display:none}
 .btn.del{background:var(--out);color:#fff}
 /* Bloco 3: gesto nos lançamentos, grupos de categorias */
 .item[data-sw]{touch-action:pan-y;border-radius:12px}
@@ -275,6 +293,9 @@ textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,monospace;color:var(
 .ico.banco.logo{overflow:hidden;box-shadow:none}.ico.banco.logo img{width:76%;height:76%;object-fit:contain}.ico.banco.cheio img{width:100%;height:100%}
 .valeTit{display:flex;align-items:center;gap:8px}.valeTit>.ico{width:30px;height:30px;border-radius:9px}.valeTit>.ico.banco b{font-size:11px}
 .ico.banco b{font-size:15px;font-weight:800;letter-spacing:-.02em;line-height:1}.ico.banco.longo b{font-size:12px}
+.isca{position:absolute!important;left:-9999px;width:1px;height:1px;opacity:0} /* campo isca contra robôs (sugestões) */
+.bancoMini{width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:4px;object-fit:cover}
+.recorrBtns{margin:2px 0 10px}.recorrBtns .btn{padding:9px 10px}
 .catNova{margin-bottom:12px} /* Categorias: espaço entre "Nova categoria" e o primeiro grupo */
 .grp summary{list-style:none;display:flex;align-items:center;gap:8px;padding:13px 2px;font-weight:700;cursor:pointer}
 .grp summary::-webkit-details-marker{display:none}
@@ -335,7 +356,7 @@ h1{flex-wrap:wrap;gap:4px 8px}
 @supports not (background:color-mix(in srgb,red 50%,blue)){
   .tabs{background:var(--card)}
   .tabs button.on span{background:var(--line)}
-  .catPick button.on,.optPick button.on{background:var(--line)}
+  .catPick button.on,.optPick button.on,.mesGrid button.on{background:var(--line)}
   [data-mode=dark] .seg button.on{background:var(--line)}
   .badges button.on span{box-shadow:none}
 }
@@ -377,12 +398,14 @@ h1 span{display:flex;gap:2px}
 .fun small{display:block;margin-top:7px;color:var(--muted);font-size:12px;font-weight:600}
 .bubble{position:relative;background:var(--bg);border-radius:16px;padding:10px 12px;font-size:14px;font-weight:600;line-height:1.3}
 .bubble::before{content:"";position:absolute;left:-6px;top:18px;width:12px;height:12px;background:var(--bg);transform:rotate(45deg);border-radius:2px}
+/* Frase nova ao tocar no personagem (funPoke): só o texto do balão aparece aos poucos. */
+.bubble.troca{animation:falaTroca .35s ease-out}
+@keyframes falaTroca{from{opacity:0;transform:translateY(4px)}}
 .pigBox{flex:none}
 .pig .corpo{transform-origin:60px 102px;animation:pigBreath 2.6s ease-in-out infinite}
 .pig .moeda{display:none}
 .pig.feliz .moeda{display:block;animation:pigCoin 1.8s ease-in-out infinite}
 .pig.triste .corpo{animation-duration:4s}
-.pigBox.poke{animation:pigPoke .5s ease-out}
 @keyframes pigBreath{50%{transform:scale(1.03,.97)}}
 @keyframes pigCoin{0%{transform:translateY(-6px);opacity:0}25%{opacity:1}70%{transform:translateY(14px);opacity:1}100%{transform:translateY(18px);opacity:0}}
 @keyframes pigPoke{30%{transform:rotate(-9deg) scale(1.08)}60%{transform:rotate(7deg) scale(1.04)}}
@@ -396,7 +419,6 @@ h1 span{display:flex;gap:2px}
 @keyframes confete{to{transform:translate(var(--x),105vh) rotate(var(--r))}}
 html[data-fun=on] .tabs button.on span{animation:funHop .45s ease-out}
 html[data-fun=on] .fab{animation:funPulse 2.8s ease-in-out infinite}
-html[data-fun=on] .fab.away{animation:none}
 html[data-fun=on] .hero{background-size:180% 180%;animation:funShift 7s ease-in-out infinite alternate}
 html[data-fun=on] #app.enter .card,html[data-fun=on] #app.enter .hero{animation:pop .3s ease-out backwards}
 html[data-fun=on] #app.enter .card:nth-of-type(2){animation-delay:.04s}
@@ -439,14 +461,16 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 .setHead svg{color:var(--brand)}
 .setHead .iconbtn{font-size:26px;margin-left:-6px}
 .tour{text-align:center;padding:10px 6px 4px}
+#sheet:has(.tour){overflow-x:hidden} /* a página do tutorial sai para o lado ao deslizar (tourLado) */
 .tourIco{width:84px;height:84px;border-radius:26px;display:inline-grid;place-items:center;background:linear-gradient(135deg,var(--hero1),var(--hero2));color:#fff;margin:6px 0 10px}
 .tour p{color:var(--muted);font-size:15px;line-height:1.5;margin:6px 0 14px}
 .dots{display:flex;justify-content:center;gap:6px;margin-bottom:6px}
 .dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
 .dots i.on{background:var(--brand);width:22px;border-radius:4px}
-.lvls{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
-.lvls i{width:14px;height:6px;border-radius:3px;background:var(--line)}
-.lvls i.on{background:var(--brand)}
+/* Conquistas (openBadges, openConq): o progresso da meta atual à esquerda e o nível à direita, embaixo da barra. */
+.conqLinha{display:flex;justify-content:space-between;gap:8px;margin-top:-4px}
+.conqNivel{flex:none;font-weight:600}
+.conq>.ic:last-child{flex:none;transform:rotate(-90deg);color:var(--muted)}
 /* Folha ou seletor fechando (ainda deslizando para baixo) não recebe toques: evita acionar duas telas de uma vez */
 .sheet:not(.open){pointer-events:none}
 
@@ -469,6 +493,7 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 
 /* Temas especiais (data-skin, posto por applyTheme): além das cores, um jeito próprio para cada um */
 [data-skin=hacker] body,[data-skin=hacker] button,[data-skin=hacker] input{font-family:ui-monospace,"Cascadia Mono",Consolas,"Roboto Mono",monospace;letter-spacing:-.02em}
+[data-skin=hacker] .btn,[data-skin=retro] .btn{font-size:13.5px;letter-spacing:-.04em} /* letra larga: o texto do botão cabe numa linha */
 [data-skin=hacker] .card,[data-skin=hacker] .hero,[data-skin=hacker] .sheet{border:1px solid var(--line);box-shadow:none}
 [data-skin=hacker] .hero{border-color:var(--brand)}
 [data-skin=boneca] body{background:linear-gradient(180deg,#ffe4f1,var(--bg) 320px) fixed}
@@ -531,7 +556,7 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 [data-skin=espaco] #app.enter{animation:skEspaco .26s cubic-bezier(.2,.9,.3,1)}
 [data-skin=floresta] body{background:linear-gradient(180deg,#d7ebc5,var(--bg) 300px)}
 [data-skin=floresta] #app.enter{animation:skFloresta .28s ease-out}
-[data-skin=retro] body,[data-skin=retro] button,[data-skin=retro] input{font-family:"Courier New",ui-monospace,monospace;font-weight:700}
+[data-skin=retro] body,[data-skin=retro] button,[data-skin=retro] input{font-family:"Courier New",ui-monospace,monospace;font-weight:700;letter-spacing:-.03em}
 [data-skin=retro] .card,[data-skin=retro] .hero,[data-skin=retro] .btn,[data-skin=retro] .nav,[data-skin=retro] input,[data-skin=retro] .ico{border-radius:4px}
 [data-skin=retro] .card,[data-skin=retro] .hero{border:2px solid var(--line);box-shadow:4px 4px 0 #000}
 [data-skin=retro] #app.enter{animation:skRetro .24s steps(4,end)}
@@ -570,6 +595,13 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 /* Tela de abertura (ver abertura() em js/arte.js): cobre o app por um instante, na cor escolhida ou do tema especial. */
 #abre{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6b33b4,#4c1e7f);color:#fff;overflow:hidden}
 #abre.fim{animation:abreFim .4s ease-in forwards;pointer-events:none}
+/* Celular simples (aberturaLeve, js/arte.js): sem o objeto do tema, sem sombras e com o nome inteiro de uma vez. */
+#abre[data-leve] :is(.aiObj,.abreAto,.aiM .sepia){display:none}
+#abre[data-leve] :is(.aiM,#abreIn svg){filter:none}
+#abre[data-leve] .aiNome span{animation:none!important}
+#abre[data-leve] .aiNome{text-shadow:none;animation:aiF .3s .9s both}
+/* Enquanto a abertura está na frente, a cena do tema por trás fica parada (não disputa o desenho com ela). */
+html.abrindo #cena *{animation-play-state:paused}
 @keyframes abreFim{to{opacity:0;transform:scale(1.14)}}
 #abreIn{text-align:center}
 #abreIn svg{display:block;margin:0 auto;filter:drop-shadow(0 10px 18px rgba(0,0,0,.28))}
@@ -585,8 +617,8 @@ html[data-fun=on] .ico:active,html[data-fun=on] .item:active .ico{animation:pigP
 @keyframes abreVel{from{opacity:0;transform:translateX(-140%) skewX(-18deg)}60%{opacity:1;transform:translateX(7%) skewX(7deg)}}
 #abre[data-g=magia] .abreM{animation:abreMagia .65s cubic-bezier(.2,1.2,.4,1) both}
 @keyframes abreMagia{from{opacity:0;transform:scale(0) rotate(-220deg)}}
-#abre[data-g=tec] .abreM{animation:abreTec .6s steps(7) both}
-@keyframes abreTec{0%{opacity:0;clip-path:inset(0 0 100% 0)}35%{opacity:1;clip-path:inset(0 0 50% 0);transform:translateX(-7px)}55%{transform:translateX(7px)}75%{clip-path:inset(0 0 10% 0);transform:translateX(-3px)}100%{clip-path:inset(0);transform:none}}
+#abre[data-g=tec] .abreM{transform-origin:50% 0;animation:abreTec .6s steps(7) both}
+@keyframes abreTec{0%{opacity:0;transform:scaleY(0)}35%{opacity:1;transform:translateX(-7px) scaleY(.5)}55%{transform:translateX(7px) scaleY(.7)}75%{transform:translateX(-3px) scaleY(.9)}100%{transform:none}}
 #abre[data-g=forca] .abreM{animation:abreForca .6s cubic-bezier(.3,0,.2,1) both}
 @keyframes abreForca{0%{opacity:0;transform:translateY(-160px) scale(1.6)}50%{opacity:1;transform:none}64%{transform:translate(-6px,3px) rotate(-2deg)}78%{transform:translate(5px,-2px) rotate(1.5deg)}90%{transform:translate(-2px,0)}}
 #abre[data-g=calma] .abreM{animation:abreCalma .7s ease-out both}
@@ -693,7 +725,8 @@ html[data-mode=dark] .fundoP{--a:38%}html[data-mode=dark] .fundoP[data-int=suave
 [data-skin=noite] .cenaCeu,[data-skin=noite] .cenaVeu{display:none}
 /* Com tema especial, os cartões deixam a cena aparecer um pouco e os textos soltos ganham contorno na cor do fundo. */
 html[data-skin]:not([data-skin=""]) .card,html[data-skin]:not([data-skin=""]) .nav{background:color-mix(in srgb,var(--card) 88%,transparent)}
-html[data-skin]:not([data-skin=""]) h1,html[data-skin]:not([data-skin=""]) h2,html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #app>.muted,html[data-skin]:not([data-skin=""]) #app>.hint{text-shadow:0 1px 8px var(--bg)}
+html[data-skin]:not([data-skin=""]) h1,html[data-skin]:not([data-skin=""]) h2,html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #app>.muted,html[data-skin]:not([data-skin=""]) #app>.hint{text-shadow:0 0 2px var(--bg),0 0 4px var(--bg),0 1px 10px var(--bg)}
+html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #app>.muted{color:var(--text)} /* soltos sobre o cenário: a cor do texto, que contrasta com o contorno */
 @media (prefers-reduced-motion:reduce){#cena *{animation:none!important}}
 /* Entrada (abertura) mais demorada, com dois jeitos novos: zoom e giro. */
 .abreM{animation-duration:1.05s!important}
@@ -795,7 +828,7 @@ html[data-skin]:not([data-skin=""]) h1,html[data-skin]:not([data-skin=""]) h2,ht
 #carga[hidden],#cargaCx[hidden]{display:none}
 .btn[disabled]{opacity:.4}
 .chips.soma{margin:8px 0 0;gap:8px}
-.chips.soma button{flex:1;padding:9px 4px;border-radius:12px;font-size:14px;color:var(--brand);background:color-mix(in srgb,var(--brand) 12%,var(--bg));border:1px solid color-mix(in srgb,var(--brand) 28%,transparent)}
+.chips.soma button{flex:1;padding:9px 4px;border-radius:12px;font-size:14px;color:var(--text);background:color-mix(in srgb,var(--brand) 12%,var(--bg));border:1px solid color-mix(in srgb,var(--brand) 28%,transparent)}
 .chips.soma button:active{transform:scale(.94)}
 .msg.ola+.msg.ola{margin-top:-2px}
 /* Resumo */
@@ -805,7 +838,7 @@ html[data-skin]:not([data-skin=""]) h1,html[data-skin]:not([data-skin=""]) h2,ht
 .hero2 .hero{display:flex;flex-direction:column;border-radius:22px;box-shadow:0 10px 24px -12px var(--hero1),var(--shadow)}
 .hero .uso{height:5px;border-radius:99px;background:rgba(255,255,255,.25);overflow:hidden;margin:6px 0 5px}
 .hero .uso i{display:block;height:100%;border-radius:99px;background:#fff}
-.hero .selo{align-self:flex-start;margin-top:8px;padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.2);font-size:11.5px;font-weight:700;white-space:nowrap}
+.hero .selo{align-self:flex-start;margin-top:8px;padding:3px 9px;border-radius:99px;background:rgba(0,0,0,.2);font-size:11.5px;font-weight:700;white-space:nowrap}
 .hero2 .hero small{font-size:12px}
 .card.rosca{padding:18px 16px}
 .leg.duas{align-items:flex-start;padding:5px 0}
@@ -980,7 +1013,7 @@ ul.causas{margin:0 0 4px;padding-left:20px;color:var(--muted);font-size:14px}
 .hero .prevInc{display:block;margin-top:8px;font-size:12px;opacity:.85}
 /* Central de notificações: sino com o número de não lidas e os itens novos desta visita destacados. */
 .iconbtn.sino{position:relative}
-.sinoN{position:absolute;top:3px;right:1px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--brand);color:#fff;font-size:10.5px;font-weight:700;line-height:17px;text-align:center;box-shadow:0 0 0 2px var(--bg)}
+.sinoN{position:absolute;top:3px;right:1px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--brand);color:var(--on-brand);font-size:10.5px;font-weight:700;line-height:17px;text-align:center;box-shadow:0 0 0 2px var(--bg)}
 .centralItem{cursor:pointer;border-radius:12px}
 .centralItem.nova{background:color-mix(in srgb,var(--brand) 10%,transparent)}
 .centralIco{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,currentColor 14%,transparent)}
@@ -1043,10 +1076,14 @@ html[data-ui=terminal]{--fT:monospace,"Courier New",ui-monospace;--fN:monospace,
 :where([data-ui=terminal]) :is(.card,.nav){box-shadow:inset 0 0 0 1px var(--line)}
 :where([data-ui=terminal]) .bar,:where([data-ui=terminal]) .bar i{border-radius:0}
 :where([data-ui=terminal]) .bar i{background:repeating-linear-gradient(90deg,var(--brand) 0 9px,transparent 9px 12px)}
-:where([data-ui=terminal]) .btn::before{content:"[ "}
-:where([data-ui=terminal]) .btn::after{content:" ]"}
+:where([data-ui=terminal]) .btn::before{content:"["}
+:where([data-ui=terminal]) .btn::after{content:"]"}
 :where([data-ui=terminal]) h1 .tit::before{content:">_";color:var(--brand);animation:uiPisca 1.1s steps(1) infinite}
 :where([data-ui=terminal]) .hero .big::after{content:"▌";margin-left:2px;font-weight:400;animation:uiPisca 1.1s steps(1) infinite}
+/* Letra de largura fixa nos números (terminal e pixel): o valor dos cartões de destaque diminui com a largura do cartão,
+   para "R$ 27,5 mil" caber inteiro. */
+:where([data-ui=terminal],[data-ui=pixel]) .hero2 .hero{container-type:inline-size}
+:where([data-ui=terminal],[data-ui=pixel]) .hero2 .hero .big{font-size:min(23px,14cqi)}
 /* pixel */
 html[data-ui=pixel]{--fT:monospace,"Courier New",ui-monospace;--fN:monospace,"Courier New",ui-monospace;
   --tex:linear-gradient(90deg,currentColor 1px,transparent 1px) 0 0/6px 6px,linear-gradient(currentColor 1px,transparent 1px) 0 0/6px 6px;--texO:.04}
@@ -1101,6 +1138,7 @@ html[data-ui=velocidade]{--fT:"sans-serif-condensed","Roboto Condensed","Arial N
   box-shadow:inset 4px 0 0 var(--brand)}
 :where([data-ui=velocidade]) .bar i{background:repeating-conic-gradient(var(--brand) 0 25%,var(--brand2) 0 50%) 0 0/8px 8px}
 :where([data-ui=velocidade]) .btn{transform:skewX(-8deg)}
+:where([data-ui=velocidade]) .btns.foot{padding-inline:4px}
 :where([data-ui=velocidade]) .hero{background-image:repeating-conic-gradient(rgba(255,255,255,.35) 0 25%,transparent 0 50%),linear-gradient(135deg,var(--hero1),var(--hero2));
   background-size:8px 8px,auto;background-position:top 10px right 10px,0 0;background-repeat:repeat-x,no-repeat}
 /* aventura */
@@ -1382,3 +1420,13 @@ html[data-troca=seriado] #app.enter::after{bottom:0;transform-origin:bottom}
 @keyframes aiFaixas{from{transform:scaleY(.2)}}
 @keyframes aiCorte{from{opacity:0}}
 @keyframes aiEspaco{from{opacity:0;transform:scaleX(1.6)}}
+
+/* Utilitários no lugar de style="…" fixo no HTML (2.60): mesma prioridade do estilo embutido (!important). */
+.u-fs14{font-size:14px!important}.u-m0{margin:0!important}.u-centro{text-align:center!important}.u-bloco{display:block!important}
+.u-linha{cursor:default!important;padding:6px 0!important}.u-apagado{opacity:.25!important}.u-mb12{margin-bottom:12px!important}
+.u-mt2{margin-top:2px!important}.u-mt3{margin-top:3px!important}.u-mt4{margin-top:4px!important}.u-mt6{margin-top:6px!important}
+.u-mt12{margin-top:12px!important}.u-vazio{margin:0 4px 12px!important}.u-marca{color:var(--brand)!important}.u-texto{color:var(--text)!important}
+.u-capital{text-transform:capitalize!important}.u-peso5{font-weight:500!important}.u-clicavel{cursor:pointer!important}
+/* Assinaturas e contas fixas (openSubs): "por ano" embaixo do valor de cada item. */
+.porAno{display:block;font-weight:500;color:var(--muted);text-align:right}
+.subsParte+.subsParte{margin-top:16px}

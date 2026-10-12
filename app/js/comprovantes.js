@@ -59,25 +59,39 @@ function photoSet(v){
   F.photo = v; F.pick = false; photoDraw();
   if (v && temNativo('lerTexto')) nativo('lerTexto', v); // o texto lido chega em onTextoFoto
 }
-// Do texto de um comprovante, tira o valor (o da linha de "total"/"valor"; senão, o maior) e a data.
+// Do texto de um comprovante, tira o valor (o da linha de "total"/"valor"; senão, o maior), a data e o nome da loja (a
+// primeira linha com cara de nome, nas primeiras do cupom: sem números de documento, data ou valor).
 function readReceipt(text){
-  const valores = l => [...l.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/g)].map(m => parseNum(m[1]));
-  const linhas = String(text).split(/\n/), comTotal = linhas.filter(l => /total|valor/i.test(l)).flatMap(valores);
+  const valores = l => [...l.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+\.\d{2})(?![\d,])/g)].map(m => parseNum(/,/.test(m[1]) ? m[1] : m[1].replace('.', ',')));
+  const linhas = String(text).split(/\n/), comTotal = linhas.filter(l => /total|valor|pagar|pago/i.test(l)).flatMap(valores);
   const todos = linhas.flatMap(valores), value = comTotal.length ? comTotal[comTotal.length - 1] : todos.length ? Math.max(...todos) : 0;
   const d = String(text).match(/\b(\d{2})\/(\d{2})\/(\d{4}|\d{2})\b/);
   const date = d && +d[2] >= 1 && +d[2] <= 12 && +d[1] >= 1 && +d[1] <= 31 ? `${d[3].length === 2 ? '20' + d[3] : d[3]}-${d[2]}-${d[1]}` : '';
-  return {value, date};
+  const loja = linhas.slice(0, 6).map(l => l.trim()).find(l => (l.match(/\p{L}/gu) || []).length >= 3 && l.length <= 40
+    && !/cnpj|cpf|cupom|nota|fiscal|extrato|comprovante|data|hora|total|valor|pix|transfer|pagamento|r\$|\d{3}|\d[.,]\d{2}|www|http|@/i.test(l)) || '';
+  const desc = loja.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase()).replace(/\s+(Ltda|Me|Eireli|S\.?a\.?)\.?$/i, '');
+  return {value, date, desc};
 }
-// Chamado pelo app com o texto lido da foto: preenche o valor (se estiver vazio) e, num gasto novo, o mês e o dia.
+// Chamado pelo app com o texto lido da foto: preenche o valor (se estiver vazio) e, num gasto novo, a descrição (com a
+// categoria que ela sugere), o mês e o dia. Texto vazio: não deu para ler, e o app avisa.
 function onTextoFoto(text){
   if (!F || F.col !== 'expenses') return;
   const r = readReceipt(text), partes = [];
   if (r.value > 0 && !(parseMoney(F.vals.value) > 0)){ F.vals.value = moneyStr(r.value); partes.push(shown(() => fmt(r.value))); }
+  if (r.desc && (r.value > 0 || r.date) && !F.id && !String(F.vals.desc || '').trim()){ // nome só num comprovante de verdade
+    F.vals.desc = r.desc; partes.push(r.desc);
+    const c = db.catMemo[plain(r.desc)] || guessCat(r.desc); if (c && CAT_GASTO[c] && !F.touched.cat) F.vals.cat = c;
+  }
   if (r.date && !F.id && !F.touched.start && !F.vals.fixed){ F.vals.start = r.date.slice(0, 7); F.vals.day = String(+r.date.slice(8));
     partes.push(fmtDate(r.date)); }
-  if (!partes.length) return;
+  if (!partes.length) return toast('Não consegui ler o comprovante. A foto ficou anexada; preencha o valor à mão.');
   syncForm();
   toast(`Li no comprovante: ${partes.join(', ')}. Confira antes de salvar.`);
+}
+// Atalho "Lançar pelo comprovante" (Explorar): um gasto novo já com a câmera aberta (ou a galeria, sem câmera).
+function lerComprovante(){
+  openForm('expenses'); F.more = true; syncForm();
+  if (canCam()) photoCam(); else document.getElementById('photoIn').click();
 }
 function photoSwap(){ if (canCam()){ F.pick = true; photoDraw(); } else document.getElementById('photoIn').click(); }
 // Rascunho do formulário: o Android pode fechar o app enquanto a câmera está aberta; na volta, o formulário é remontado.

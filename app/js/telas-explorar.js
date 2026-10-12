@@ -11,18 +11,19 @@ const EXPLORAR = () => [
     ['tag', 'Categorias', 'openCats()', undefined, 'subcategorias icone cor'],
     ['receipt', 'Parceladas e financiamentos', "state.gsub='parc';go('gastos')", undefined, 'parcela emprestimo divida carne'],
     ['wallet', 'Vales (refeição e alimentação)', "state.gsub='vale';go('gastos')", undefined, 'va vr beneficio'],
-    ['calendar', 'Assinaturas', 'openSubs()', undefined, 'netflix spotify streaming mensalidade']]],
+    ['calendar', 'Assinaturas e contas fixas', 'openSubs()', undefined, 'netflix spotify streaming mensalidade conta fixa seguro faculdade celular']]],
   ['Planejar', [
     ['target', 'Orçamento do mês', "explorarBloco('gastos','orcamento','Orçamento do mês')", undefined, 'limite teto categoria'],
     ['clock', 'Previsões de gastos', "explorarBloco('gastos','previsoes','Previsões de gastos')", undefined, 'futuro proximos meses'],
     ['trophy', 'Metas', "explorarBloco('invest','metas','Metas')", undefined, 'objetivo viagem reserva emergencia'],
-    ['trend', 'Investimentos', "go('invest')", undefined, 'cdb tesouro acoes rendimento cdi poupanca'],
     ['coins', 'Dívidas e quitação', 'openDebts()', undefined, 'quitar juros pagar']]],
   ['Acompanhar', [
     ['heart', 'Saúde financeira', "go('gastos');abrirSaude()", undefined, 'nota pontuacao'],
     ['star', 'Conquistas', 'openBadges()', db.prefs.fun, 'medalhas modo divertido']]],
   ['Ferramentas', [
     ['upload', 'Importar extrato', 'openStatementHelp()', undefined, 'ofx csv pdf banco arquivo'],
+    ['doc', 'Importar planilha', 'abrirImportarPlanilha()', undefined, 'excel xlsx ods csv planilha migrar google sheets libreoffice', '2.60'],
+    ['camera', 'Lançar pelo comprovante', 'lerComprovante()', temNativo('lerTexto'), 'foto nota cupom recibo ler', '2.60'],
     ['download', 'Relatório e planilha', 'explorarRelatorio()', undefined, 'pdf imprimir excel xlsx exportar', '2.50'],
     ['trash', 'Lixeira', 'openTrash()', undefined, 'apagados recuperar desfazer'],
     ['book', 'Guia do app', "openSettings('guia')", undefined, 'ajuda como usar tutorial'],
@@ -118,7 +119,7 @@ function explorarRelatorio(){
     <div class="btns"><button class="btn" data-onclick="shown(printReport)">${I('doc')}Relatório (PDF)</button></div>
     <div class="btns"><button class="btn" data-onclick="shown(exportPlanilha)">${I('download')}Exportar planilha de ${m.slice(0, 4)} (Excel)</button></div>
     <div class="btns"><button class="btn" data-onclick="openSheetLink()">${I('doc')}${sheetId() ? 'Planilha do Google (ligada)'
-      : 'Exportar para uma planilha do Google ligada ao app'}</button></div>
+      : 'Ligar uma planilha do Google'}</button></div>
     <div class="btns foot"><button class="btn primary" data-onclick="closeForm()">Fechar</button></div>`);
 }
 // Depois de um formulário aberto pela janela fechar (salvou ou desistiu): a janela volta, se a pessoa ficou na Explorar.
@@ -136,7 +137,7 @@ function irBloco(tab, k){
     // A parte de destino ganha um contorno por um instante (também com as animações desligadas): mostra onde o item
     // levou. É o primeiro cartão depois da âncora (antes vem o título da parte), ou o aviso da parte ainda vazia.
     let b = el.nextElementSibling;
-    while (b && !b.matches('.card, .hero, .hint, .ancora')) b = b.nextElementSibling;
+    while (b && !b.matches('.card, .hero, .hint, .vazioParte, .ancora')) b = b.nextElementSibling;
     if (b && !b.matches('.ancora')){ b.classList.add('realce'); setTimeout(() => b.classList.remove('realce'), 1600); }
   }
   else toast('Essa parte está escondida nesta tela. Ligue em ☰ › Reorganizar esta tela.');

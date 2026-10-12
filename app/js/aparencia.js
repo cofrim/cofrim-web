@@ -57,9 +57,14 @@ function hslHex(h, s, l){
 }
 // Cor do tema (#rrggbb) clara o bastante para o fundo escuro: mistura com branco até a luminância relativa (WCAG) chegar a
 // .3, o que dá contraste de 4,5:1 ou mais com os fundos e cartões escuros e com o texto escuro dos botões.
+// Luminância relativa (WCAG) de uma cor [r, g, b].
+const lumRgb = v => {
+  const lin = x => (x /= 255) <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+  return .2126 * lin(v[0]) + .7152 * lin(v[1]) + .0722 * lin(v[2]);
+};
+const rgbHex = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
 function corParaEscuro(hex){
-  const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)), lin = x => (x /= 255) <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
-  const lum = v => .2126 * lin(v[0]) + .7152 * lin(v[1]) + .0722 * lin(v[2]);
+  const c = rgbHex(hex), lum = lumRgb;
   let v = c;
   for (let t = .05; lum(v) < .3 && t <= 1; t += .05) v = c.map(x => Math.round(x + (255 - x) * t));
   return '#' + v.map(x => x.toString(16).padStart(2, '0')).join('');
@@ -81,8 +86,10 @@ const FUN_BLOCKS = ['mascote', 'conquistas']; // só existem com o modo divertid
 // (o Resumo usa db.prefs.resumo, que já existia). O conteúdo de cada bloco está na função view da aba.
 const LAYOUT = {
   resumo:RESUMO,
-  ganhos:{total:['Total de ganhos do mês', 1], fixos:['Fixos (todo mês)', 1], anuais:['Anuais (uma vez por ano)', 1], avulsos:['Ganhos avulsos', 1]},
-  gastos:{mes:['Ganhos, gastos e saldo do mês', 1], contas:['Contas bancárias', 1, 'mes'], saude:['Saúde financeira', 1, 'mes'],
+  ganhos:{total:['Total de ganhos do mês', 1], fixos:['Fixos (todo mês)', 1], alguns:['Em alguns meses', 1, 'fixos'], anuais:['Anuais (uma vez por ano)', 1],
+    avulsos:['Ganhos avulsos', 1]},
+  gastos:{mes:['Ganhos, gastos e saldo do mês', 1], contas:['Contas bancárias', 1, 'mes'],
+    recorrentes:['Gastos que parecem fixos', 1, 'contas'], saude:['Saúde financeira', 1, 'mes'],
     orcamento:['Orçamento do mês', 1],
     previsoes:['Previsões', 1, 'orcamento'], comparativo:['Comparativo por categoria', 1], receber:['A receber de gastos divididos', 1],
     faturas:['Faturas do cartão', 1], lancamentos:['Lançamentos', 1], acoes:['Importar extrato, relatório e planilha', 1]},
@@ -97,7 +104,8 @@ const LAYOUT = {
 // Grupos da lista de lançamentos da aba Gastos: [nome, quais lançamentos entram].
 const GRUPOS = {
   sub:['Assinaturas', x => isSub(x)],
-  fix:['Fixos e anuais', x => x.fixed && !isSub(x)],
+  fix:['Fixos e anuais', x => x.fixed && !isSub(x) && !repete(x)],
+  alg:['Em alguns meses', x => repete(x), 'fix'], // grupo novo (2.60): entra logo depois de 'fix' na ordem salva
   parc:['Parceladas', x => x.kind === 'installment'],
   avu:['Ocasionais', x => !x.fixed && x.kind !== 'installment']};
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -105,6 +113,8 @@ function ensurePrefs(){
   const p = db.prefs = Object.assign({mode:'auto', color:'indigo', tabs:[], remind:0, anim:true, notifyCats:{}, font:1, fun:false, rollBudget:false,
     catColor:false, skin:''}, db.prefs);
   if (!SKINS[p.skin]) p.skin = '';
+  // Gastos que se repetem e a pessoa disse que não são fixos (recorrentes, em calculos.js): só textos.
+  if (!Array.isArray(p.recorrIgnorados)) delete p.recorrIgnorados; else p.recorrIgnorados = p.recorrIgnorados.filter(t => typeof t === 'string');
   // Itens da aba Explorar já abertos (tiram a etiqueta "Novo"): só textos.
   if (!Array.isArray(p.explorarVistos)) delete p.explorarVistos; else p.explorarVistos = p.explorarVistos.filter(t => typeof t === 'string');
   // Notificações: notify liga/desliga tudo; remind = dias de antecedência; notifyCats[categoria] === false silencia a categoria.
@@ -131,7 +141,12 @@ function ensurePrefs(){
   }
   p.resumo = fill(p.resumo, RESUMO);
   // grpOrder = ordem dos grupos da lista de gastos (assinaturas, fixos, parceladas, ocasionais).
-  p.grpOrder = [...(p.grpOrder || []).filter(k => GRUPOS[k]), ...Object.keys(GRUPOS).filter(k => !(p.grpOrder || []).includes(k))];
+  // Grupo que falta entra no fim; o que diz depois de qual entra (GRUPOS[k][2]), logo depois dele.
+  p.grpOrder = (p.grpOrder || []).filter(k => GRUPOS[k]);
+  for (const k of Object.keys(GRUPOS)) if (!p.grpOrder.includes(k)){
+    const i = p.grpOrder.indexOf(GRUPOS[k][2]);
+    p.grpOrder.splice(i < 0 ? p.grpOrder.length : i + 1, 0, k);
+  }
   p.layout = p.layout || {};
   for (const t of ['ganhos', 'gastos', 'invest', 'widget']) p.layout[t] = fill(p.layout[t], LAYOUT[t]);
   // tabsOff = abas escondidas do menu de baixo (o Resumo fica sempre: é por ele que se chega às configurações).
@@ -151,7 +166,7 @@ const layoutOf = tab => tab === 'resumo' ? db.prefs.resumo : db.prefs.layout[tab
 // mostrá-lo numa janela (explorarBloco).
 const blocks = (tab, B) => layoutOf(tab).filter(b => b.on && B[b.k]).map(b => {
   try { const h = B[b.k](); return h ? `<i class="ancora" id="b-${tab}-${b.k}"></i>${h}` : ''; }
-  catch(e){ logErr(`bloco ${tab}.${b.k}`, e); return `<div class="card hint" style="margin-bottom:12px">Não foi possível mostrar esta parte da tela. O erro ficou registrado em Configurações › Diagnóstico.</div>`; }
+  catch(e){ logErr(`bloco ${tab}.${b.k}`, e); return `<div class="card hint u-mb12">Não foi possível mostrar esta parte da tela. O erro ficou registrado em Configurações › Diagnóstico.</div>`; }
 }).join('') + '<i class="ancora"></i>'; // marca o fim do último bloco (explorarBloco para nela)
 function applyTheme(){
   const p = db.prefs; // tema especial: define as cores e se é claro ou escuro
@@ -172,6 +187,9 @@ function applyTheme(){
   document.documentElement.dataset.ui = skin && TEMAS_IMG[p.skin] ? TEMAS_IMG[p.skin][0] : ''; // estilo de interface do tema (app.css)
   document.body.style.zoom = p.font; // tamanho do texto: amplia ou reduz a tela inteira por igual
   st.setProperty('--brand', c[dark ? 3 : 1]); st.setProperty('--brand2', c[dark ? 4 : 2]);
+  // Texto sobre a cor de destaque (botão principal, número do sino): branco ou quase preto, o que contrastar mais com ela.
+  const lb = /^#[0-9a-f]{6}$/i.test(c[dark ? 3 : 1]) ? lumRgb(rgbHex(c[dark ? 3 : 1])) : 0;
+  st.setProperty('--on-brand', 1.05 / (lb + .05) >= (lb + .05) / .056 ? '#fff' : '#0b1020');
   st.setProperty('--hero1', skin ? skin[4] : c[1]); st.setProperty('--hero2', skin ? skin[5] : c[2]);
   // Fundo, cartões, linhas e texto secundário levam um toque da cor do tema.
   const h = c[5], s = c[6];

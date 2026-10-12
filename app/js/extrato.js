@@ -7,7 +7,7 @@ function printReport(){
   const m = state.month, ins = incomesOf(m), outs = expensesOf(m), tin = sum(ins, x => x.value), tout = sum(outs, x => x.value);
   const table = (head, rows, total) => `<table><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
     ${total != null ? `<tr class="sum"><td colspan="${head.length - 1}">Total</td><td>${fmt(total)}</td></tr>` : ''}</table>`;
-  const kind = x => x.kind === 'installment' ? parcTag(x) : x.fixed === 'y' ? 'anual' : x.fixed ? 'fixo' : x.day ? 'dia ' + x.day : 'avulso';
+  const kind = x => !x.fixed && x.kind !== 'installment' && x.day ? 'dia ' + x.day : tipoLanc(x);
   const cats = topBy(outs, x => (CAT_GASTO[x.cat] || CAT_GASTO.outros)[1], 99), budgets = budgetStatus(m), inv = invoices(m);
   const title = monthName(m);
   document.getElementById('report').innerHTML = `
@@ -27,6 +27,7 @@ function printReport(){
     ${db.investments.length && m === curYM ? `<h2>Investimentos hoje</h2>${table(['Investimento', 'Valor'], db.investments.map(v => [esc(v.name), fmt(v.value)]), sum(db.investments, v => v.value))}` : ''}
     <div class="rodape">Relatório gerado pelo app Cofrim</div>`;
   const name = 'relatorio-' + m;
+  tr(document.getElementById('report')); // no idioma do app já na hora de imprimir (a troca automática viria depois)
   if (temNativo('imprimir')) nativo('imprimir', name); else window.print();
 }
 
@@ -146,18 +147,25 @@ const stmtIsExpense = x => (stmt.arqs[x.a].flip ? -x.amount : x.amount) < 0;
 // fatura é o crédito desse pagamento, que parecia um ganho. Não é gasto nem ganho: vem desmarcado.
 const STMT_FATURA = /\bpag(amento|to|\.)?\s*(d[aeo]\s+)?fatura|\bpagamento recebido\b|\bfatura (d[oe] )?cart|\bpgto\.? (d[aeo] )?cart/;
 const stmtFatura = x => STMT_FATURA.test(plain(x.desc));
-// Gasto do extrato que já está no app como gasto fixo ou parcela do mesmo mês: valor igual (até 2% ou R$ 1 de diferença)
-// e uma palavra da descrição do app no começo de uma palavra da do banco ("Netflix" e "NETFLIX.COM"). Devolve o texto
-// para a tela ("gasto fixo Netflix", "parcela 3/10 de Geladeira") ou ''.
-function stmtCadastrado(x){
-  if (!stmtIsExpense(x)) return '';
-  const v = Math.abs(x.amount), d = ' ' + plain(x.desc).replace(/[^a-z0-9]+/g, ' ') + ' ';
-  const e = expensesAll(x.date.slice(0, 7)).find(e => (e.kind === 'installment' || e.fixed) && Math.abs((e.full ?? e.value) - v) <= Math.max(1, v * .02)
+// Gasto importado que já está no app como gasto fixo ou parcela do mesmo mês ym: valor igual (até 2% ou R$ 1 de
+// diferença) e uma palavra da descrição do app no começo de uma palavra da importada ("Netflix" e "NETFLIX.COM").
+// Devolve o texto para a tela ("gasto fixo Netflix", "parcela 3/10 de Geladeira") ou ''. Usado pelo extrato e pela planilha.
+function jaCadastrado(desc, v, ym){
+  const d = ' ' + plain(desc).replace(/[^a-z0-9]+/g, ' ') + ' ';
+  const e = expensesAll(ym).find(e => (e.kind === 'installment' || e.fixed) && Math.abs((e.full ?? e.value) - v) <= Math.max(1, v * .02)
     && plain(e.desc).split(/[^a-z0-9]+/).some(w => w.length >= 4 && d.includes(' ' + w)));
   return !e ? '' : e.kind === 'installment' ? `parcela ${e.num}/${e.n} de ${e.desc}` : `gasto fixo ${e.desc}`;
 }
-// Já existe um lançamento igual (mesma descrição, valor e mês)? Vem desmarcado para não duplicar.
-const stmtDup = x => (stmtIsExpense(x) ? db.expenses : db.incomes).some(e => e.desc === x.desc && Math.abs(e.value - Math.abs(x.amount)) < .005 && e.start === x.date.slice(0, 7) && (!e.day || e.day === +x.date.slice(8)));
+// Já existe um lançamento igual (mesma descrição, valor e mês, e o dia, se os dois têm)? Vem desmarcado para não duplicar.
+const jaExiste = (gasto, desc, v, ym, dia) => (gasto ? db.expenses : db.incomes).some(e => e.desc === desc && Math.abs(e.value - v) < .005 && e.start === ym
+  && (!e.day || !dia || e.day === dia));
+const stmtCadastrado = x => stmtIsExpense(x) ? jaCadastrado(x.desc, Math.abs(x.amount), x.date.slice(0, 7)) : '';
+const stmtDup = x => jaExiste(stmtIsExpense(x), x.desc, Math.abs(x.amount), x.date.slice(0, 7), +x.date.slice(8));
+// Uma linha da lista de importação (extrato e planilha): marcar, descrição, detalhes, categoria e valor.
+const impLinha = (on, toggle, desc, info, cat, gasto, v) => `<div class="stmt">
+  <button type="button" class="iconbtn ${on ? 'in' : 'muted'}" data-onclick="${toggle}" aria-label="Importar este lançamento">${I(on ? 'checked' : 'unchecked', 24)}</button>
+  <div class="mid"><b>${esc(desc)}</b><span class="muted">${info}</span>${cat}</div><b class="${gasto ? 'out' : 'in'}">${fmt(v)}</b></div>`;
+const impCatBtn = (nome, acao) => `<button type="button" class="pickBtn sm impCat" data-onclick="${acao}"><span>${esc(nome)}</span>${I('chev', 14)}</button>`;
 // Período de um arquivo: "05/10/2026" ou "01/09/2026 a 31/10/2026".
 const stmtPeriodo = a => a.de === a.ate ? fmtDate(a.de) : `${fmtDate(a.de)} a ${fmtDate(a.ate)}`;
 function openStatement(){
@@ -189,20 +197,22 @@ function openStatement(){
     <button type="button" class="pickBtn" data-onclick="pickList('Forma de pagamento',[['','Não informar'],...Object.entries(PAY)],stmt.pay,v=>{stmt.pay=v;openStatement()})"><span>${PAY[stmt.pay] || 'Não informar'}</span>${I('chev')}</button>
     <label>Lançamentos</label>
     ${shown.map((x, i) => { const exp = stmtIsExpense(x), m = x.date.slice(0, 7), cab = meses.length > 1 && m !== mesAntes ? `<div class="stmtMes">${cap(monthName(m))}</div>` : ''; mesAntes = m;
-      return `${cab}<div class="stmt"><button type="button" class="iconbtn ${x.on ? 'in' : 'muted'}" data-onclick="stmtToggle(${i},this)" aria-label="Importar este lançamento">${I(x.on ? 'checked' : 'unchecked', 24)}</button>
-      <div class="mid"><b>${esc(x.desc)}</b><span class="muted">${fmtDate(x.date)}${varios ? ' · ' + esc(stmt.arqs[x.a].bank || stmt.arqs[x.a].nome) : ''}${x.fat ? ' · pagamento da fatura' : x.cad ? ' · já no app: ' + esc(x.cad) : x.dup ? ' · já existe' : x.rep ? ' · repetido em outro extrato' : ''}</span>
-      ${exp ? `<button type="button" class="pickBtn sm" style="margin-top:4px;width:auto;max-width:100%" data-onclick="pickList('Categoria',opts(CAT_GASTO),stmt.rows[${i}].cat,v=>{stmt.rows[${i}].cat=v;openStatement()})"><span>${esc((CAT_GASTO[x.cat] || CAT_GASTO.outros)[1])}</span>${I('chev', 14)}</button>` : ''}</div>
-      <b class="${exp ? 'out' : 'in'}">${fmt(Math.abs(x.amount))}</b></div>`; }).join('')}
+      const onde = varios ? ' · ' + esc(stmt.arqs[x.a].bank || stmt.arqs[x.a].nome) : '', porque = x.fat ? ' · pagamento da fatura'
+        : x.cad ? ' · já no app: ' + esc(x.cad) : x.dup ? ' · já existe' : x.rep ? ' · repetido em outro extrato' : '';
+      const cat = exp ? impCatBtn((CAT_GASTO[x.cat] || CAT_GASTO.outros)[1],
+        `pickList('Categoria',opts(CAT_GASTO),stmt.rows[${i}].cat,v=>{stmt.rows[${i}].cat=v;openStatement()})`) : '';
+      return cab + impLinha(x.on, `stmtToggle(${i},this)`, x.desc, fmtDate(x.date) + onde + porque, cat, exp, Math.abs(x.amount)); }).join('')}
     ${stmt.rows.length > shown.length ? `<div class="hint">Mostrando os primeiros ${shown.length}; os demais também serão importados.</div>` : ''}
     <div class="btns foot"><button class="btn" data-onclick="closeForm()">Cancelar</button><button class="btn primary" id="stmtGo" data-onclick="commitStatement()">${stmtLabel()}</button></div>`);
   stmt.arqs.forEach((a, k) => sugBind(document.getElementById('stmtBank' + k), document.getElementById('sug_stmt' + k), bankSuggestions()));
 }
 function stmtToggle(i, b){
   const x = stmt.rows[i];
-  x.on = !x.on;
-  b.className = 'iconbtn ' + (x.on ? 'in' : 'muted'); b.innerHTML = I(x.on ? 'checked' : 'unchecked', 24);
+  x.on = impMarca(b, !x.on);
   document.getElementById('stmtGo').textContent = stmtLabel();
 }
+// Desenha o botão de marcar de uma linha (impLinha) e devolve o novo estado.
+const impMarca = (b, on) => { b.className = 'iconbtn ' + (on ? 'in' : 'muted'); b.innerHTML = I(on ? 'checked' : 'unchecked', 24); return on; };
 const stmtLabel = () => `Importar ${stmt.rows.filter(x => x.on).length} lançamentos`;
 function commitStatement(){
   const added = [], meses = new Set(); // added: [coleção, id] para o "Desfazer"
@@ -221,4 +231,18 @@ function commitStatement(){
     for (const [col, id] of added){ db[col] = db[col].filter(r => r.id !== id); db.tomb[id] = Date.now(); }
     save(); render();
   }, {dest:{k:'gastos', m:state.month}});
+}
+// Importar planilha: os dois arquivos (planilha-ler.js e planilha-importar.js) carregam na primeira vez que a pessoa usa.
+let planilhaPedido = null;
+function planilhaCarregar(){
+  if (typeof planAjuda === 'function') return Promise.resolve();
+  const carrega = src => new Promise((ok, falha) => {
+    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = falha; document.head.appendChild(s); });
+  if (!planilhaPedido) planilhaPedido = Promise.all(['js/planilha-ler.js', 'js/planilha-importar.js'].map(carrega))
+    .catch(e => { planilhaPedido = null; throw e; });
+  return planilhaPedido;
+}
+function abrirImportarPlanilha(){
+  if (typeof planAjuda === 'function') return planAjuda(); // já carregado: abre na hora
+  planilhaCarregar().then(() => planAjuda(), () => avisoErro('internet', 'Não foi possível abrir o Importar planilha agora.'));
 }

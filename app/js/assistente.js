@@ -18,7 +18,7 @@ const chatLog = []; // {me, html} ou {me:false, entry:índice em chatEntries}; f
 // Devolve {col, desc, value, cat, bank, pay, q} ou null se a frase não parece um lançamento (perguntas nunca são).
 const chatEntries = [];
 function parseEntry(q){
-  const t = ' ' + plain(q).replace(/\s+/g, ' ').trim() + ' ';
+  const t = ' ' + plain(chatPt(q, false)).replace(/\s+/g, ' ').trim() + ' ';
   if (q.includes('?') || /\b(quanto|quanta|qual|quais|onde|como|quando|quem|por que|porque)\b/.test(t)) return null;
   const num = t.match(/(?:r\$ ?)?\b(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\b(?: ?reais| ?conto)?/);
   if (!num) return null;
@@ -41,7 +41,8 @@ function parseEntry(q){
   // A frase foi comparada sem acentos; a descrição volta com os acentos que a pessoa digitou.
   const orig = q.split(/\s+/).filter(Boolean), desc0 = w.map(p => orig.find(o => plain(o).replace(/[^a-z0-9]/g, '') === p) || p).join(' ');
   const C = col === 'incomes' ? CAT_GANHO : CAT_GASTO, pd = plain(desc0);
-  const porNome = Object.keys(C).find(k => !C[k][3] && (plain(C[k][1]) === pd || pd.split(' ').includes(plain(C[k][1]))));
+  const nomes = k => [plain(C[k][1]), plain(trText(C[k][1]))]; // o nome em português e no idioma do app
+  const porNome = Object.keys(C).find(k => !C[k][3] && nomes(k).some(n => n === pd || pd.split(' ').includes(n)));
   const memo = col === 'expenses' && db.catMemo[pd];
   const cat = memo && C[memo] ? memo : porNome || (col === 'expenses' ? guessCat(desc0) : 'outros');
   return {col, desc:cap(desc0) || C[cat][1], value:round2(value), cat, bank, pay, q};
@@ -49,11 +50,11 @@ function parseEntry(q){
 function entryHtml(i){
   const e = chatEntries[i], C = e.col === 'incomes' ? CAT_GANHO : CAT_GASTO;
   if (e.done) return e.done;
-  return `<b>Lançar este ${e.col === 'incomes' ? 'ganho' : 'gasto'}?</b>` +
+  return `<b>${tf(e.col === 'incomes' ? 'Lançar este ganho?' : 'Lançar este gasto?')}</b>` +
     chatRows([[e.desc, e.value], ['Categoria', (C[e.cat] || C.outros)[1]], ...(e.bank ? [['Banco', e.bank]] : []),
       ...(e.pay ? [['Pagamento', PAY[e.pay]]] : []), ['Mês', cap(monthName(curYM))]]) +
     `<div class="btns"><button class="btn primary" data-onclick="entryDo(${i},'ok')">Lançar</button><button class="btn" data-onclick="entryDo(${i},'edit')">Editar</button></div>
-    <div class="btns" style="margin-top:6px"><button class="btn" data-onclick="entryDo(${i},'no')">Não era isso</button></div>`;
+    <div class="btns u-mt6"><button class="btn" data-onclick="entryDo(${i},'no')">Não era isso</button></div>`;
 }
 function entryDo(i, op){
   const e = chatEntries[i];
@@ -63,12 +64,13 @@ function entryDo(i, op){
       : {id:e.id, desc:e.desc, value:e.value, cat:e.cat, bank:e.bank, pay:e.pay, tags:'', who:'', share:'', fixed:false, start:curYM, day:'', due:'', end:''}));
     if (e.col === 'expenses') db.catMemo[plain(e.desc)] = e.cat;
     save();
-    e.done = `<span class="in">${I('checked', 16)}</span> Lançado: <b>${esc(e.desc)}</b>, ${shown(() => fmt(e.value))}, em ${monthName(curYM)}.<div class="btns"><button class="btn" data-onclick="entryDo(${i},'undo')">Desfazer</button></div>`;
+    const feito = tf('Lançado: {}, {}, em {}.', `<b>${esc(e.desc)}</b>`, shown(() => fmt(e.value)), trText(monthName(curYM)));
+    e.done = `${falaTema(e.q, `<span class="in">${I('checked', 16)}</span> ${feito}`, 'ok')}<div class="btns"><button class="btn" data-onclick="entryDo(${i},'undo')">Desfazer</button></div>`;
   } else if (op === 'undo'){
     db[e.col] = db[e.col].filter(r => r.id !== e.id); db.tomb[e.id] = Date.now(); save();
-    e.done = 'Desfeito: o lançamento foi removido.';
+    e.done = falaTema(e.q, tf('Desfeito: o lançamento foi removido.'), 'desfeito');
   } else if (op === 'edit'){
-    e.done = 'Abri o formulário já preenchido para você conferir e salvar.';
+    e.done = falaTema(e.q, tf('Abri o formulário já preenchido para você conferir e salvar.'), 'edita');
     openForm(e.col, null,
       {vals:{desc:e.desc, value:moneyStr(e.value), cat:e.cat, bank:e.bank, ...(e.col === 'expenses' ? {pay:e.pay} : {fixed:''})}, more:true});
   } else e.done = falaTema(e.q, answer(e.q));
@@ -87,15 +89,16 @@ const topBy = (items, key, n = 5) => { const g = {}; items.forEach(x => g[key(x)
 const allBanks = () => [...new Set([...db.expenses, ...db.installments].map(x => x.bank).filter(Boolean))];
 
 // Período citado na pergunta; sem citação, o mês atual.
+const mesDe = m => trText(monthName(m).replace(' ', ' de ')); // "outubro de 2026", no idioma do app
 function parsePeriod(t){
   const y = now.getFullYear(), ym = t.match(/\b(20\d\d)\b/), yr = ym ? +ym[1] : 0;
-  const yearOf = Y => ({months:[...Array(12)].map((_,i) => ymOf(Y, i)), label:'em ' + Y});
-  const one = m => ({months:[m], label:'em ' + monthName(m).replace(' ', ' de ')});
+  const yearOf = Y => ({months:[...Array(12)].map((_,i) => ymOf(Y, i)), label:tf('em {}', Y)});
+  const one = m => ({months:[m], label:tf('em {}', mesDe(m))});
   if (/mes passado|ultimo mes/.test(t)) return one(addMonths(curYM, -1));
   if (/mes que vem|proximo mes/.test(t)) return one(addMonths(curYM, 1));
   const last = t.match(/ultimos (\d+) meses/);
   if (last){ const n = Math.min(36, Math.max(1, +last[1]));
-    return {months:[...Array(n)].map((_,i) => addMonths(curYM, i - n + 1)), label:`nos últimos ${n} meses`}; }
+    return {months:[...Array(n)].map((_,i) => addMonths(curYM, i - n + 1)), label:tf('nos últimos {} meses', n)}; }
   const mi = MESES.findIndex(n => new RegExp('\\b' + plain(n) + '\\b').test(t));
   if (mi >= 0) return one(ymOf(yr || y, mi));
   if (/ano passado/.test(t)) return yearOf(y - 1);
@@ -118,76 +121,146 @@ function chatExpenses(t, P){
   if (word) items = items.filter(x => plain(x.desc).includes(word));
   if (bank) items = items.filter(x => x.bank === bank);
   if (pay) items = items.filter(x => x.pay === pay);
-  const what = [cat && 'com ' + esc(CAT_GASTO[cat][1].toLowerCase()), word && `com "${esc(word)}"`, bank && 'no ' + esc(bank),
-    pay && 'em ' + PAY[pay].toLowerCase()].filter(Boolean).join(' ');
+  const what = [cat && tf('com {}', esc(trText(CAT_GASTO[cat][1]).toLowerCase())), word && tf('com "{}"', esc(word)), bank && tf('no {}', esc(bank)),
+    pay && tf('em {}', trText(PAY[pay]).toLowerCase())].filter(Boolean).join(' ');
   return {items, what, filtered:!!(cat || word || bank || pay)};
 }
-// Com um tema especial (e o app em português), a resposta ganha uma abertura e um fecho no clima do tema: as falas
-// exclusivas dele (FALAS_ASSIST, em js/temas2.js) ou, num tema sem falas próprias, as da categoria. A escolha é fixa para
-// cada pergunta: a mesma pergunta recebe sempre as mesmas falas.
-function falaTema(q, resp){
-  const k = db.prefs.skin, falas = FALAS_ASSIST[k] || FALAS_ASSIST_CAT[temaCat(k)];
-  if (!k || lang() !== 'pt' || !falas) return resp;
+// Com um tema especial, o assistente fala no clima do tema, em qualquer idioma, sem mexer na frase do app (números,
+// nomes e datas ficam como estão). Resposta comum: uma abertura e um fecho, os exclusivos do tema (FALAS_ASSIST, em
+// js/temas2.js) ou, num tema sem falas próprias, os da categoria. Os outros tipos (tipo: 'ok' lançou, 'desfeito',
+// 'edita' abriu o formulário, 'erro' não entendeu, 'vazio' nada encontrado) ganham uma fala antes (TONS ou TONS_CAT). A
+// escolha é fixa para cada pergunta: a mesma pergunta recebe sempre as mesmas falas.
+let respTipo = 'resposta'; // tipo da última resposta de answer: 'resposta', 'vazio' ou 'erro'
+const semDados = s => { respTipo = 'vazio'; return s; };
+function falaTema(q, resp, tipo = respTipo){
+  const k = db.prefs.skin;
+  if (!k) return resp;
   let h = 0;
   for (const ch of plain(q).trim()) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  if (tipo !== 'resposta'){
+    const t = (TONS[k] || TONS_CAT[temaCat(k)] || {})[tipo];
+    return t ? `<span class="fala">${trText(t[h % t.length])}</span>${resp}` : resp;
+  }
+  const falas = FALAS_ASSIST[k] || FALAS_ASSIST_CAT[temaCat(k)];
+  if (!falas) return resp;
   const [ab, fe] = falas;
-  return `<span class="fala">${ab[h % ab.length]}</span>${resp}<span class="fala fim">${fe[(h >>> 4) % fe.length]}</span>`;
+  return `<span class="fala">${trText(ab[h % ab.length])}</span>${resp}<span class="fala fim">${trText(fe[(h >>> 4) % fe.length])}</span>`;
+}
+// Pergunta em inglês ou espanhol: troca as palavras que o assistente reconhece pelas em português (sem acentos, como ele
+// compara). O que não está aqui (descrições, bancos, nomes) fica como veio.
+const CHAT_IDIOMA = {
+  en:[[/\bhow much\b/g, 'quanto'], [/\bhow many\b/g, 'quantos'], [/\b(what|which)\b/g, 'qual'], [/\bwhere\b/g, 'onde'],
+    [/\bshould i (invest|buy|sell)\b/g, 'devo investir'], [/\b(help|examples?)\b/g, 'ajuda'],
+    [/\bthis month\b/g, 'este mes'], [/\blast month\b/g, 'mes passado'], [/\bnext month\b/g, 'mes que vem'], [/\bthis year\b/g, 'este ano'],
+    [/\blast year\b/g, 'ano passado'], [/\bnext year\b/g, 'ano que vem'], [/\blast (\d+) months\b/g, 'ultimos $1 meses'],
+    [/\b(will be )?left( over)?\b|\bleftover\b/g, 'vai sobrar'], [/\bend of (the )?month\b/g, 'fim do mes'], [/\bforecast\b/g, 'previsao'],
+    [/\b(credit )?card bills?\b|\binvoices?\b/g, 'fatura'], [/\b(bills?|accounts?) (due|to pay)\b|\bdue\b/g, 'vencer'],
+    [/\bbudgets?\b|\blimits?\b/g, 'orcamento'], [/\bgoals?\b/g, 'metas'], [/\binstall?ments?\b|\bdebts?\b|\bowe\b/g, 'parcela'],
+    [/\btransfers?\b/g, 'transfer'], [/\bbalance\b/g, 'saldo'], [/\bdividends?\b/g, 'provento'], [/\b(returns?|yield)\b/g, 'rendimento'],
+    [/\binvest\w*\b|\bportfolio\b/g, 'invest'], [/\baverage\b/g, 'media'], [/\b(saved?|savings?)\b/g, 'economizei'], [/\b(sales?|sold)\b/g, 'vendas'],
+    [/\bprofit\b/g, 'lucro'], [/\bcategor(y|ies)\b/g, 'categoria'], [/\bcompared?\b/g, 'comparado'], [/\b(most|more)\b/g, 'mais'],
+    [/\b(did i |have i )?(spend|spent|spending)\b/g, 'gastei'], [/\b(expenses?|costs?)\b/g, 'gastos'], [/\bpaid\b/g, 'paguei'], [/\bbought\b/g, 'comprei'],
+    [/\b(did i )?(earn|earned|make|made|receive|received|got)\b/g, 'recebi'], [/\bincome\b/g, 'ganhos'], [/\bsalary\b/g, 'salario'],
+    [/\bcredit\b/g, 'credito'], [/\bdebit\b/g, 'debito'], [/\bcash\b/g, 'dinheiro'], [/\bwith\b/g, 'com'], [/\bmonths\b/g, 'meses'],
+    [/\bmonth\b/g, 'mes'], [/\byear\b/g, 'ano'],
+    ...['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+      .map((m, i) => [new RegExp(`\\b${m}\\b`, 'g'), plain(MESES[i])]),
+    [/\b(the|a|an|my|i|did|do|does|to|of|for|is|are|in|on|at|much|have|has|will|be|me|show|tell)\b/g, ' ']],
+  es:[[/\bcuanto\b/g, 'quanto'], [/\bcuantos\b/g, 'quantos'], [/\bcuales?\b/g, 'qual'], [/\bdonde\b/g, 'onde'],
+    [/\bdebo (invertir|comprar|vender)\b/g, 'devo investir'], [/\b(ayuda|ejemplos?)\b/g, 'ajuda'],
+    [/\bel mes pasado\b|\bmes pasado\b/g, 'mes passado'], [/\b(el )?proximo mes\b|\bmes que viene\b/g, 'mes que vem'],
+    [/\bano pasado\b/g, 'ano passado'], [/\b(el )?proximo ano\b|\bano que viene\b/g, 'ano que vem'],
+    [/\b(va a sobrar|sobrara|me queda|quedara)\b/g, 'vai sobrar'], [/\bfin de mes\b/g, 'fim do mes'], [/\bprevision\b/g, 'previsao'],
+    [/\bfacturas?\b/g, 'fatura'], [/\b(vencen|vencimientos?|por pagar)\b/g, 'vencer'], [/\bpresupuestos?\b/g, 'orcamento'],
+    [/\b(cuotas?|deudas?|debo)\b/g, 'parcela'], [/\btransferencias?\b/g, 'transfer'], [/\bdividendos?\b/g, 'provento'],
+    [/\brendimientos?\b/g, 'rendimento'], [/\binver(sion|siones|tido|tir)\w*\b|\bcartera\b/g, 'invest'], [/\bpromedio\b/g, 'media'],
+    [/\bahorr\w*\b/g, 'economizei'], [/\b(ventas?|vendi)\b/g, 'vendas'], [/\bganancias?\b/g, 'lucro'], [/\bmas\b/g, 'mais'],
+    [/\bcomparad[oa]\b/g, 'comparado'], [/\b(gaste|he gastado|gastado)\b/g, 'gastei'], [/\bpague\b/g, 'paguei'], [/\bcompre\b/g, 'comprei'],
+    [/\b(recibi|gane|he ganado|ganado|cobre)\b/g, 'recebi'], [/\bingresos?\b/g, 'ganhos'], [/\bsueldo\b/g, 'salario'], [/\befectivo\b/g, 'dinheiro'],
+    [/\bcon\b/g, 'com'],
+    ...['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+      .map((m, i) => [new RegExp(`\\b${m}\\b`, 'g'), plain(MESES[i])]),
+    [/\b(el|la|los|las|del|en|mi|mis|me|un|una|hay)\b/g, ' ']]};
+// cats: troca também o nome de categoria no idioma do app ("groceries") pelo nome em português (não ao lançar: a
+// descrição fica como a pessoa escreveu).
+function chatPt(q, cats = true){
+  const regras = CHAT_IDIOMA[lang()];
+  if (!regras) return q;
+  let t = ' ' + plain(q) + ' ';
+  if (cats) for (const c of Object.values({...CAT_GASTO, ...CAT_GANHO})){
+    const n = plain(trText(c[1]));
+    if (!c[3] && n !== plain(c[1])) t = t.split(` ${n} `).join(` ${plain(c[1])} `);
+  }
+  for (const [re, v] of regras) t = t.replace(re, v);
+  return t.replace(/\s+/g, ' ').trim() + (q.includes('?') ? '?' : '');
 }
 function answer(q){
-  const t = ' ' + plain(q).replace(/[-?!.,;:"']/g, ' ').replace(/\s+/g, ' ') + ' ';
+  respTipo = 'resposta';
+  const t = ' ' + plain(chatPt(q)).replace(/[-?!.,;:"']/g, ' ').replace(/\s+/g, ' ') + ' ';
   const P = parsePeriod(t), single = P.months.length === 1, future = P.months.every(m => m > curYM);
   const held = db.investments.filter(v => v.ticker), asset = held.find(v => t.includes(' ' + v.ticker.toLowerCase() + ' '));
-  const helpText = 'Posso responder sobre gastos, ganhos, saldo, previsão, contas bancárias, transferências, parcelas, faturas, orçamento, contas a vencer, metas, investimentos, vendas e proventos. Você pode citar um mês, um ano, uma categoria, um banco ou uma forma de pagamento.';
+  const helpText = tf('Posso responder sobre gastos, ganhos, saldo, previsão, contas bancárias, transferências, parcelas, faturas, orçamento, '
+    + 'contas a vencer, metas, investimentos, vendas e proventos. Você pode citar um mês, um ano, uma categoria, um banco ou uma forma de pagamento.');
+  const n1 = (n, um, varios) => n === 1 ? um : varios; // frase no singular ou no plural (cada uma traduzida inteira)
 
   if (/ajuda|exemplo|o que voce (sabe|faz|pode)/.test(t)) return helpText;
   if (/devo (investir|comprar|vender)|vale a pena|recomenda|melhor investimento|onde investir|em que investir/.test(t))
-    return 'Não faço recomendações de investimento. Posso mostrar os números dos investimentos que você cadastrou; para decidir onde aplicar, veja a aba Notícias ou procure um profissional habilitado.';
+    return tf('Não faço recomendações de investimento. Posso mostrar os números dos investimentos que você cadastrou; para decidir onde '
+      + 'aplicar, veja a aba Notícias ou procure um profissional habilitado.');
 
   if (/vencer|vencimento|\bvence|contas a pagar/.test(t)){
     const m = P.months[0], bills = db.expenses.filter(x => x.fixed && x.due && activeIn(x, m)).sort((a,b) => a.due - b.due);
-    if (!bills.length) return `Não há contas com dia de vencimento ${P.label}. Para cadastrar, edite um gasto fixo e informe o dia do vencimento.`;
+    if (!bills.length) return tf('Não há contas com dia de vencimento {}. Para cadastrar, edite um gasto fixo e informe o dia do vencimento.', P.label);
     const open = bills.filter(x => !isPaid(x, m));
-    return `${open.length ? `Faltam pagar <b>${fmt(sum(open, x => x.value))}</b> em ${open.length} conta${open.length > 1 ? 's' : ''} ${P.label}` : `Todas as contas ${P.label} estão pagas`}.` +
-      chatRows(bills.map(x => [`${x.desc} · dia ${dueDay(x, m)}`, isPaid(x, m) ? 'paga' : fmt(x.value)]));
+    return (open.length ? tf(n1(open.length, 'Faltam pagar {} em {} conta {}.', 'Faltam pagar {} em {} contas {}.'), `<b>${fmt(sum(open, x => x.value))}</b>`, open.length, P.label)
+      : tf('Todas as contas {} estão pagas.', P.label)) +
+      chatRows(bills.map(x => [`${x.desc} · ${tf('dia {}', dueDay(x, m))}`, isPaid(x, m) ? tf('paga') : fmt(x.value)]));
   }
   if (/orcamento|limite/.test(t)){
     const b = budgetStatus(P.months[0]);
-    if (!b.length) return 'Você ainda não definiu orçamentos. Na aba Gastos, toque em "Definir" ao lado de "Orçamento do mês".';
+    if (!b.length) return semDados(tf('Você ainda não definiu orçamentos. Na aba Gastos, toque em "Definir" ao lado de "Orçamento do mês".'));
     const over = b.filter(x => x.pct > 100).length;
-    return `${over ? `${over} categoria${over > 1 ? 's' : ''} acima do limite` : 'Nenhuma categoria acima do limite'} ${P.label}.` +
-      chatRows(b.map(x => [(CAT_GASTO[x.cat] || CAT_GASTO.outros)[1], `${fmt(x.used)} de ${fmt(x.lim)} (${Math.round(x.pct)}%)`]));
+    return (over ? tf(n1(over, '{} categoria acima do limite {}.', '{} categorias acima do limite {}.'), over, P.label) : tf('Nenhuma categoria acima do limite {}.', P.label)) +
+      chatRows(b.map(x => [trText((CAT_GASTO[x.cat] || CAT_GASTO.outros)[1]), `${tf('{} de {}', fmt(x.used), fmt(x.lim))} (${Math.round(x.pct)}%)`]));
   }
   if (/\bmetas?\b|objetivo/.test(t)){
-    if (!db.goals.length) return 'Você ainda não cadastrou metas. Elas ficam na aba Investir.';
-    return `Você tem ${db.goals.length} meta${db.goals.length > 1 ? 's' : ''}, com <b>${fmt(sum(db.goals, g => g.saved))}</b> guardados de ${fmt(sum(db.goals, g => g.target))}.` +
-      chatRows(db.goals.map(g => [g.name, `${fmt(g.saved)} de ${fmt(g.target)} (${Math.round(g.saved / g.target * 100)}%)`]));
+    if (!db.goals.length) return semDados(tf('Você ainda não cadastrou metas. Elas ficam na aba Investir.'));
+    return tf(n1(db.goals.length, 'Você tem {} meta, com {} guardados de {}.', 'Você tem {} metas, com {} guardados de {}.'), db.goals.length,
+      `<b>${fmt(sum(db.goals, g => g.saved))}</b>`, fmt(sum(db.goals, g => g.target))) +
+      chatRows(db.goals.map(g => [g.name, `${tf('{} de {}', fmt(g.saved), fmt(g.target))} (${Math.round(g.saved / g.target * 100)}%)`]));
   }
   if (/fatura/.test(t)){
     const m = P.months[0], bank = allBanks().find(b => t.includes(plain(b))), inv = invoices(m).filter(([b]) => !bank || b === bank);
-    if (!inv.length) return `Não encontrei compras no crédito ${bank ? 'no ' + esc(bank) + ' ' : ''}${P.label}.`;
-    return `As faturas ${P.label} somam <b>${fmt(sum(inv, x => x[1]))}</b>.` + chatRows(inv);
+    if (!inv.length) return bank ? tf('Não encontrei compras no crédito no {} {}.', esc(bank), P.label) : tf('Não encontrei compras no crédito {}.', P.label);
+    return tf('As faturas {} somam {}.', P.label, `<b>${fmt(sum(inv, x => x[1]))}</b>`) + chatRows(inv);
   }
   if (/parcela|falta pagar|quanto devo|divida/.test(t)){
     const open = db.installments.filter(p => p.paid < p.n);
-    if (!open.length) return 'Você não tem compras parceladas em aberto.';
+    if (!open.length) return semDados(tf('Você não tem compras parceladas em aberto.'));
     const left = parcFalta;
-    return `Falta pagar <b>${fmt(sum(open, left))}</b> em ${open.length} compra${open.length > 1 ? 's' : ''} parcelada${open.length > 1 ? 's' : ''}. Neste mês as parcelas somam ${fmt(sum(expensesOf(curYM).filter(x => x.kind === 'installment'), x => x.value))}.` +
-      chatRows(open.map(p => [`${p.desc} · ${p.paid}/${p.n} · até ${monthName(addMonths(p.start, p.n - 1))}`, left(p)]));
+    return tf(n1(open.length, 'Falta pagar {} em {} compra parcelada. Neste mês as parcelas somam {}.', 'Falta pagar {} em {} compras parceladas. Neste mês as parcelas somam {}.'),
+      `<b>${fmt(sum(open, left))}</b>`, open.length, fmt(sum(expensesOf(curYM).filter(x => x.kind === 'installment'), x => x.value))) +
+      chatRows(open.map(p => [`${p.desc} · ${p.paid}/${p.n} · ${tf('até {}', trText(monthName(addMonths(p.start, p.n - 1))))}`, left(p)]));
   }
   if (/vai sobrar|vou ter no fim|previs(ao|to)|fim do mes/.test(t) && !/invest|projec/.test(t)){
     const rows = [...Array(4)].map((_,i) => addMonths(curYM, i)), net = m => totalIn(m) - totalOutPrev(m), n0 = net(curYM), r0 = reservaPrevisoes(curYM);
-    return `Pela previsão, em ${monthName(curYM)} ${n0 < 0 ? 'faltam' : 'sobram'} <b>${fmt(Math.abs(n0))}</b>${db.accounts.length ? `, e o saldo das contas termina o mês em <b>${fmt(sum(db.accounts, a => accountBalance(a, monthEnd(curYM))) - r0)}</b>` : ''}${r0 ? ` (${prevInclui(r0)})` : ''}.` +
-      chatRows(rows.map(m => [monthName(m), `${net(m) < 0 ? 'falta' : 'sobra'} ${fmt(Math.abs(net(m)))}`]));
+    const contas = db.accounts.length ? tf(', e o saldo das contas termina o mês em {}', `<b>${fmt(sum(db.accounts, a => accountBalance(a, monthEnd(curYM))) - r0)}</b>`) : '';
+    return tf(n0 < 0 ? 'Pela previsão, em {} faltam {}{}{}.' : 'Pela previsão, em {} sobram {}{}{}.', trText(monthName(curYM)), `<b>${fmt(Math.abs(n0))}</b>`, contas,
+      r0 ? ` (${trText(prevInclui(r0))})` : '') +
+      chatRows(rows.map(m => [trText(monthName(m)), tf(net(m) < 0 ? 'falta {}' : 'sobra {}', fmt(Math.abs(net(m))))]));
   }
   if (/transfer/.test(t)){
     const list = db.transfers.filter(x => P.months.includes(x.month));
-    if (!list.length) return `Não encontrei transferências ${P.label}.`;
-    return `Você fez ${list.length} transferência${list.length > 1 ? 's' : ''} ${P.label}, somando <b>${fmt(sum(list, x => x.value))}</b>.` + chatRows(list.map(x => [`${x.from} → ${x.to}`, x.value]));
+    if (!list.length) return semDados(tf('Não encontrei transferências {}.', P.label));
+    return tf(n1(list.length, 'Você fez {} transferência {}, somando {}.', 'Você fez {} transferências {}, somando {}.'), list.length, P.label, `<b>${fmt(sum(list, x => x.value))}</b>`) +
+      chatRows(list.map(x => [`${x.from} → ${x.to}`, x.value]));
   }
   const acc = db.accounts.find(a => t.includes(' ' + plain(a.name) + ' '));
   if (db.accounts.length && /saldo|quanto tenho|tenho n|dinheiro/.test(t) && (acc || /\bcontas?\b|\bbanco/.test(t))){
-    const list = acc ? [acc] : db.accounts;
-    return `${acc ? `O saldo de ${esc(acc.name)} hoje é` : 'Suas contas somam hoje'} <b>${fmt(sum(list, a => accountBalance(a)))}</b>; a previsão para o fim do mês é ${fmt(sum(list, a => accountBalance(a, monthEnd(curYM))) - (acc ? 0 : reservaPrevisoes(curYM)))}${!acc && reservaPrevisoes(curYM) ? `, contando ${fmt(reservaPrevisoes(curYM))} de previsões` : ''}.` +
+    const list = acc ? [acc] : db.accounts, prev = fmt(sum(list, a => accountBalance(a, monthEnd(curYM))) - (acc ? 0 : reservaPrevisoes(curYM)));
+    const hoje = `<b>${fmt(sum(list, a => accountBalance(a)))}</b>`, extra = !acc && reservaPrevisoes(curYM) ? tf(', contando {} de previsões', fmt(reservaPrevisoes(curYM))) : '';
+    return (acc ? tf('O saldo de {} hoje é {}; a previsão para o fim do mês é {}{}.', esc(acc.name), hoje, prev, extra)
+      : tf('Suas contas somam hoje {}; a previsão para o fim do mês é {}{}.', hoje, prev, extra)) +
       (acc ? '' : chatRows(list.map(a => [a.name, accountBalance(a)])));
   }
   if (/provento|dividendo|\bjcp\b/.test(t)){
@@ -195,64 +268,72 @@ function answer(q){
     const dated = /\bmes\b|\bmeses\b|\bano\b|20\d\d/.test(t) || MESES.some(n => t.includes(' ' + plain(n) + ' '));
     const rows = held.map(v => [v.ticker,
       sum((v.divs || []).filter(d => !dated || P.months.includes(d.date.slice(0, 7))), d => d.value)]).filter(r => r[1] > 0);
-    if (!rows.length) return 'Não encontrei proventos registrados nesse período. Para registrar, use "Registrar provento" no cartão do ativo, na aba Investir.';
-    return `Você recebeu <b>${fmt(sum(rows, r => r[1]))}</b> em proventos ${dated ? P.label : 'até hoje'}.` + chatRows(rows);
+    if (!rows.length) return semDados(tf('Não encontrei proventos registrados nesse período. Para registrar, use "Registrar provento" no cartão do ativo, na aba Investir.'));
+    return tf('Você recebeu {} em proventos {}.', `<b>${fmt(sum(rows, r => r[1]))}</b>`, dated ? P.label : tf('até hoje')) + chatRows(rows);
   }
   if (/vend(a|as|i|eu|ido)\b|lucr/.test(t) && held.some(v => (v.sales || []).length)){
     const rows = held.map(v => [v.ticker, sum(v.sales || [], s => s.qty * (s.price - s.cost))]).filter(r => r[1] !== 0);
     const total = sum(rows, r => r[1]);
-    return `O resultado das suas vendas de ações e moedas é <b>${total < 0 ? '−' : '+'}${fmt(Math.abs(total))}</b>.` + chatRows(rows.map(([n, v]) => [n, `${v < 0 ? '−' : '+'}${fmt(Math.abs(v))}`]));
+    return tf('O resultado das suas vendas de ações e moedas é {}.', `<b>${total < 0 ? '−' : '+'}${fmt(Math.abs(total))}</b>`) +
+      chatRows(rows.map(([n, v]) => [n, `${v < 0 ? '−' : '+'}${fmt(Math.abs(v))}`]));
   }
   if (asset){
     const cost = asset.qty * asset.paid, gain = asset.value - cost;
-    return `Você tem <b>${asset.qty.toLocaleString('pt-BR', {maximumFractionDigits:8})}</b> de ${esc(asset.ticker)}, que valem <b>${fmt(asset.value)}</b> hoje.` +
+    return tf('Você tem {} de {}, que valem {} hoje.', `<b>${asset.qty.toLocaleString('pt-BR', {maximumFractionDigits:8})}</b>`, esc(asset.ticker), `<b>${fmt(asset.value)}</b>`) +
       chatRows([['Preço médio', fmtQ(asset.paid)], ['Cotação atual', fmtQ(asset.quote)], ['Total investido', cost], ['Rendimento', `${gain < 0 ? '−' : '+'}${fmt(Math.abs(gain))} (${(cost ? gain / cost * 100 : 0).toLocaleString('pt-BR', {maximumFractionDigits:2})}%)`]]);
   }
   if (/invest|rend(eu|e|imento|endo)|carteira|patrimonio|acoes|aplicad|aplicac/.test(t)){
     const vs = db.investments, total = sum(vs, v => v.value);
-    if (!vs.length) return 'Você ainda não cadastrou investimentos.';
+    if (!vs.length) return semDados(tf('Você ainda não cadastrou investimentos.'));
     if (/rend/.test(t)){
       const gain = sum(held, v => v.value - v.qty * v.paid), fixedYield = sum(vs.filter(v => !v.ticker), v => v.value * monthlyRate(v));
-      return `${held.length ? `Suas ações e moedas acumulam <b>${gain < 0 ? '−' : '+'}${fmt(Math.abs(gain))}</b> desde as compras. ` : ''}A renda fixa rende cerca de <b>${fmt(fixedYield)}</b> neste mês, pelas taxas atuais.`;
+      return (held.length ? tf('Suas ações e moedas acumulam {} desde as compras.', `<b>${gain < 0 ? '−' : '+'}${fmt(Math.abs(gain))}</b>`) + ' ' : '') +
+        tf('A renda fixa rende cerca de {} neste mês, pelas taxas atuais.', `<b>${fmt(fixedYield)}</b>`);
     }
-    if (/projec|daqui|vou ter|12 meses|um ano|futuro/.test(t)) return `Pela projeção, seus ${fmt(total)} de hoje chegam a <b>${fmt(sum(vs, projection))}</b> em 12 meses (valor bruto, com as taxas atuais; ações e moedas entram pelo valor de hoje).`;
-    return `Você tem <b>${fmt(total)}</b> investidos hoje.` + chatRows(topBy(vs, v => (CAT_INV[v.cat] || CAT_INV.outros)[1], 9));
+    if (/projec|daqui|vou ter|12 meses|um ano|futuro/.test(t))
+      return tf('Pela projeção, seus {} de hoje chegam a {} em 12 meses (valor bruto, com as taxas atuais; ações e moedas entram pelo valor de hoje).', fmt(total), `<b>${fmt(sum(vs, projection))}</b>`);
+    return tf('Você tem {} investidos hoje.', `<b>${fmt(total)}</b>`) + chatRows(topBy(vs, v => trText((CAT_INV[v.cat] || CAT_INV.outros)[1]), 9));
   }
   if (/\bmedia\b/.test(t)){
     const months = single ? [...Array(now.getMonth() + 1)].map((_,i) => ymOf(now.getFullYear(), i)) : P.months.filter(m => m <= curYM);
-    if (!months.length) return 'Só consigo calcular a média de meses que já começaram.';
+    if (!months.length) return semDados(tf('Só consigo calcular a média de meses que já começaram.'));
     const {items, what} = chatExpenses(t, {months});
-    return `Sua média de gastos ${what} é de <b>${fmt(sum(items, x => x.value) / months.length)}</b> por mês, considerando ${months.length} ${months.length > 1 ? 'meses' : 'mês'} (${monthName(months[0])} a ${monthName(months[months.length - 1])}).`;
+    return tf(n1(months.length, 'Sua média de gastos {} é de {} por mês, considerando {} mês ({} a {}).', 'Sua média de gastos {} é de {} por mês, considerando {} meses ({} a {}).'),
+      what, `<b>${fmt(sum(items, x => x.value) / months.length)}</b>`, months.length, trText(monthName(months[0])), trText(monthName(months[months.length - 1])));
   }
   if (/saldo|sobr(ou|a|ando|ara)|economiz/.test(t)){
     const tin = sum(P.months, totalIn), tout = sum(P.months, totalOut);
-    return `Seu saldo ${P.label} é <b>${fmt(tin - tout)}</b>${future ? ' (previsão)' : ''}.` + chatRows([['Ganhos', tin], ['Gastos', tout]]);
+    return tf(future ? 'Seu saldo {} é {} (previsão).' : 'Seu saldo {} é {}.', P.label, `<b>${fmt(tin - tout)}</b>`) + chatRows([['Ganhos', tin], ['Gastos', tout]]);
   }
   if (/ganh(ei|o|os|ar)|receb|renda|salario|entrou|entrada|\bvale (alimentacao|refeicao)/.test(t) && !/gast|pagu?ei|pago/.test(t)){
-    const cat = findKey(t, INC_WORDS);
+    const cat = findKey(t, INC_WORDS), de = cat ? ' ' + tf('de {}', esc(trText(CAT_GANHO[cat][1]).toLowerCase())) : '';
     const items = P.months.flatMap(m => incomesOf(m)).filter(x => !cat || x.cat === cat);
-    if (!items.length) return `Não encontrei ganhos ${cat ? 'de ' + esc(CAT_GANHO[cat][1].toLowerCase()) + ' ' : ''}${P.label}.`;
-    return `${future ? 'A previsão é receber' : 'Você recebeu'} <b>${fmt(sum(items, x => x.value))}</b> ${cat ? 'de ' + esc(CAT_GANHO[cat][1].toLowerCase()) + ' ' : ''}${P.label}.` + chatRows(topBy(items, x => x.desc));
+    if (!items.length) return semDados(tf('Não encontrei ganhos{} {}.', de, P.label));
+    return tf(future ? 'A previsão é receber {}{} {}.' : 'Você recebeu {}{} {}.', `<b>${fmt(sum(items, x => x.value))}</b>`, de, P.label) + chatRows(topBy(items, x => x.desc));
   }
   const ex = chatExpenses(t, P);
   if (/onde .*gast|maior(es)? gasto|mais gast|gast\w* mais|categoria/.test(t) && !ex.filtered){
-    if (!ex.items.length) return `Não encontrei gastos ${P.label}.`;
-    const total = sum(ex.items, x => x.value), top = topBy(ex.items, x => (CAT_GASTO[x.cat] || CAT_GASTO.outros)[1]);
-    return `Seu maior gasto ${P.label} foi com <b>${esc(top[0][0].toLowerCase())}</b>: ${fmt(top[0][1])}, ${Math.round(top[0][1] / total * 100)}% do total de ${fmt(total)}.` + chatRows(top);
+    if (!ex.items.length) return semDados(tf('Não encontrei gastos {}.', P.label));
+    const total = sum(ex.items, x => x.value), top = topBy(ex.items, x => trText((CAT_GASTO[x.cat] || CAT_GASTO.outros)[1]));
+    return tf('Seu maior gasto {} foi com {}: {}, {}% do total de {}.', P.label, `<b>${esc(top[0][0].toLowerCase())}</b>`, fmt(top[0][1]), Math.round(top[0][1] / total * 100), fmt(total)) +
+      chatRows(top);
   }
   if (/gast|pagu?ei|pago|despesa|custo|custa/.test(t) || ex.filtered){
-    if (!ex.items.length) return `Não encontrei gastos ${ex.what} ${P.label}.`;
+    if (!ex.items.length) return semDados(tf('Não encontrei gastos {} {}.', ex.what, P.label).replace(/\s+/g, ' '));
     const total = sum(ex.items, x => x.value);
     let cmp = '';
     if (single && /compar|aumentou|diminuiu|a mais|a menos|mes anterior/.test(t)){ // mesma conta no mês anterior
       const prevM = addMonths(P.months[0], -1),
       prev = sum(chatExpenses(t.replace(/mes passado|ultimo mes/g, ' '), {months:[prevM]}).items, x => x.value), d = total - prev;
-      cmp = ` São ${fmt(Math.abs(d))} ${d >= 0 ? 'a mais' : 'a menos'} que em ${monthName(prevM)} (${fmt(prev)}).`;
+      cmp = ' ' + tf(d >= 0 ? 'São {} a mais que em {} ({}).' : 'São {} a menos que em {} ({}).', fmt(Math.abs(d)), trText(monthName(prevM)), fmt(prev));
     }
-    return `${future ? 'A previsão é gastar' : 'Você gastou'} <b>${fmt(total)}</b> ${ex.what} ${P.label}, em ${ex.items.length} lançamento${ex.items.length > 1 ? 's' : ''}.${cmp}` +
-      chatRows(ex.filtered ? topBy(ex.items, x => x.desc) : topBy(ex.items, x => (CAT_GASTO[x.cat] || CAT_GASTO.outros)[1]));
+    return tf(n1(ex.items.length, future ? 'A previsão é gastar {} {} {}, em {} lançamento.' : 'Você gastou {} {} {}, em {} lançamento.',
+      future ? 'A previsão é gastar {} {} {}, em {} lançamentos.' : 'Você gastou {} {} {}, em {} lançamentos.'),
+      `<b>${fmt(total)}</b>`, ex.what, P.label, ex.items.length).replace(/\s+/g, ' ') + cmp +
+      chatRows(ex.filtered ? topBy(ex.items, x => x.desc) : topBy(ex.items, x => trText((CAT_GASTO[x.cat] || CAT_GASTO.outros)[1])));
   }
-  return 'Não entendi essa pergunta. ' + helpText;
+  respTipo = 'erro';
+  return tf('Não entendi essa pergunta.') + ' ' + helpText;
 }
 function chatHtml(){
   // A saudação vem em três balões curtos (quem é, o que responde, como lançar), mais fáceis de ler que um texto só.
@@ -263,8 +344,8 @@ function chatHtml(){
   if (lang() === 'pt' && myName()) ola[0] = ola[0].replace(/^(Oinc|Olá)!/, `$1, ${esc(myName()).replace(/\$/g, '$$$$')}!`);
   // Com um tema especial, quem cumprimenta é o personagem do tema, com a primeira abertura exclusiva dele (falaTema), e
   // não o porquinho.
-  const falas = db.prefs.skin && lang() === 'pt' && (FALAS_ASSIST[db.prefs.skin] || FALAS_ASSIST_CAT[temaCat(db.prefs.skin)]);
-  if (falas) ola[0] = `${falas[0][0]} Olá${myName() ? ', ' + esc(myName()) : ''}! Estou de plantão para as suas contas.`;
+  const falas = db.prefs.skin && (FALAS_ASSIST[db.prefs.skin] || FALAS_ASSIST_CAT[temaCat(db.prefs.skin)]);
+  if (falas) ola[0] = tf('{} Olá{}! Estou de plantão para as suas contas.', trText(falas[0][0]), myName() ? ', ' + esc(myName()) : '');
   return [...ola, 'Para lançar um gasto, escreva por exemplo "mercado 45 nubank crédito".'].map(t => `<div class="msg ola">${t}</div>`).join('') +
     // As sugestões vêm logo depois da saudação: aparecem enquanto nada foi enviado e, depois, ficam no começo da
     // conversa (é só rolar para cima). A conversa recomeça cada vez que o app é aberto (ver inicio.js).
@@ -294,14 +375,10 @@ function viewChat(){
 }
 
 const VIEWS = {resumo:viewResumo, ganhos:viewGanhos, gastos:viewGastos, invest:viewInvest, noticias:viewNoticias, chat:viewChat, explorar:viewExplorar};
-// O botão + some ao rolar para baixo (para não cobrir os valores da lista) e volta ao rolar para cima.
-let lastScroll = 0;
+// O "+" e o assistente ficam sempre na tela, também ao rolar para baixo (pedido do dono, 12/10/2026); para não cobrir
+// um botão da lista, viram aba na beirada (fabDesvia), conferido quando a rolagem para.
 addEventListener('scroll', () => {
-  const y = scrollY;
-  document.getElementById('topbar').classList.toggle('show', y > 110);
-  if (Math.abs(y - lastScroll) < 6) return;
-  for (const id of ['fab', 'fabChat']) document.getElementById(id).classList.toggle('away', y > lastScroll && y > 80);
-  lastScroll = y;
+  document.getElementById('topbar').classList.toggle('show', scrollY > 110);
   clearTimeout(fabDesviaT); fabDesviaT = setTimeout(fabDesvia, 150); // parou de rolar: confere de novo
 }, {passive:true});
 // Os botões flutuantes (o "+" e o do assistente) não ficam por cima de um botão da tela (ex.: o "Pago" das contas a
@@ -311,7 +388,7 @@ addEventListener('scroll', () => {
 // largura toda (o assistente sempre viraria aba), e o toque no texto da linha continua abrindo o item.
 let fabDesviaT = 0;
 function fabDesvia(){
-  const fabs = ['fab', 'fabChat'].map(id => document.getElementById(id)).filter(b => !b.hidden && !b.classList.contains('away'));
+  const fabs = ['fab', 'fabChat'].map(id => document.getElementById(id)).filter(b => !b.hidden);
   for (const b of fabs) b.classList.remove('aba'); // mede cada um no lugar normal
   if (innerWidth >= 700) return;
   const cobre = fabs.filter(b => { const r = b.getBoundingClientRect(), m = 6;
@@ -336,16 +413,16 @@ function render(){
   document.getElementById('tabs').innerHTML = visTabs().map(t => `<button class="${t === state.tab ? 'on' : ''}" ${t === state.tab ? 'aria-current="page"' : ''} data-onclick="go('${t}')"><span>${I(TABS[t][0], 23)}</span>${TABS[t][1]}</button>`).join('');
   const noFab = ['resumo', 'noticias', 'chat', 'explorar'].includes(state.tab);
   document.getElementById('fab').hidden = noFab;
-  document.getElementById('fab').classList.remove('away');
   // Assistente: botão flutuante em todas as telas, ao lado do "+" quando ele existe; some só dentro do próprio assistente.
   const fc = document.getElementById('fabChat');
-  fc.hidden = state.tab === 'chat'; fc.classList.remove('away'); fc.classList.toggle('alto', !noFab);
+  fc.hidden = state.tab === 'chat'; fc.classList.toggle('alto', !noFab);
   document.getElementById('app').classList.toggle('hasFab', !noFab || state.tab === 'explorar');
   // Tela larga: duas colunas (a Explorar tem a grade dela).
   document.getElementById('app').classList.toggle('cols', !['chat', 'noticias', 'explorar'].includes(state.tab));
   drawTopbar();
   nuvemAlinhar(document.getElementById('app'));
   a11y(document.getElementById('app'));
+  valoresCabem(document.getElementById('app'));
   fabDesvia();
   // Janela de uma parte de aba aberta pela Explorar: os dados mudaram, ela é refeita junto.
   if (explorarJanela && document.querySelector('#sheet .blocoJanela')) explorarBloco(...explorarJanela);
@@ -356,7 +433,7 @@ function redesenharSeLivre(sempre){ if (sempre || !sheetOpen()) render(); }
 aoAtualizar(redesenharSeLivre);
 // Barra fina que aparece no topo quando a tela rola: mantém à vista o nome da aba e, em Gastos, o mês.
 function drawTopbar(){
-  const mes = state.tab === 'gastos' && state.gsub === 'mes';
+  const mes = (state.tab === 'gastos' && state.gsub === 'mes') || state.tab === 'ganhos';
   document.getElementById('topbar').innerHTML = `<b>${TABS[state.tab][1]}</b>` + (mes
     ? `<span><button data-onclick="state.month=addMonths(state.month,-1);renderIn()" aria-label="Mês anterior">‹</button><em data-onclick="pickMonth()">${cap(monthName(state.month))}</em><button data-onclick="state.month=addMonths(state.month,1);renderIn()" aria-label="Próximo mês">›</button></span>`
     : state.tab === 'resumo' ? `<span><button data-onclick="resMes(-1)" aria-label="Mês anterior">‹</button><em data-onclick="pickResumo()">${cap(monthName(resumoMes()))}</em><button data-onclick="resMes(1)" aria-label="Próximo mês">›</button></span>` : '');
@@ -430,18 +507,52 @@ function pickMonth(y = +state.month.slice(0, 4)){
     <div class="btns"><button class="btn" data-onclick="state.month=curYM;closeForm();render()">Mês atual</button><button class="btn" data-onclick="closeForm()">Cancelar</button></div>`);
 }
 
-// Na aba Gastos, deslizar o dedo para os lados troca o mês.
-// Dentro da lista de lançamentos o gesto é do item (ver abaixo), então a troca de mês vale só fora dela.
-let touchX = 0, touchY = 0, touchInList = false;
-document.addEventListener('touchstart',
-  e => { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; touchInList = !!e.target.closest('#expList'); }, {passive:true});
-document.addEventListener('touchend', e => {
-  // Só troca de mês com a tela de Gastos à mostra: nada por cima (folha, seletor, diálogo, foto, login, convite do bloqueio).
-  if (touchInList || state.tab !== 'gastos' || state.gsub !== 'mes' || sheetOpen() || pickerOpen()
-    || ['gate', 'dlg', 'lightbox', 'lockAsk'].some(id => !document.getElementById(id).hidden)) return;
-  const dx = e.changedTouches[0].clientX - touchX, dy = e.changedTouches[0].clientY - touchY;
-  if (Math.abs(dx) > 70 && Math.abs(dy) < 40){ state.month = addMonths(state.month, dx < 0 ? 1 : -1); renderIn(); }
+// Gesto horizontal de um dedo: detector único da troca de mês e das páginas do tutorial (ALVOS_LADO). Cada alvo
+// recebe o elemento onde o dedo encostou e devolve {move(dx), fim(dx, valeu)} se o gesto é dele (ou null). Só conta um
+// gesto claramente horizontal: a direção fica decidida nos primeiros 10 px (de pé = rolar a tela, o gesto é largado)
+// e, ao soltar, valeu = pelo menos 70 px de lado e no máximo metade disso na vertical. move acompanha o dedo; fim é
+// sempre chamado (também quando o gesto é largado), para o alvo terminar a troca ou voltar ao lugar.
+const ALVOS_LADO = [];
+let gestoLado = null;
+document.addEventListener('touchstart', e => {
+  const t = e.target && e.target.closest ? e.target : null;
+  gestoLado = null;
+  if (e.touches.length !== 1 || !t) return;
+  for (const alvo of ALVOS_LADO){ const h = alvo(t); if (h) return void (gestoLado = {h, x:e.touches[0].clientX, y:e.touches[0].clientY, lado:null}); }
 }, {passive:true});
+const gestoLadoFim = (dx, valeu) => { const g = gestoLado; gestoLado = null; if (g) g.h.fim(dx, valeu); };
+document.addEventListener('touchmove', e => {
+  const g = gestoLado;
+  if (!g) return;
+  if (e.touches.length !== 1) return gestoLadoFim(0, false);
+  const dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
+  if (g.lado === null && Math.max(Math.abs(dx), Math.abs(dy)) > 10) g.lado = Math.abs(dx) > Math.abs(dy);
+  if (g.lado === false) return gestoLadoFim(0, false); // começou rolando a tela: o gesto é da rolagem
+  if (g.lado && g.h.move) g.h.move(dx);
+}, {passive:true});
+document.addEventListener('touchend', e => {
+  const g = gestoLado;
+  if (!g) return;
+  const dx = e.changedTouches[0].clientX - g.x, dy = e.changedTouches[0].clientY - g.y;
+  gestoLadoFim(dx, !!g.lado && Math.abs(dx) >= 70 && Math.abs(dy) <= Math.abs(dx) / 2);
+}, {passive:true});
+document.addEventListener('touchcancel', () => gestoLadoFim(0, false), {passive:true});
+// Troca de mês: no Resumo, em Gastos (Do mês e Vales) e em Ganhos, em qualquer ponto da tela (também em cima dos
+// cartões). Fica de fora o que é gesto de outra coisa: deslizar um lançamento (excluir, pagar, ver abaixo), uma lista
+// que rola para o lado, um campo de texto e qualquer camada por cima (folha, seletor, diálogo, foto, login, bloqueio).
+const trocaMes = () => state.tab === 'resumo' ? resMes
+  : state.tab === 'ganhos' || (state.tab === 'gastos' && ['mes', 'vale'].includes(state.gsub) && !state.parcDet)
+    ? d => { state.month = addMonths(state.month, d); renderIn(); } : null;
+const rolaDeLado = el => { for (; el && el.id !== 'app'; el = el.parentElement)
+  if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true; return false; };
+const camadaPorCima = () => sheetOpen() || pickerOpen() || ['gate', 'dlg', 'lightbox', 'lockAsk'].some(id => !document.getElementById(id).hidden);
+function mesLado(t){
+  const troca = trocaMes();
+  if (!troca || !t.closest('#app') || t.closest('.item[data-sw], .item[data-sug], .item[data-cent], input, textarea, select') || rolaDeLado(t)
+    || camadaPorCima()) return null;
+  return {fim(dx, valeu){ if (valeu && !camadaPorCima()){ swipedAt = Date.now(); troca(dx < 0 ? 1 : -1); } }};
+}
+ALVOS_LADO.push(mesLado);
 
 // Deslizar um gasto da lista: para a esquerda exclui (com "Desfazer"); para a direita marca a conta como paga.
 // Uma sugestão de gasto no Resumo (data-sug): para a esquerda ignora (com "Desfazer"); para a direita lança.
@@ -482,11 +593,11 @@ function exportCsv(){
   for (let i = 0; i < 12; i++){
     const m = ymOf(+y, i);
     for (const x of incomesAll(m)) rows.push([m, 'Ganho', x.desc, (CAT_GANHO[x.cat] || CAT_GANHO.outros)[1], '', '',
-      x.fixed === 'y' ? 'anual' : x.fixed ? 'fixo' : 'avulso', x.value]);
+      tipoLanc(x), x.value]);
     for (const x of expensesAll(m)) rows.push([m, 'Gasto', x.desc, (CAT_GASTO[x.cat] || CAT_GASTO.outros)[1], x.bank || '', PAY[x.pay] || '',
-      x.kind === 'installment' ? parcTag(x) : x.fixed === 'y' ? 'anual' : x.fixed ? 'fixo' : 'avulso', x.value]);
+      tipoLanc(x), x.value]);
   }
-  const csv = '﻿' + rows.map(r => r.map(csvCell).join(';')).join('\r\n'), name = `financas-${y}.csv`;
+  const csv = '﻿' + rows.map(r => r.map(v => csvCell(celTr(v))).join(';')).join('\r\n'), name = `financas-${y}.csv`; // no idioma do app
   if (temNativo('exportar')) return nativo('exportar', csv, name);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));

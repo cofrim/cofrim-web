@@ -19,7 +19,7 @@ function prevBloco(m){
     return `<div class="catrow prevItem" data-id="${it.p.id}" data-m="${m}" data-onclick="abrirPrevisao(this.dataset.id,this.dataset.m)"><div class="top"><span>${catName(CAT_GASTO[it.cat] || CAT_GASTO.outros)}</span><b>${fmt(g)} de ${fmt(it.value)}</b></div>
       <div class="bar" style="margin:6px 0"><i style="width:${Math.min(100, pct)}%;background:${prevCor(pct)}"></i></div>
       <div class="semTopo hint">${prevPrazo(it)}${dif > 0 && prevAtiva(it) ? ` · <span class="out">${fmt(dif)} acima do previsto</span>` : ''}${it.p.rep ? ' · todo mês' : ''}</div></div>`; }).join('')}</div>`
-    : `<div class="card"><div class="hint" style="margin:0">Previsão é um gasto que você espera ter numa categoria até um dia do mês (ex.: R$ 300 de combustível até o dia 25). Diferente do orçamento, que é um limite, ela já entra no saldo previsto do mês.</div>
+    : `<div class="card"><div class="hint u-m0">Previsão é um gasto que você espera ter numa categoria até um dia do mês (ex.: R$ 300 de combustível até o dia 25). Diferente do orçamento, que é um limite, ela já entra no saldo previsto do mês.</div>
       <div class="btns"><button class="btn" data-onclick="novaPrevisao()">${I('plus')}Nova previsão</button></div></div>`}`;
 }
 // Detalhe: os lançamentos que contaram, editar e excluir.

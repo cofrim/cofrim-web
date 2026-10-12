@@ -5,7 +5,7 @@
 <!-- Content Security Policy: o que a página pode carregar e com quem pode falar. 'unsafe-inline' porque o app usa
      data-onclick="" e style="" nas telas (e, no APK atualizado, tudo vem embutido num arquivo só). connect-src: Google
      (Drive, Planilhas, login), GitHub (atualização), cotações, taxas do Banco Central, notícias e feriados de outros países. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; connect-src 'self' https://date.nager.at https://www.googleapis.com https://sheets.googleapis.com https://oauth2.googleapis.com https://raw.githubusercontent.com https://economia.awesomeapi.com.br https://brapi.dev https://api.bcb.gov.br https://news.google.com https://www.bing.com https://exame.com https://api.web3forms.com">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; connect-src 'self' https://date.nager.at https://www.googleapis.com https://sheets.googleapis.com https://oauth2.googleapis.com https://raw.githubusercontent.com https://economia.awesomeapi.com.br https://brapi.dev https://api.bcb.gov.br https://news.google.com https://www.bing.com https://exame.com https://api.web3forms.com">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <script src="js/largura.js"></script>
 <meta name="theme-color" content="#0f172a">
@@ -84,7 +84,6 @@
 <script src="js/investimentos.js"></script>
 <script src="js/parcelas.js"></script>
 <script src="js/lembretes.js"></script>
-<script src="js/dados-bancos.js"></script>
 <script src="js/telas.js"></script>
 <script src="js/telas-previsoes.js"></script>
 <script src="js/saude.js"></script>

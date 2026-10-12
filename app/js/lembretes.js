@@ -20,9 +20,11 @@ function setAparelhoLemb(on){
 // Android 13 ou mais novo: as notificações precisam da permissão (retirada nas configurações, o interruptor aparece desligado).
 const notifLiberada = () => !(temNativo('notificacaoLiberada')) || nativo('notificacaoLiberada');
 const lembLigados = () => aparelhoLemb() === '1' && notifLiberada();
-// Preferências da conta que geram notificação: contas a vencer, parcelas de financiamentos e empréstimos, alertas de preço
+// Preferências da conta que geram notificação: contas a vencer, parcelas de financiamentos e empréstimos, orçamento perto do
+// limite (orc), limite do cartão (cartao), metas (meta), alertas de preço
 // dos investimentos e avisos da conta compartilhada.
-const lembTipos = p => ({contas:!!p.notify, fin:!!(p.notifyFin ?? p.notify), prev:!!(p.notifyPrev ?? p.notify),
+const lembTipos = p => ({contas:!!p.notify, fin:!!(p.notifyFin ?? p.notify), prev:!!(p.notifyPrev ?? p.notify), orc:!!(p.notifyOrc ?? p.notify),
+  cartao:!!(p.notifyCartao ?? p.notify), meta:!!(p.notifyMeta ?? p.notify),
   preco:db.investments.some(v => v.ticker && (v.alertUp || v.alertDown)),
   compart:!!sync.shared && p.avisoComp !== false});
 // Decide se um tipo de aviso pode virar notificação: com o interruptor do aparelho desligado, sempre não.
@@ -122,7 +124,7 @@ function widgetGastos(){
   return {listaTitulo:(g ? g[0] : 'Gastos') + ' de ' + m, listaC:l.length ? fmtCurto(sum(l, x => x.value)).replace(/^R\$\s?/, '') : '',
     listaSub:l.length ? `${l.length} ${l.length > 1 ? 'lançamentos' : 'lançamento'} · ${fmt(sum(l, x => x.value))}` : '',
     lista:l.slice(0, 40).map(x => { const c = CAT_GASTO[x.cat] || CAT_GASTO.outros;
-      return {t:x.desc, s:c[1] + (x.kind === 'installment' ? ' · ' + parcTag(x) : x.fixed ? (x.fixed === 'y' ? ' · anual' : isSub(x) ? ' · assinatura' : ' · fixo') : x.day ? ' · dia ' + x.day : ''), v:fmt(x.value), c:'out', k:c[2]}; })};
+      return {t:x.desc, s:c[1] + (x.kind === 'installment' ? ' · ' + parcTag(x) : x.fixed ? (repete(x) ? ' · ' + repTexto(x) : x.fixed === 'y' ? ' · anual' : isSub(x) ? ' · assinatura' : ' · fixo') : x.day ? ' · dia ' + x.day : ''), v:fmt(x.value), c:'out', k:c[2]}; })};
 }
 // Linhas do widget Resumo: as escolhidas em Configurações > Widgets, na ordem; as que não têm dado são puladas. [{t, v, c, s?}]; s = detalhe (no
 // saldo, quanto das previsões está incluído)

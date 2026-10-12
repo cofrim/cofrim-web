@@ -77,7 +77,7 @@ function xlsx(abas){
 // (com a corretora).
 function abasDoAno(y){
   const meses = [...Array(12)].map((_, i) => ymOf(+y, i)), sub = `Cofrim · gerado em ${now.toLocaleDateString('pt-BR')}`;
-  const tipo = x => x.kind === 'installment' ? parcTag(x) : x.fixed === 'y' ? 'anual' : x.fixed ? 'fixo' : 'avulso';
+  const tipo = tipoLanc;
   const gastos = meses.flatMap(m => expensesAll(m).map(x => [cap(monthName(m).split(' ')[0]), x.day ? String(x.day) : '', x.desc,
     (CAT_GASTO[x.cat] || CAT_GASTO.outros)[1], x.bank || '', PAY[x.pay] || '', tipo(x), x.value]));
   const ganhos = meses.flatMap(m => incomesAll(m).map(x => [cap(monthName(m).split(' ')[0]), diaGanho(x, m) ? String(diaGanho(x, m)) : '', x.desc,
@@ -97,11 +97,16 @@ function abasDoAno(y){
     {nome:'Investimentos', larguras:[34, 26, 22, 16], titulo:`Investimentos em ${now.toLocaleDateString('pt-BR')}`, sub,
       cabecalho:['Investimento', 'Categoria', 'Corretora', 'Valor hoje'], linhas:invest, total:['Total', '', '', tot(invest, 3)]}];
 }
+// Em inglês ou espanhol, a planilha sai no idioma do app (títulos, colunas, meses, categorias, tipos); o que a pessoa
+// digitou fica como está (trText).
+const celTr = v => typeof v === 'string' ? trText(v) : v;
+const abasNoIdioma = abas => abas.map(a => ({...a, nome:trText(a.nome), titulo:trText(a.titulo), sub:trText(a.sub), cabecalho:a.cabecalho.map(trText),
+  total:a.total.map(celTr), linhas:a.linhas.map(l => l.map(celTr))}));
 // Planilha do ano da aba Gastos, já formatada. No APK antigo (sem gravação de arquivo binário), cai no CSV simples.
 function exportPlanilha(){
   const y = state.month.slice(0, 4), nome = `financas-${y}.xlsx`;
   if (temNativo() && !temNativo('exportarArquivo')) return exportCsv();
-  const bytes = xlsx(abasDoAno(y));
+  const bytes = xlsx(abasNoIdioma(abasDoAno(y)));
   if (temNativo()){ let s = ''; for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode(...bytes.subarray(i, i + 8192));
     return nativo('exportarArquivo', btoa(s), nome); }
   const a = document.createElement('a');
@@ -120,9 +125,9 @@ function openStatementHelp(){
     <label>2. CSV (planilha em texto)</label>
     <div class="semTopo hint">A primeira linha precisa ter os nomes das colunas, separadas por ponto e vírgula ou vírgula:</div>
     <div class="card" style="box-shadow:none;background:var(--bg);padding:10px 12px;margin:8px 0">
-      <div class="leg"><span><b style="color:var(--text)">Data</b> (obrigatória)</span><b>31/12/2026 ou 2026-12-31</b></div>
-      <div class="leg"><span><b style="color:var(--text)">Valor</b> (obrigatória)</span><b>-45,90 ou 1200.00</b></div>
-      <div class="leg"><span><b style="color:var(--text)">Descrição</b> (opcional)</span><b>também Histórico ou Título</b></div></div>
+      <div class="leg"><span><b class="u-texto">Data</b> (obrigatória)</span><b>31/12/2026 ou 2026-12-31</b></div>
+      <div class="leg"><span><b class="u-texto">Valor</b> (obrigatória)</span><b>-45,90 ou 1200.00</b></div>
+      <div class="leg"><span><b class="u-texto">Descrição</b> (opcional)</span><b>também Histórico ou Título</b></div></div>
     <div class="semTopo hint">Exemplo:<br><code>Data;Descrição;Valor<br>05/10/2026;Mercado;-182,40<br>06/10/2026;Salário;3500,00</code></div>
     <div class="hint">Valores negativos entram como gastos e positivos como ganhos (numa fatura de cartão é o contrário; você escolhe na próxima tela). Antes de gravar, o app mostra a lista para você conferir e desmarca o que já existe.</div>
     <div class="hint">Dá para escolher vários extratos de uma vez (meses ou bancos diferentes): cada lançamento entra no dia e no mês da data dele, e o que aparece em dois arquivos entra uma vez só.</div>
@@ -150,11 +155,11 @@ function openApagar(aba){
     <div class="semTopo hint">Escolha o que apagar. Os lançamentos vão para a lixeira (Configurações › Dados e ajustes) e dá para desfazer logo depois.</div>
     <label>Apagar</label>
     <div class="semTopo quebraLinha btns">${[['dia', 'Um dia'], ['mes', 'Um mês'], ['ano', 'Um ano'], ['tudo', 'Tudo']].map(([k, t]) => `<button class="btn ${a.modo === k ? 'primary' : ''}" style="padding:11px 6px" data-onclick="apaga.modo='${k}';openApagar()">${t}</button>`).join('')}</div>
-    ${a.modo === 'ano' ? `<label>Ano</label><div class="nav" style="margin:0"><button data-onclick="apaga.ano--;openApagar()">‹</button><b>${a.ano}</b><button data-onclick="apaga.ano++;openApagar()">›</button></div>` : ''}
-    ${a.modo === 'mes' ? `<label>Mês</label><button type="button" class="pickBtn" data-onclick="pickMonthP('Mês a apagar',apaga.mes,false,v=>{apaga.mes=v;openApagar()})"><span style="text-transform:capitalize">${monthName(a.mes)}</span>${I('chev')}</button>` : ''}
+    ${a.modo === 'ano' ? `<label>Ano</label><div class="nav u-m0"><button data-onclick="apaga.ano--;openApagar()">‹</button><b>${a.ano}</b><button data-onclick="apaga.ano++;openApagar()">›</button></div>` : ''}
+    ${a.modo === 'mes' ? `<label>Mês</label><button type="button" class="pickBtn" data-onclick="pickMonthP('Mês a apagar',apaga.mes,false,v=>{apaga.mes=v;openApagar()})"><span class="u-capital">${monthName(a.mes)}</span>${I('chev')}</button>` : ''}
     ${a.modo === 'dia' ? `<label>Dia</label><button type="button" class="pickBtn" data-onclick="pickDateP('Dia a apagar',apaga.dia,v=>{apaga.dia=v;openApagar()})"><span>${fmtDate(a.dia)}</span>${I('chev')}</button>` : ''}
     <div class="card" style="box-shadow:none;background:var(--bg);margin:14px 0 0;text-align:center"><b style="font-size:20px" class="${n ? 'out' : ''}">${n} ${n === 1 ? 'lançamento' : 'lançamentos'}</b>
-      <div class="hint" style="margin-top:2px">${n ? 'somando ' + fmt(total) : 'Nada para apagar neste período.'}</div></div>
+      <div class="hint u-mt2">${n ? 'somando ' + fmt(total) : 'Nada para apagar neste período.'}</div></div>
     ${a.aba !== 'invest' && a.modo !== 'tudo' ? '<div class="hint">Um lançamento fixo conta pelo mês em que começou: os que começaram antes do período continuam.</div>' : ''}
     <div class="btns foot"><button class="btn" data-onclick="closeForm()">Cancelar</button><button class="cresce btn danger" ${n ? '' : 'disabled'} data-onclick="apagarAgora()">${I('trash')}Apagar ${n || ''}</button></div>`);
 }

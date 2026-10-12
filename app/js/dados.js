@@ -48,7 +48,7 @@ function logErr(onde, e){
 }
 addEventListener('error', e => logErr('erro na tela', (e.error && e.error.stack) || (e.message || '') + ' @' + (e.lineno || 0) + ':' + (e.colno || 0)));
 addEventListener('unhandledrejection', e => logErr('promessa', e.reason));
-const APP_VERSION = '2.50'; // manter igual ao versionName do build.gradle
+const APP_VERSION = '2.60'; // manter igual ao versionName do build.gradle
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const I = (name, size = 18) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 // Categorias: [ícone, nome, cor]
@@ -94,8 +94,8 @@ const brokerSuggestions = () => [...new Map(db.investments.map(v => String(v.bro
 const normBroker = s => { const t = String(s ?? '').trim().slice(0, 40); return brokerSuggestions().find(b => b.toLowerCase() === t.toLowerCase()) || t; };
 const bankSuggestions = () => [...new Set([...db.accounts.map(a => a.name), ...[...db.expenses, ...db.installments].map(x => x.bank).filter(Boolean),
   ...BANKS])];
-// Trecho " · Nubank · Crédito" mostrado nas listas.
-const whereLabel = x => [x.bank && esc(x.bank), PAY[x.pay]].filter(Boolean).map(s => ' · ' + s).join('');
+// Trecho " · Nubank · Crédito" mostrado nas listas (com o ícone do banco antes do nome).
+const whereLabel = x => [x.bank && bancoMini(x.bank) + esc(x.bank), PAY[x.pay]].filter(Boolean).map(s => ' · ' + s).join('');
 const WHERE_FIELDS = () => [
   {k:'bank', label:'Banco / conta (opcional)', type:'text', ph:'Ex.: Nubank', optional:true, sug:bankSuggestions},
   {k:'pay', label:'Forma de pagamento', type:'select', optional:true, options:[['','Não informar'], ...Object.entries(PAY)]}];
@@ -116,9 +116,12 @@ function catLimpa(c){
 // Pontos de aviso das previsões de gastos (Configurações › Lembretes; db.prefs.prevPontos, para todos os aparelhos da
 // conta). Antes do fixDb, que os confere ao abrir o app: só valores conhecidos; lista inválida = os padrões, os mesmos
 // avisos de antes da 1.90 (80%, passou do previsto e encerramento). [] = nenhum ponto: as previsões não avisam.
-const PREV_PONTOS = {'50':'50% do previsto', '80':'80% do previsto', '90':'90% do previsto', chegou:'Chegou no previsto', passou:'Passou do previsto',
-  fim:'Encerramento'};
+const PREV_PONTOS = {'50':'50%', '70':'70%', '80':'80%', '90':'90%', chegou:'Chegou no previsto', passou:'Passou do previsto', fim:'Encerramento'};
 const PREV_PONTOS_PADRAO = ['80', 'passou', 'fim'];
+// Pontos de aviso dos outros avisos de valor (Configurações › Avisos de valores): orçamento de cada categoria, limite
+// do cartão comprometido e quanto já foi guardado nas metas. prefs.<tipo>Pontos; sem a lista, os padrões.
+const PONTOS = {'50':'50%', '70':'70%', '80':'80%', '90':'90%', chegou:'Chegou no valor', passou:'Passou do valor'};
+const PONTOS_PADRAO = {orc:['80', 'passou'], cartao:['80', 'passou'], meta:['chegou']};
 // Sugestões de gasto da conta (db.sugs = {limpas, lista}): o celular copia para cá as que leu das notificações (e a
 // situação de cada uma), e elas vão pela sincronização para a versão web, que lança e ignora como no app. Cada uma:
 // {t (hora do aviso, a chave), app, nome, texto, titulo, oculto, tipo, st, u (hora da última mudança: na junção, vale a
@@ -152,6 +155,19 @@ function fixDb(d){
   const limpaId = v => typeof v === 'string' && /[^\w-]/.test(v) ? v.replace(/[^\w-]/g, '') : v;
   for (const c of COLS) d[c] = d[c].filter(r => r && typeof r === 'object');
   for (const c of COLS) for (const r of d[c]){ r.id = limpaId(r.id); if (r.pid) r.pid = limpaId(r.pid); if (r.cat) r.cat = limpaId(r.cat); }
+  // Quando o registro foi criado no app (cri) e editado pela última vez pela pessoa (edi): hora em ms, de 2020 até agora
+  // (+5 min de folga de relógio, como na sincronização). Registro antigo fica sem as datas: nada é deduzido.
+  const ehHora = t => typeof t === 'number' && t >= 1577836800000 && t <= Date.now() + 5 * 60e3;
+  for (const c of COLS) for (const r of d[c]) for (const k of ['cri', 'edi']) if (k in r && !ehHora(r[k])) delete r[k];
+  // Data em que cada nível de conquista foi conquistado: {"Anotador:2": hora em ms} (ver funCheck).
+  if (!d.conq || typeof d.conq !== 'object' || Array.isArray(d.conq)) d.conq = {};
+  for (const k of Object.keys(d.conq)) if (!/^[^:]{1,40}:\d{1,2}$/.test(k) || !ehHora(d.conq[k])) delete d.conq[k];
+  // Importações de planilha: [{id, nome, at, n, u, desfeito?}] (até 50) e, em cada lançamento importado, imp = o id.
+  const idOk = v => typeof v === 'string' && /^[\w-]{1,40}$/.test(v);
+  d.imports = (Array.isArray(d.imports) ? d.imports : []).filter(x => x && idOk(x.id) && ehHora(x.at)).slice(-50)
+    .map(x => ({id:x.id, nome:String(x.nome || 'planilha').slice(0, 80), at:x.at, n:Math.max(0, parseInt(x.n) || 0), u:ehHora(x.u) ? x.u : x.at,
+      ...(ehHora(x.desfeito) ? {desfeito:x.desfeito} : {})}));
+  for (const c of COLS) for (const r of d[c]) if ('imp' in r && !idOk(r.imp)) delete r.imp;
   for (const t of ['gasto', 'ganho']){
     const cs = d.cats[t];
     for (const k of Object.keys(cs)){
@@ -162,6 +178,17 @@ function fixDb(d){
   }
   if (typeof d.archUntil !== 'string') d.archUntil = '';
   // Regra do dia dos ganhos (diaGanho, em calculos.js): só valores conhecidos.
+  // Em alguns meses (rep, ver activeIn): só com fixed 'y'; a cada 12 meses ou só o mês de start = anual, a cada 1 mês ou
+  // os 12 meses = fixo.
+  for (const c of ['incomes', 'expenses']) for (const r of d[c]){
+    if (!('rep' in r)) continue;
+    let rep = r.rep;
+    if (Array.isArray(rep)) rep = [...new Set(rep.filter(m => Number.isInteger(m) && m >= 1 && m <= 12))].sort((a, b) => a - b);
+    const ok = r.fixed === 'y' && (Array.isArray(rep) ? rep.length > 0 : Number.isInteger(rep) && rep >= 1 && rep <= 24);
+    if (ok && (rep === 1 || rep.length === 12)) r.fixed = true;
+    if (!ok || rep === 1 || rep === 12 || rep.length === 12 || (rep.length === 1 && typeof r.start === 'string' && rep[0] === +r.start.slice(5))) delete r.rep;
+    else r.rep = rep;
+  }
   for (const r of d.incomes){
     if (r.regra != null && !['ult', 'prim', 'nutil'].includes(r.regra)) delete r.regra;
     if (r.ajuste != null && !['antes', 'depois'].includes(r.ajuste)) delete r.ajuste;
@@ -172,15 +199,22 @@ function fixDb(d){
     if ('moeda' in d.prefs && !MOEDAS.includes(d.prefs.moeda)) delete d.prefs.moeda;
     if ('pais' in d.prefs && !PAISES.includes(d.prefs.pais)) delete d.prefs.pais;
   }
-  if (d.prefs && typeof d.prefs === 'object' && 'prevPontos' in d.prefs){
-    const l = d.prefs.prevPontos, ok = Array.isArray(l) ? Object.keys(PREV_PONTOS).filter(k => l.includes(k)) : [];
-    if (!Array.isArray(l) || (l.length && !ok.length)) delete d.prefs.prevPontos; else d.prefs.prevPontos = ok;
-  }
+  for (const [chave, lista] of [['prevPontos', PREV_PONTOS], ['orcPontos', PONTOS], ['cartaoPontos', PONTOS], ['metaPontos', PONTOS]])
+    if (d.prefs && typeof d.prefs === 'object' && chave in d.prefs){
+      const l = d.prefs[chave], ok = Array.isArray(l) ? Object.keys(lista).filter(k => l.includes(k)) : [];
+      if (!Array.isArray(l) || (l.length && !ok.length)) delete d.prefs[chave]; else d.prefs[chave] = ok;
+    }
   // Lixeira: o que foi excluído fica 30 dias, só neste aparelho. [{col, rec, at}]
-  d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t.at > Date.now() - 30*864e5);
+  d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.at > Date.now() - 30*864e5 && (t.col !== 'lote' || (Array.isArray(t.recs) && t.lote)));
   d.rates = Object.assign({cdi:14.9, selic:15, ipca:4.5, auto:'1'}, d.rates);
   for (const v of d.investments) if (v.ticker && !v.lots) v.lots = [{qty:v.qty, paid:v.paid, date:v.date || ''}];
   for (const v of d.investments) if (v.broker != null) v.broker = String(v.broker).slice(0, 40); // corretora: texto, até 40 letras
+  // Metas com depósito automático: valor por mês (auto), dia de 1 a 28 (autoDia) e o próximo mês a guardar (autoProx).
+  for (const g of d.goals){
+    if (g.auto != null) { const a = round2(+g.auto); if (a > 0) g.auto = a; else delete g.auto; }
+    if (g.autoDia != null) g.autoDia = Math.min(28, Math.max(1, parseInt(g.autoDia) || 1));
+    if (g.autoProx != null && !(typeof g.autoProx === 'string' && /^\d{4}-\d\d$/.test(g.autoProx))) delete g.autoProx;
+  }
   // Previsões: categoria, mês AAAA-MM, valor maior que zero, dia final de 1 a 31, se repete, fim (ate) e as mudanças de
   // um mês só (ex: {AAAA-MM: {value, dia} ou {del:1}}).
   const ehMes = v => typeof v === 'string' && /^\d{4}-\d\d$/.test(v), diaOk = v => Math.min(31, Math.max(1, parseInt(v) || 31));
@@ -322,6 +356,8 @@ function applyCats(){
     // Categoria criada pelo usuário com o mesmo nome de uma de fábrica (ex.: "Pets"): fica só a do usuário.
     const proprias = Object.keys(db.cats[type]).filter(k => !BASE_CATS[type][k]).map(k => plainName(target[k][1]));
     for (const k of Object.keys(BASE_CATS[type])) if (!db.cats[type][k] && proprias.includes(plainName(target[k][1]))) delete target[k];
+    // "Outros" vai para o fim, depois das criadas pela pessoa: as listas e a tela de categorias seguem esta ordem.
+    if (target.outros){ const o = target.outros; delete target.outros; target.outros = o; }
   }
 }
 applyCats();
@@ -330,6 +366,7 @@ const save = (touch = true) => {
   if (demoOn){ dirty(); return; } // demonstração: só na memória
   dirty();
   resumoAutoLiga();
+  if (!db.prefs.fun) funCheck(); // datas das conquistas, sem aviso (com o modo divertido ligado, quem confere é o render)
   db.yieldLog[curYM] = yieldOf(curYM);                    // histórico do rendimento estimado, mês a mês
   db.netLog[curYM] = sum(db.investments, v => v.value);   // histórico do total investido, mês a mês
   if (touch){ db.mod = Date.now(); if (sync.on){ sync.pend = (sync.pend || 0) + 1; saveSync(); nuvemDraw(); } scheduleSync(); autoFile(); }
@@ -357,10 +394,13 @@ function saveWarn(){
   if (el) el.hidden = !saveFailed;
 }
 const newerDb = d => (d && d.ver || 1) > DB_VER;
-// Marca o registro como alterado agora. Registro novo (ainda sem u) guarda quem o criou (by), para a conta compartilhada.
+// Marca o registro como alterado agora. Registro novo (ainda sem u) guarda quando foi criado no app (cri) e quem o
+// criou (by), para a conta compartilhada. A última edição feita pela pessoa (edi) é marcada por quem edita
+// (submitForm, planilha), não aqui: u muda também em ações como pagar e em ajustes automáticos.
 const myName = () => (db.prefs && db.prefs.name) || '';
 // Conta compartilhada: by = quem lançou; ed = quem alterou por último (usado nos avisos "fulano editou…").
-const touch = r => { if (!r.u && !r.by && myName()) r.by = myName();
+const touch = r => { if (!r.u) r.cri = Date.now();
+  if (!r.u && !r.by && myName()) r.by = myName();
   else if (r.u && typeof shared === 'function' && shared() && myName()) r.ed = myName(); r.u = Date.now(); return r; };
 // Cópia de segurança automática em arquivo, uma vez por semana, na pasta do app no celular (só no APK).
 function autoFile(){

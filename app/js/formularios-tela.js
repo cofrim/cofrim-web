@@ -2,6 +2,8 @@
 // Depende de formularios.js (FORMS) e dialogos.js.
 // Saiu de js/dialogos.js (só mudou de arquivo); carregado logo depois dele no index.html.
 
+// Tipo no formulário: '' avulso, '1' fixo, 'y' anual, 'n' a cada X meses, 'm' meses escolhidos (ver REP_FIELDS).
+const tipoForm = x => x.fixed === 'y' ? (Array.isArray(x.rep) ? 'm' : Number.isInteger(x.rep) ? 'n' : 'y') : x.fixed ? '1' : '';
 // preset (opcional): {title, vals, asset, id} para abrir um formulário novo já preenchido.
 function openForm(col, item, preset = {}){
   // Lançamento num vale (gasto pago com vale ou crédito de vale): formulário enxuto, só com o que importa para vales.
@@ -9,7 +11,8 @@ function openForm(col, item, preset = {}){
   formTipo = col === 'installments' ? preset.tipo || item && item.tipo || '' : '';
   const cfg = FORMS[col], fields = typeof cfg.fields === 'function' ? cfg.fields() : cfg.fields;
   const vals = Object.assign(cfg.defaults ? cfg.defaults() : {}, preset.vals);
-  if (item) for (const f of fields){ const v = item[f.k]; vals[f.k] = f.type === 'money' ? moneyStr(v) : f.k === 'fixed' ? (v === 'y' ? 'y' : v ? '1' : '') : v == null ? '' : String(v).replace('.', f.type === 'num' ? ',' : '.'); }
+  if (item) for (const f of fields){ const v = item[f.k]; vals[f.k] = f.type === 'money' ? moneyStr(v) : f.k === 'fixed' ? tipoForm(item) : v == null ? '' : String(v).replace('.', f.type === 'num' ? ',' : '.'); }
+  if (item && repete(item)){ vals.cada = Number.isInteger(item.rep) ? String(item.rep) : ''; vals.meses = Array.isArray(item.rep) ? item.rep.join(',') : ''; }
   if (item && cfg.load) cfg.load(vals, item);
   settingsOpen = false;
   F = {col, cfg, fields, id:preset.id || (item && item.id), vals, touched:{}, asset:preset.asset || null, vale:formVale, sug:preset.sug || null};
@@ -21,11 +24,11 @@ function openForm(col, item, preset = {}){
     (!F.id && cfg.top ? cfg.top() : '') +
     fields.map(f => `<div id="w_${f.k}"><label for="f_${f.k}"></label>${fieldHtml(f)}</div>`).join('') +
     (cfg.before ? `<div id="w__before">${cfg.before()}</div>` : '') +
-    (hasMore && !F.id ? `<button type="button" class="moreBtn" id="moreBtn" data-onclick="if(F){F.more=!F.more;syncForm()}"></button><div class="hint" id="moreSum" style="text-align:center"></div>` : '') +
+    (hasMore && !F.id ? `<button type="button" class="moreBtn" id="moreBtn" data-onclick="if(F){F.more=!F.more;syncForm()}"></button><div class="hint u-centro" id="moreSum"></div>` : '') +
     `<div class="hint" id="fhint"></div><div class="err" id="ferr"></div>
     <div class="btns foot">${F.id && !cfg.noDelete ? '<button class="btn danger" data-onclick="removeItem()">Excluir</button>' : ''}
       <button class="btn" data-onclick="closeForm()">Cancelar</button><button class="btn primary" data-onclick="submitForm()">Salvar</button></div>` +
-    (cfg.extra ? cfg.extra() : '') + histHtml(item));
+    (cfg.extra ? cfg.extra() : '') + cadastroHtml(col, item) + histHtml(item));
   for (const f of fields){
     const el = document.getElementById('f_' + f.k);
     el.value = vals[f.k] ?? '';
@@ -70,7 +73,7 @@ function syncForm(skip){
   }
   document.getElementById('fhint').textContent = F.cfg.hint ? F.cfg.hint(F.vals) : '';
   const bf = document.getElementById('w__before'), mb = document.getElementById('moreBtn');
-  if (bf) bf.hidden = !F.more;
+  if (bf) bf.hidden = !F.more || !!(F.cfg.semBefore && F.cfg.semBefore(F.vals));
   if (mb){
     mb.innerHTML = I(F.more ? 'close' : 'plus', 16) + (F.more ? 'Menos opções' : 'Mais opções');
     document.getElementById('moreSum').textContent = !F.more && F.cfg.summary ? F.cfg.summary(F.vals) : '';
@@ -93,7 +96,17 @@ function drawCatPick(){
   if (cut){ const top = [...list].sort((a, b) => (used[b[0]] || 0) - (used[a[0]] || 0)).slice(0, LIM).map(o => o[0]);
     list = list.filter(o => top.includes(o[0]) || o[0] === F.vals.cat); }
   cp.innerHTML = list.map(([v, t]) => `<button type="button" class="${v === F.vals.cat ? 'on' : ''}" data-v="${esc(v)}" data-onclick="pickCat(this.dataset.v)">${I((M[v] || ['tag'])[0], 17)}${esc(t)}</button>`).join('') +
-    (cut ? `<button type="button" class="more" data-onclick="F.allCats=true;drawCatPick()">Mais categorias…</button>` : '');
+    (cut ? `<button type="button" class="more" data-onclick="F.allCats=true;drawCatPick()">Mais categorias…</button>` : '') +
+    (M === CAT_INV ? '' : `<button type="button" class="more" data-onclick="novaCategoria('${M === CAT_GANHO ? 'ganho' : 'gasto'}',formCatNova)">`
+      + `${I('plus', 17)}Nova categoria</button>`);
+}
+// Categoria criada pelo "+ Nova categoria" (novaCategoria): refaz a lista do campo e a escolhe; o resto do formulário fica.
+function formCatNova(k){
+  if (!F) return;
+  const f = F.fields.find(x => x.k === 'cat'), el = document.getElementById('f_cat');
+  el.innerHTML = '';
+  for (const [v, t] of typeof f.options === 'function' ? f.options() : f.options) el.add(new Option(t, v));
+  pickCat(k);
 }
 function pickCat(v){ if (!F) return; const el = document.getElementById('f_cat'); el.value = v; el.onchange(); }
 function pickIcon(k, v){ const el = document.getElementById('f_' + k); el.value = v; el.oninput(); }
@@ -106,8 +119,16 @@ function diffRec(a, b){
   const show = (k, v, money) => v === '' || v == null ? 'vazio' : money ? shown(() => fmt(v)) : k === 'cat' ? (CAT_GASTO[v] || CAT_GANHO[v] || CAT_INV[v] || [0, v])[1] : k === 'pay' ? PAY[v] || v : String(v);
   return DIFF_FIELDS.filter(([k]) => (a[k] ?? '') !== (b[k] ?? '')).map(([k, nome, money]) => `${nome} ${show(k, a[k], money)} → ${show(k, b[k], money)}`).join('; ');
 }
+// Ao abrir um ganho, gasto ou parcelada: quando foi criado no app e editado pela última vez (só o que estiver guardado).
+const dataHora = t => new Date(t).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'});
+const cadastroHtml = (col, item) => {
+  if (!item || !['incomes', 'expenses', 'installments'].includes(col) || !(item.cri || item.edi || item.imp)) return '';
+  const imp = item.imp && db.imports.find(x => x.id === item.imp);
+  const partes = [item.cri && 'criado em ' + dataHora(item.cri), item.edi && 'editado em ' + dataHora(item.edi), imp && 'importado da planilha ' + esc(imp.nome)];
+  return `<div class="hint cadastro">${cap(partes.filter(Boolean).join(' · '))}</div>`;
+};
 const histHtml = item => item && item.h && item.h.length ? `<label>Histórico de alterações</label>${[...item.h].reverse().map(h =>
-  `<div class="hint" style="margin-top:4px"><b>${new Date(h.t).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'})}</b> · ${esc(h.d)}</div>`).join('')}` : '';
+  `<div class="hint u-mt4"><b>${dataHora(h.t)}</b> · ${esc(h.d)}</div>`).join('')}` : '';
 function closeForm(){
   settingsOpen = false;
   if (explorarOrigem && explorarOrigem.raiz !== undefined) explorarOrigem = null;
@@ -142,7 +163,8 @@ function submitForm(){
   for (const f of F.fields){
     const raw = String(F.vals[f.k] ?? '').trim(), name = typeof f.label === 'function' ? f.label(F.vals) : f.label;
     if (f.showIf && !f.showIf(F.vals)){ out[f.k] = ''; continue; }
-    if (f.k === 'fixed'){ out.fixed = raw === 'y' ? 'y' : !!raw; continue; }
+    if (f.k === 'fixed'){ out.fixed = ['y', 'n', 'm'].includes(raw) ? 'y' : !!raw; if (raw === 'n' || raw === 'm') out.repTipo = raw; continue; }
+    if (f.type === 'meses'){ out[f.k] = raw; continue; }
     if (!raw){ if (f.optional){ out[f.k] = f.type === 'money' ? 0 : ''; continue; } return err('Preencha: ' + name.toLowerCase(), f); }
     if (f.type === 'money' || f.type === 'num' || f.type === 'int'){
       const n = f.type === 'int' ? (/^\d+$/.test(raw) ? parseInt(raw) : NaN) : parseMoney(raw);
@@ -161,6 +183,7 @@ function submitForm(){
   if (F.cfg.commit) F.cfg.commit(out, F.id, newId);
   else if (F.id) Object.assign(touch(db[F.col].find(x => x.id === F.id)), out);
   else db[F.col].push(touch({id:newId, ...out}));
+  if (velho && velho.id){ const rec = db[F.col].find(x => x.id === F.id); if (rec) rec.edi = Date.now(); } // editado pela pessoa
   if (velho && velho.id){ // histórico: guarda as 6 últimas alterações do lançamento
     const rec = db[F.col].find(x => x.id === F.id), d = rec && diffRec(velho, rec);
     if (d) rec.h = [...(rec.h || []), {t:Date.now(), d}].slice(-6);

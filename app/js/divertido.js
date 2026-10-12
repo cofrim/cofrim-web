@@ -60,15 +60,27 @@ function challengeHtml(){
   if (!c) return '';
   const nome = (CAT_GASTO[c.cat] || CAT_GASTO.outros)[1], pct = Math.min(100, c.used / c.target * 100);
   return `<div class="card"><b>${I('target')} Desafio de ${monthName(curYM).split(' ')[0]}</b>
-    <div class="hint" style="margin-top:4px">Gaste menos de ${fmt(c.target)} em ${esc(nome)} (foi o gasto do mês passado).</div>
+    <div class="hint u-mt4">Gaste menos de ${fmt(c.target)} em ${esc(nome)} (foi o gasto do mês passado).</div>
     <div class="bar"><i style="width:${pct}%;background:${c.ok ? 'var(--in)' : 'var(--out)'}"></i></div>
     <div class="semTopo hint">${c.ok ? `Até agora: ${fmt(c.used)}. Ainda cabem ${fmt(c.target - c.used)}.` : `Passou em ${fmt(c.used - c.target)}. Mês que vem tem outro!`}</div></div>`;
 }
-// Conquistas em níveis. Cada família: [ícone, nome, como ganhar (n => texto), valor atual, metas]; cada meta é uma
-// conquista ("Anotador I", "Anotador II"…). Tudo é calculado dos dados, nada fica guardado (só quais já foram avisadas).
+// Conquistas em níveis. Cada família: [ícone, nome, como ganhar (n => texto), valor atual, metas, unidade]; cada meta é
+// uma conquista ("Anotador I", "Anotador II"…). Unidade do progresso: [singular, plural] ("3 de 5 assinaturas"), 'reais'
+// ou null (sim ou não). O progresso é calculado dos dados; ficam guardadas só quais já foram avisadas (neste aparelho)
+// e a data em que cada nível foi conquistado (db.conq, ver funCheck).
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 const plural = (n, um, varios) => `${n.toLocaleString('pt-BR')} ${n === 1 ? um : varios}`;
 const reais = n => comMoeda(n);
+// Unidade do progresso de cada família (ver acima).
+const CONQ_UN = {'Anotador':['gasto', 'gastos'], 'Ganha-pão':['ganho', 'ganhos'], 'Renda extra':['ganho avulso', 'ganhos avulsos'],
+  'Parcelador':['compra parcelada', 'compras parceladas'], 'Livre de parcelas':['compra quitada', 'compras quitadas'],
+  'Investidor':['investimento', 'investimentos'], 'Patrimônio':'reais', 'Sonhador':['meta', 'metas'], 'Meta batida':['meta alcançada', 'metas alcançadas'],
+  'Mês no azul':['mês', 'meses'], 'Sequência azul':['mês seguido', 'meses seguidos'], 'Fogo no cofrinho':['dia seguido', 'dias seguidos'],
+  'Desafiante':['desafio', 'desafios'], 'Organizado':['comprovante', 'comprovantes'], 'Etiquetador':['etiqueta', 'etiquetas'],
+  'Variado':['categoria', 'categorias'], 'Planejador':['categoria', 'categorias'], 'Banqueiro':['conta', 'contas'],
+  'Transferidor':['transferência', 'transferências'], 'Rachador':['gasto dividido', 'gastos divididos'],
+  'Assinante consciente':['assinatura', 'assinaturas'], 'Sobrou!':'reais', 'Constância':['mês', 'meses'],
+  'Detalhista':['gasto avulso', 'gastos avulsos'], 'Em dia':null, 'Em dupla':null};
 function funFamilies(){
   const ultimos = n => [...Array(n)].map((_, i) => addMonths(curYM, -i));
   const azul = m => totalIn(m) > 0 && totalIn(m) >= totalOut(m), ano2 = ultimos(24);
@@ -107,29 +119,73 @@ function funFamilies(){
       [1, 3, 6, 12, 24, 36]],
     ['search', 'Detalhista', n => `lance ${n} gastos avulsos num mesmo mês`, avulsosNoMes, [10, 30, 60]],
     ['checked', 'Em dia', () => 'tenha contas com vencimento e nenhuma atrasada', emDia ? 1 : 0, [1]],
-    ['heart', 'Em dupla', () => 'use a conta compartilhada', sync.shared ? 1 : 0, [1]]];
+    ['heart', 'Em dupla', () => 'use a conta compartilhada', sync.shared ? 1 : 0, [1]]].map(f => [...f, CONQ_UN[f[1]]]);
 }
 // Lista plana: [ícone, nome, como ganhar, já ganhou, família, nível].
 function funBadgeList(){
   return funFamilies().flatMap(([ic, nome, como, v, metas], f) => metas.map((n, i) => [ic, metas.length > 1 ? `${nome} ${ROMANOS[i]}` : nome, como(n),
     v >= n, f, i]));
 }
-// Avisa (uma vez) cada conquista nova. Na primeira vez que roda, só anota as que já existiam.
+// Avisa (uma vez) cada conquista nova e guarda em db.conq a data em que cada nível foi conquistado ("Anotador:2").
+// Na primeira vez que roda neste aparelho, só anota as que já existiam (sem data: não se sabe quando vieram). Com o modo
+// divertido desligado, roda calado a cada gravação (save), para a data ficar certa quando ele for ligado.
 // Na demonstração não confere: as conquistas viriam dos dados fictícios (aviso com confete logo ao entrar) e ficariam
 // guardadas como já ganhas, sem aviso quando a pessoa as ganhasse de verdade.
 function funCheck(){
-  if (!db.prefs.fun || demoOn) return;
-  const ganhas = funBadgeList().filter(b => b[3]).map(b => b[1]);
+  if (demoOn) return;
+  const fams = funFamilies(), lista = funBadgeList().filter(b => b[3]), ganhas = lista.map(b => b[1]);
   if (!funState.got){ funState.got = ganhas; }
   else {
-    const novas = ganhas.filter(n => !funState.got.includes(n));
+    const novas = lista.filter(b => !funState.got.includes(b[1]));
     if (!novas.length) return;
-    funState.got = [...funState.got, ...novas];
-    confetti();
-    toast(novas.length > 1 ? `${novas.length} conquistas desbloqueadas: ${novas.join(', ')}!` : comNome(`Conquista desbloqueada, {nome}: ${novas[0]}!`),
-      {dest:{k:'conq', n:novas}}); // tocar no aviso (na central) abre as conquistas com estas em destaque
+    funState.got = [...funState.got, ...novas.map(b => b[1])];
+    for (const [, , , , f, i] of novas) db.conq[`${fams[f][1]}:${i + 1}`] = db.conq[`${fams[f][1]}:${i + 1}`] || Date.now();
+    if (db.prefs.fun){
+      save(false);
+      confetti();
+      const nomes = novas.map(b => b[1]);
+      // em outro idioma, cada nome é traduzido antes: a lista inteira não está na tabela de traduções
+      toast(nomes.length > 1 ? `${nomes.length} conquistas desbloqueadas: ${nomes.map(trText).join(', ')}!`
+        : comNome(`Conquista desbloqueada, {nome}: ${trText(nomes[0])}!`),
+        {dest:{k:'conq', n:nomes}}); // tocar no aviso (na central) abre as conquistas com estas em destaque
+    }
   }
   try { localStorage.setItem(FUN_KEY, JSON.stringify(funState)); } catch(e){}
+}
+// Progresso de uma família rumo à meta alvo: "3 de 5 assinaturas", "R$ 3.200,00 de R$ 5.000,00" ou, nas de sim ou não,
+// "Ainda não". completo: todos os níveis já conquistados.
+function conqProgresso(v, alvo, un, completo){
+  if (completo) return 'Todos os níveis conquistados!';
+  if (!un) return 'Ainda não';
+  return un === 'reais' ? `${reais(v)} de ${reais(alvo)}` : `${(+v).toLocaleString('pt-BR')} de ${plural(alvo, un[0], un[1])}`;
+}
+// Nível e progresso de uma família: n = níveis conquistados, alvo = a meta atual (a última, se completa).
+function conqEstado([, nome, , v, metas, un]){
+  const n = metas.filter(m => v >= m).length, completo = n === metas.length, alvo = metas[Math.min(n, metas.length - 1)];
+  return {n, completo, alvo, titulo:nome + (n && metas.length > 1 ? ' ' + ROMANOS[n - 1] : ''), pct:Math.round(completo ? 100 : Math.min(100, v / alvo * 100)),
+    prog:conqProgresso(v, alvo, un, completo), nivel:`Nível ${n} de ${metas.length}`};
+}
+const conqBarra = e => `<div class="bar"><i style="width:${e.pct}%"></i></div>
+  <div class="conqLinha"><small class="conqProg">${e.prog}</small><small class="conqNivel">${e.nivel}</small></div>`;
+// Detalhe de uma família de conquistas: o que cada nível pede, quando foi conquistado (só a partir da 2.60; as de antes
+// ficam sem data), o progresso atual e o que falta para o próximo.
+function openConq(f){
+  settingsOpen = false; F = null;
+  const fam = funFamilies()[f], [ic, nome, como, v, metas, un] = fam, e = conqEstado(fam);
+  const falta = e.completo ? '' : !un ? cap(como(e.alvo)) + ' para conquistar.'
+    : `${un !== 'reais' && e.alvo - v === 1 ? 'Falta' : 'Faltam'} ${un === 'reais' ? reais(e.alvo - v) : plural(e.alvo - v, un[0], un[1])} `
+      + (metas.length > 1 ? `para o nível ${ROMANOS[e.n]}.` : 'para conquistar.');
+  showSheet(`<h3>${esc(e.titulo)}</h3>
+    <div class="semTopo item semCursor">${tile(ic)}<div class="mid">${conqBarra(e)}</div></div>
+    <div class="hint ${e.completo ? 'in' : ''}">${e.completo ? 'Todos os níveis conquistados!' : falta}</div>
+    <label>Níveis</label>
+    <div class="card">${metas.map((m, i) => { const ok = v >= m, d = db.conq[`${nome}:${i + 1}`]; return `
+      <div class="item semCursor conqNiv"><span class="${ok ? 'in' : 'muted'}">${I(ok ? 'checked' : 'unchecked', 22)}</span><div class="mid">
+        <b>${metas.length > 1 ? 'Nível ' + ROMANOS[i] : nome}</b><small>${cap(como(m))}</small>
+        <small class="u-bloco">${ok ? (d ? 'Conquistado em ' + new Date(d).toLocaleDateString('pt-BR') : 'Conquistado')
+          : i === e.n ? 'Próximo nível' : 'Ainda bloqueado'}</small></div></div>`; }).join('')}</div>
+    <div class="btns foot"><button class="btn" data-onclick="openBadges()">Voltar</button>
+      <button class="btn primary" data-onclick="closeForm()">Fechar</button></div>`);
 }
 // Mascote de cada tema especial. Cada tema tem um personagem próprio (não é o porquinho fantasiado):
 // [claro, médio, forte, fenda, bochecha, olhos, boca, partes]. As partes trocam pedaços do desenho-base:
@@ -444,19 +500,24 @@ for (const [k, [feliz, ok, triste]] of Object.entries(FALAS_TEMA)){
     ok:[ok, ...c.ok], triste:[triste, ...c.triste]};
 }
 // Bloco do Resumo: o porquinho reage ao saldo do mês atual. Tocar nele troca a fala.
+// Frase do balão: muda com o dia e a cada toque no personagem (funState.tap).
+function funFala(mood = funMood()){
+  const falas = (FUN_TEMA[db.prefs.skin] || FUN_TEMA[''])[mood];
+  return esc(comNome(falas[(now.getDate() + funState.tap) % falas.length])).replace('{v}', fmt(Math.abs(totalIn(curYM) - totalOutPrev(curYM))));
+}
 function funMascot(){
-  const net = totalIn(curYM) - totalOutPrev(curYM), mood = funMood();
-  const falas = (FUN_TEMA[db.prefs.skin] || FUN_TEMA[''])[mood], ganhas = funBadgeList().filter(b => b[3]).length,
-  nivel = [...FUN_LEVELS].reverse().find(l => ganhas >= l[0])[1];
+  const mood = funMood(), ganhas = funBadgeList().filter(b => b[3]).length, nivel = [...FUN_LEVELS].reverse().find(l => ganhas >= l[0])[1];
   return `<div class="card fun" data-onclick="funPoke()"><div class="pigBox">${pigSvg(mood)}</div>
-    <div class="mid"><div class="bubble">${esc(comNome(falas[(now.getDate() + funState.tap) % falas.length])).replace('{v}', fmt(Math.abs(net)))}</div>
+    <div class="mid"><div class="bubble">${funFala(mood)}</div>
     <small>${I('trophy', 13)} ${nivel}${funState.streak > 1 ? ` · ${I('flame', 13)} ${funState.streak} dias seguidos` : ''}</small></div></div>`;
 }
+// Toque no personagem: só a frase do balão troca, com transição (.bubble.troca); a tela e o personagem ficam como estão.
 function funPoke(){
   funState.tap++;
-  render();
-  const p = document.querySelector('.pigBox');
-  if (p) p.classList.add('poke');
+  const b = document.querySelector('#app .card.fun .bubble');
+  if (!b) return;
+  b.innerHTML = funFala();
+  b.classList.remove('troca'); void b.offsetWidth; b.classList.add('troca'); // reinicia a transição
 }
 // Bloco do Resumo: quantas já foram ganhas, as últimas de cada família e as três mais perto de sair.
 function funBadges(){
@@ -470,7 +531,7 @@ function funBadges(){
   <div class="card"><div class="semTopo bar"><i style="width:${ganhas / list.length * 100}%"></i></div>
     ${topo.length ? `<div class="badges">${topo.map(([ic, nome]) => `<button class="on" data-onclick="openBadges()"><span>${I(ic, 24)}</span>${nome}</button>`).join('')}</div>` : ''}
     ${proximas.length ? `<div class="hint" style="margin:10px 0 2px">Mais perto de ganhar:</div>${proximas.map(p => `<div class="catrow"><div class="top"><span>${I(p.ic, 16)} ${p.nome}</span><b>${Math.floor(p.pct)}%</b></div>
-      <div class="hint" style="margin-top:2px">${cap(p.como)}</div><div class="bar"><i style="width:${p.pct}%"></i></div></div>`).join('')}` : ''}</div>`;
+      <div class="hint u-mt2">${cap(p.como)}</div><div class="bar"><i style="width:${p.pct}%"></i></div></div>`).join('')}` : ''}</div>`;
 }
 // Todas as conquistas, por família, com o nível de cada uma. novas: nomes recém-ganhos (ex.: "Anotador II", vindos do
 // aviso na central): a família de cada uma aparece em destaque, com "Nova!", e a tela rola até a primeira.
@@ -479,13 +540,12 @@ function openBadges(novas = []){
   const nova = nome => (Array.isArray(novas) ? novas : []).some(n => n === nome || String(n).startsWith(nome + ' '));
   const list = funBadgeList(), ganhas = list.filter(b => b[3]).length;
   showSheet(`<h3>Conquistas: ${ganhas} de ${list.length}</h3>
-    <div class="semTopo hint">Cada uma tem níveis: a próxima aparece quando você passa da anterior.</div>
-    ${funFamilies().map(([ic, nome, como, v, metas]) => { const n = metas.filter(m => v >= m).length, prox = metas[n]; return `
-      <div class="semCursor item${nova(nome) ? ' sugDestaque' : ''}">${tile(ic)}<div class="mid">
-        <b>${nome}${n ? ' ' + (metas.length > 1 ? ROMANOS[n - 1] : '') : ''}${nova(nome) ? ' <span class="tag in">Nova!</span>' : ''}</b>
-        <small class="quebra">${prox == null ? 'Todos os níveis conquistados!' : cap(como(prox))}</small>
-        <div class="lvls">${metas.map((m, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div></div>
-        <div class="val ${n === metas.length ? 'in' : 'muted'}">${n}/${metas.length}</div></div>`; }).join('')}
+    <div class="semTopo hint">Cada uma tem níveis: a próxima aparece quando você passa da anterior. Toque numa para ver os níveis.</div>
+    ${funFamilies().map((fam, f) => { const [ic, nome, como, , metas] = fam, e = conqEstado(fam); return `
+      <div class="item conq${nova(nome) ? ' sugDestaque' : ''}" data-onclick="openConq(${f})">${tile(ic)}<div class="mid">
+        <b>${esc(e.titulo)}${nova(nome) ? ' <span class="tag in">Nova!</span>' : ''}</b>
+        <small class="quebra">${e.completo ? 'Todos os níveis conquistados!' : cap(como(metas[e.n]))}</small>${conqBarra(e)}</div>
+        ${I('chev', 18)}</div>`; }).join('')}
     <div class="btns foot"><button class="btn primary" data-onclick="closeForm()">Fechar</button></div>`);
   const d = document.querySelector('#sheet .sugDestaque');
   if (d) d.scrollIntoView({block:'center'});

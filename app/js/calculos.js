@@ -5,15 +5,30 @@
 // ---------- Regras ----------
 // Vale para ganhos e gastos. fixed: false = só no mês start; true = todo mês a partir de start;
 // 'y' = anual, todo ano no mesmo mês de start. Os dois últimos param em end, se houver.
+// Em alguns meses (2.60): fixed 'y' com rep. rep número = a cada rep meses, a partir de start; rep lista = os meses do
+// ano marcados (1 a 12), de start em diante. rep só vale com fixed 'y': um APK antigo vê um anual (só no mês de start).
+const repete = x => x.fixed === 'y' && (Number.isInteger(x.rep) || Array.isArray(x.rep));
 function activeIn(x, ym){
   if (!x.fixed) return x.start === ym;
   if (x.start > ym || (x.end && ym > x.end)) return false;
-  return x.fixed !== 'y' || ym.slice(5) === x.start.slice(5);
+  if (x.fixed !== 'y') return true;
+  if (Array.isArray(x.rep)) return x.rep.includes(+ym.slice(5));
+  if (Number.isInteger(x.rep)) return monthDiff(ym, x.start) % x.rep === 0;
+  return ym.slice(5) === x.start.slice(5);
+}
+// Vezes por ano que um lançamento cai (para a média por mês das contas que não são mensais).
+const vezesNoAno = x => !x.fixed ? 0 : x.fixed !== 'y' ? 12 : Array.isArray(x.rep) ? x.rep.length : Number.isInteger(x.rep) ? 12 / x.rep : 1;
+// Próximo mês, depois de m, em que o lançamento cai (até 25 anos à frente); '' se não cai mais.
+function proximoMes(x, m){
+  for (let i = 1; i <= 300; i++){ const n = addMonths(m, i); if (x.end && n > x.end) return ''; if (activeIn(x, n)) return n; }
+  return '';
 }
 const isMonthly = x => x.fixed && x.fixed !== 'y';
-// Assinatura: gasto fixo mensal marcado como tal (sub '1'), ou com nome de serviço conhecido se não foi marcado como conta fixa (sub '0').
+// Assinatura: gasto fixo mensal marcado como tal (sub '1'); sem escolha (sub ''), o nome de um serviço conhecido ou a
+// categoria (SUB_CATS: streaming e jogos). Marcado como conta fixa (sub '0') nunca é. O resto dos fixos é conta fixa.
 const SUB_RX = /netflix|spotify|stream|stremm|disney|prime video|amazon prime|\bhbo\b|\bmax\b|globoplay|paramount|youtube|apple|icloud|google one|deezer|crunchyroll|star\+|telecine|xbox|playstation|\bpsn\b|game ?pass|chatgpt|openai|claude|canva|adobe|microsoft 365|office 365|dropbox|academia|smart ?fit|gympass|wellhub|totalpass|kindle|audible|duolingo|uber one|mubi|assinatura/;
-const isSub = x => !!isMonthly(x) && (x.sub === '1' || (x.sub !== '0' && SUB_RX.test(plain(x.desc || ''))));
+const SUB_CATS = ['cinema', 'jogos'];
+const isSub = x => !!isMonthly(x) && (x.sub === '1' || (x.sub !== '0' && (SUB_RX.test(plain(x.desc || '')) || SUB_CATS.includes(x.cat))));
 // Arquivo de anos antigos (ver archiveUntil em sincronizacao.js): os lançamentos até o ano db.archUntil saem dos dados do dia a dia
 // e ficam num arquivo à parte, na conta Google (arquivo.json) e neste aparelho (ARCH_KEY). arch = o conteúdo do arquivo,
 // carregado quando a tela mostra um período arquivado; os cálculos desses meses somam os lançamentos dele.
@@ -116,6 +131,29 @@ const diaGanhoTexto = x => { const regra = x.fixed ? x.regra : '', ajuste = x.fi
 // Crédito de vale = ganho com a categoria va ou vr; gasto no vale = gasto (ou parcela) com a forma de pagamento va ou vr.
 // incomesOf/expensesOf devolvem o mês SEM os vales; incomesAll/expensesAll, com eles; valeIn/valeOut, só eles.
 const VALES = {va:'Vale-alimentação', vr:'Vale-refeição', vt:'Vale-transporte'};
+// Gastos avulsos que se repetem como uma conta: a mesma descrição (sem números nem acento) em 3 meses ou mais dos últimos 6,
+// uma vez por mês e com valor quase igual (até 5% da mediana), fora das categorias do dia a dia (RECORR_FORA), sem um
+// gasto fixo igual e sem a pessoa ter dito que não é fixo. Sugere virar fixo.
+const RECORR_FORA = ['alimentacao', 'mercado', 'restaurante', 'cafe', 'combustivel', 'estacionamento', 'conducao', 'transporte', 'farmacia',
+  'compras', 'roupas', 'bares', 'presentes', 'lazer', 'shows', 'viagem'];
+const recorrChave = d => plain(String(d || '')).replace(/[^a-z]+/g, ' ').trim();
+function recorrentes(){
+  const desde = addMonths(curYM, -5), ign = db.prefs.recorrIgnorados || [], grupos = {};
+  const fixos = new Set(db.expenses.filter(x => x.fixed && (!x.end || x.end >= curYM)).map(x => recorrChave(x.desc)));
+  for (const x of db.expenses){
+    const k = recorrChave(x.desc);
+    if (x.fixed || !x.start || x.start < desde || x.start > curYM || VALES[x.pay] || RECORR_FORA.includes(x.cat) || k.length < 3 || fixos.has(k)
+      || ign.includes(k)) continue;
+    (grupos[k] = grupos[k] || []).push(x);
+  }
+  const mediana = l => { const v = l.map(x => x.value).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; };
+  return Object.entries(grupos).map(([k, l]) => {
+    const m = mediana(l), perto = l.filter(x => Math.abs(x.value - m) <= Math.max(.5, m * .05)), meses = [...new Set(perto.map(x => x.start))];
+    if (l.length > meses.length + 1) return {meses:0}; // várias vezes no mesmo mês: compra do dia a dia, não conta
+    const ult = perto.reduce((a, x) => x.start >= a.start ? x : a, perto[0]), dias = perto.map(x => +x.day).filter(Boolean);
+    return {k, meses:meses.length, valor:m, ult, dia:dias.length ? dias.sort((a, b) => a - b)[Math.floor(dias.length / 2)] : 0};
+  }).filter(r => r.meses >= 3).sort((a, b) => b.meses - a.meses || b.valor - a.valor);
+}
 // Empresas de vale mais comuns no Brasil (campo "Empresa do vale"); a última usada em cada vale já vem escolhida.
 const VALE_EMPRESAS = ['Alelo', 'Pluxee', 'Sodexo', 'Ticket', 'VR', 'iFood Benefícios', 'Ben', 'Flash', 'Caju', 'Swile', 'Up Brasil', 'Greencard', 'Outra'];
 const valeEmp = k => ([...db.incomes.filter(x => x.cat === k && x.emp),

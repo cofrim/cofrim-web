@@ -26,7 +26,9 @@ function httpGet(url){
     drivePending[id] = r => r.status === 200 ? res(r.text) : rej(r); nativo('get', id, url); }));
   return espera(fetch(location.hostname === 'localhost' ? '/proxy?u=' + encodeURIComponent(url) : url)).then(r => { if (!r.ok) throw r; return r.text(); });
 }
+// Os <style> que alguns feeds trazem no conteúdo saem antes de ler: a CSP só aceita os do app e avisaria a cada leitura.
 function parseRss(xml, source){
+  xml = xml.replace(/<([\w-]+:)?style\b[\s\S]*?<\/([\w-]+:)?style\s*>/gi, '');
   return [...new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item')].map(it => {
     const get = t => ((it.getElementsByTagName(t)[0] || {}).textContent || '').trim(), src = get('News:Source') || get('source') || source;
     let title = get('title'), link = get('link'), img = get('News:Image') || get('mediaurl');
@@ -70,7 +72,7 @@ function viewNoticias(){
   return `
   ${head('Notícias', 'noticias')}
   <div class="btns" style="margin:0 0 12px">${Object.entries(NEWS).map(([k,n]) => `<button class="btn ${newsTab === k ? 'primary' : ''}" data-onclick="newsTab='${k}';render();scrollTo(0,0)">${n.label}</button>`).join('')}</div>
-  ${newsTab === 'rec' ? '<div class="hint" style="margin:0 4px 12px">Matérias e análises publicadas por sites de notícias. Não são uma recomendação deste app: avalie seu perfil e seus objetivos antes de investir.</div>' : ''}
+  ${newsTab === 'rec' ? '<div class="hint u-vazio">Matérias e análises publicadas por sites de notícias. Não são uma recomendação deste app: avalie seu perfil e seus objetivos antes de investir.</div>' : ''}
   ${items.length ? `${top < 0 ? '' : `<div class="newsHero" data-onclick="openNews(${top})">
       <img src="${esc(items[top].img.replace('w=160&h=160', 'w=640&h=360'))}" alt="" referrerpolicy="no-referrer" data-onerror="this.remove()">
       <div><span class="src">${esc(items[top].source || 'Destaque')}</span><b>${esc(items[top].title)}</b><small>${ago(items[top].date)}</small></div></div>`}
@@ -78,6 +80,6 @@ function viewNoticias(){
       ${n.img ? `<img class="thumb" src="${esc(n.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-onerror="this.outerHTML=newsPh(this.dataset.s)" data-s="${esc(n.source)}">` : newsPh(n.source)}
       <div class="mid"><b>${esc(n.title)}</b><span class="src">${esc(n.source || 'Notícia')}</span> <small>${ago(n.date)}</small></div></div>`).join('')}</div>`
   : newsLoading[newsTab] ? skel(4) : empty('signal','Não foi possível carregar as notícias.<br>Verifique a internet e toque em Atualizar.')}
-  <div class="btns" style="margin-bottom:12px"><button class="btn" data-onclick="loadNews(newsTab,true);render()">${newsLoading[newsTab] ? 'Atualizando…' : I('refresh') + 'Atualizar'}</button></div>
-  ${c && c.err && items.length ? '<div class="hint" style="text-align:center">Sem conexão: mostrando as últimas notícias salvas.</div>' : ''}`;
+  <div class="btns u-mb12"><button class="btn" data-onclick="loadNews(newsTab,true);render()">${newsLoading[newsTab] ? 'Atualizando…' : I('refresh') + 'Atualizar'}</button></div>
+  ${c && c.err && items.length ? '<div class="hint u-centro">Sem conexão: mostrando as últimas notícias salvas.</div>' : ''}`;
 }

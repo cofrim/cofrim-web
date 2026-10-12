@@ -143,11 +143,11 @@ function avisoNativoHtml(){
   if (!temNativo() || db.prefs.avisoComp === false) return '';
   if (!temNativo('compartLog')) return '<div class="hint warn">Para receber os avisos com o app fechado, instale a atualização do app (Configurações › Atualização).</div>';
   const [t, r] = String(nativo('compartLog')).split('|'), semPerm = !lembLigados(), economia = temNativo('bateriaLivre') && !nativo('bateriaLivre');
-  return `${semPerm ? `<div class="hint warn">Os lembretes estão desligados neste aparelho: os avisos não aparecem como notificação.</div><div class="btns" style="margin-top:6px"><button class="btn primary" data-onclick="ligarLembretes()">Ligar lembretes</button></div>` : ''}
-    ${economia ? `<div class="hint warn">O app está na economia de bateria: o Android pode atrasar ou cortar os avisos com ele fechado.</div><div class="btns" style="margin-top:6px"><button class="btn" data-onclick="nativo('bateria')">Tirar da economia de bateria</button></div>` : ''}
+  return `${semPerm ? `<div class="hint warn">Os lembretes estão desligados neste aparelho: os avisos não aparecem como notificação.</div><div class="btns u-mt6"><button class="btn primary" data-onclick="ligarLembretes()">Ligar lembretes</button></div>` : ''}
+    ${economia ? `<div class="hint warn">O app está na economia de bateria: o Android pode atrasar ou cortar os avisos com ele fechado.</div><div class="btns u-mt6"><button class="btn" data-onclick="nativo('bateria')">Tirar da economia de bateria</button></div>` : ''}
     <div class="hint">Última conferência com o app fechado: ${t ? `${quando(+t)} — ${esc(r || '')}` : 'ainda não aconteceu'}.</div>
     ${temNativo('compartHist') && nativo('compartHist') ? `<details class="grp"><summary>Últimas conferências${I('chev')}</summary><div class="hint" style="margin:0 0 8px">${String(nativo('compartHist')).split('\n').map(l => { const i = l.indexOf('|'); return `${quando(+l.slice(0, i))} — ${esc(l.slice(i + 1))}`; }).join('<br>')}</div></details>` : ''}
-    <div class="btns" style="margin-top:6px"><button class="btn" data-onclick="conferirNativo()">Conferir agora</button></div>`;
+    <div class="btns u-mt6"><button class="btn" data-onclick="conferirNativo()">Conferir agora</button></div>`;
 }
 function conferirNativo(){ if (demoBloqueia()) return; nativo('compartConferir');
   comCarga('Conferindo a conta compartilhada…', () => new Promise(r => setTimeout(r, 6000))).then(() => { if (settingsShown()) openSettings(); }); }
@@ -161,4 +161,4 @@ const membrosHtml = s => { const eu = membroChave(), ms = Object.entries(db.memb
   return `<label>Pessoas na conta (${ms.length})</label><div class="card" style="box-shadow:none;background:var(--bg);margin:0">
     ${ms.map(([k, m]) => `<div class="semCursor item">${tile('user')}<div class="mid"><b>${esc(m.nome)}${k === eu ? ' (você)' : ''}</b><small>${m.email ? esc(m.email) + ' · ' : ''}desde ${new Date(m.desde).toLocaleDateString('pt-BR')}</small></div></div>`).join('')}
     ${falta.map(e => `<div class="item" style="cursor:default;opacity:.65">${tile('user')}<div class="mid"><b>${esc(e)}</b><small>convite enviado, ainda não entrou</small></div></div>`).join('')}
-    ${ms.length ? '' : '<div class="hint" style="margin:0">A lista aparece depois da próxima sincronização.</div>'}</div>`; };
+    ${ms.length ? '' : '<div class="hint u-m0">A lista aparece depois da próxima sincronização.</div>'}</div>`; };

@@ -7,6 +7,13 @@
 // porque nada da demonstração é gravado.
 let demoReal = null;
 // ~3 meses de lançamentos com datas relativas ao mês atual, nomes genéricos (sem pessoas reais), passando por fixDb.
+// Em inglês ou espanhol, a demonstração vem com as descrições e os nomes no idioma do app (os bancos ficam como estão).
+function demoIdioma(o){
+  for (const col of ['incomes', 'expenses', 'installments', 'goals', 'investments'])
+    for (const r of o[col]) for (const k of ['desc', 'name', 'credor', 'assetName']) if (r[k] && !r.ticker) r[k] = trText(r[k]);
+  for (const t of o.trash) t.rec.desc = trText(t.rec.desc);
+  return o;
+}
 function demoDados(){
   let n = 0;
   const id = () => 'demo' + (++n), m = k => addMonths(curYM, k), hoje = Math.min(now.getDate(), 28);
@@ -31,7 +38,7 @@ function demoDados(){
     g('Almoço no centro', 'restaurante', 38.5, k, 8, {pay:'vr', emp:'Alelo'}));
   // Um lançamento com histórico de alterações (o que mudou ao editar).
   expenses[0].h = [{t:Date.now() - 20 * 864e5, d:'valor R$ 1.390,00 → R$ 1.450,00'}];
-  return {
+  return demoIdioma({
     incomes:[{id:id(), desc:'Salário', cat:'salario', value:5200, fixed:true, start:m(-2), end:'', bank:'Banco Verde', day:5, u:1},
       {id:id(), desc:'Trabalho extra', cat:'freelance', value:650, fixed:false, start:m(-1), end:'', bank:'Banco Verde', day:18, u:1},
       {id:id(), desc:'Crédito VA', cat:'va', value:800, fixed:true, start:m(-2), end:'', day:1, emp:'Pluxee', u:1},
@@ -57,7 +64,7 @@ function demoDados(){
     previsoes:[{id:id(), cat:'combustivel', mes:m(0), value:300, dia:25, rep:true, ex:{}, u:1},
       {id:id(), cat:'farmacia', mes:m(0), value:80, dia:31, rep:false, ex:{}, u:1}],
     budgets:{mercado:700, restaurante:250, transporte:1500, cinema:100},
-    cardClose:{'Banco Azul':25}, cardDue:{'Banco Azul':5}, cardAcc:{'Banco Azul':'Banco Azul'}, cardLimit:{'Banco Azul':4000}};
+    cardClose:{'Banco Azul':25}, cardDue:{'Banco Azul':5}, cardAcc:{'Banco Azul':'Banco Azul'}, cardLimit:{'Banco Azul':4000}});
 }
 async function demoLigar(){
   if (demoOn) return;
@@ -155,6 +162,8 @@ function openWelcome(){
   showSheet(`<h3>${greeting() || 'Boas-vindas!'}</h3>
     <div class="semTopo hint">Três passos para o app começar a mostrar o seu mês. Dá para pular e fazer depois.</div>
     ${WELCOME.map(([ic, t, s, ok], i) => `<div class="item" data-onclick="welcomeGo(${i})">${tile(ic)}<div class="mid"><b>${i + 1}. ${t}</b><small>${s}</small></div><span class="${ok() ? 'in' : 'muted'}">${I(ok() ? 'checked' : 'unchecked', 26)}</span></div>`).join('')}
+    <div class="item planConvite" data-onclick="abrirImportarPlanilha()">${tile('doc')}<div class="mid"><b>Tem uma planilha? Traga seus gastos</b>
+      <small>Importe de uma planilha .xlsx, .ods ou .csv: o app entende o jeito dela e mostra tudo antes de importar.</small></div>${I('chev', 18)}</div>
     <div class="btns foot"><button class="btn primary" data-onclick="welcomeDone()">${feitos === WELCOME.length ? 'Concluir' : 'Pular por agora'}</button></div>`);
   welcomeOn = true;
 }
@@ -210,8 +219,9 @@ const TOUR = [
   ['gear', 'Do seu jeito',
     'Mais de 160 temas especiais, cada um com personagem, cenário animado e estilo de interface próprios, além de cores, moeda e país, '
     + 'abas do menu, bloqueio com senha, widgets na tela inicial (com ou sem os valores) e o modo divertido, com mais de 100 conquistas. Tudo em Configurações.']];
+let tourAt = null; // página aberta do tutorial: {i, daConfig}, para o deslizar (tourLado)
 function openTour(i, daConfig){
-  settingsOpen = false; F = null;
+  settingsOpen = false; F = null; tourAt = {i, daConfig:!!daConfig};
   const [ic, t, s] = TOUR[i], ult = i === TOUR.length - 1;
   showSheet(`<div class="tour"><span class="tourIco">${I(ic, 40)}</span>
     <h3>${typeof t === 'function' ? t() : t}</h3><p>${s}</p>
@@ -219,7 +229,37 @@ function openTour(i, daConfig){
     <div class="btns foot">${i ? `<button class="btn" data-onclick="openTour(${i - 1},${!!daConfig})">Voltar</button>` : `<button class="btn" data-onclick="tourDone(${!!daConfig})">Pular</button>`}
       <button class="btn primary" data-onclick="${ult ? `tourDone(${!!daConfig})` : `openTour(${i + 1},${!!daConfig})`}">${ult ? 'Começar' : 'Próximo'}</button></div>`);
 }
+// Deslizar no tutorial (detector único ALVOS_LADO, em assistente.js): para a esquerda vai para a próxima página e para a
+// direita volta. A página acompanha o dedo; ao soltar, sai para o lado e a nova entra do outro, ou volta ao lugar. Na
+// primeira não volta e na última não fecha (só o botão Começar): ali o arrasto só cede um pouco e volta.
+const TOUR_ANIM = 220;
+function tourLado(t){
+  const box = tourAt && sheetOpen() && t.closest('#sheet') && document.querySelector('#sheet .tour');
+  if (!box) return null;
+  const {i, daConfig} = tourAt, pode = dx => dx < 0 ? i < TOUR.length - 1 : i > 0;
+  const anim = document.documentElement.dataset.anim !== 'off', por = (x, ms) => {
+    box.style.transition = ms && anim ? `transform ${ms}ms ease-out, opacity ${ms}ms ease-out` : 'none';
+    box.style.transform = x ? `translateX(${x}px)` : ''; box.style.opacity = x ? String(Math.max(.3, 1 - Math.abs(x) / box.offsetWidth)) : ''; };
+  return {
+    move(dx){ por(pode(dx) ? dx : dx / 4, 0); }, // sem página para aquele lado: o arrasto só cede um pouco
+    fim(dx, valeu){
+      if (!valeu || !pode(dx)) return por(0, TOUR_ANIM);
+      const lado = dx < 0 ? -1 : 1;
+      por(lado * box.offsetWidth, TOUR_ANIM);
+      setTimeout(() => {
+        if (!tourAt || tourAt.i !== i) return; // o tutorial já mudou (botão) ou fechou
+        openTour(i - lado, daConfig);
+        const nova = document.querySelector('#sheet .tour');
+        if (!nova || !anim) return;
+        nova.style.transition = 'none'; nova.style.transform = `translateX(${-lado * 40}px)`; nova.style.opacity = '0';
+        void nova.offsetWidth;
+        nova.style.transition = `transform ${TOUR_ANIM}ms ease-out, opacity ${TOUR_ANIM}ms ease-out`; nova.style.transform = ''; nova.style.opacity = '';
+      }, anim ? TOUR_ANIM : 0);
+    }};
+}
+ALVOS_LADO.push(tourLado);
 function tourDone(daConfig){
+  tourAt = null;
   if (demoOn) return closeForm(); // na demonstração não marca o tutorial como visto na conta real
   sync.tour = true; saveSync();
   if (daConfig) openSettings('perfil'); else { closeForm(); startSheets(); }

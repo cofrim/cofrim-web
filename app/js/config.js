@@ -45,7 +45,6 @@ function openSettings(sec){
   ['regiao', 'globe', 'Idioma e região', 'Idioma, moeda e país', `
     <label>Idioma</label>
     <div class="semTopo btns">${Object.entries(LANGS).map(([k, v]) => `<button class="btn ${lang() === k ? 'primary' : ''}" style="padding:11px 4px" data-onclick="setLang('${k}')">${v}</button>`).join('')}</div>
-    ${lang() !== 'pt' ? '<div class="hint">O assistente entende só português.</div>' : ''}
     <label>Moeda</label>
     <div class="semTopo btns"><button class="btn" data-onclick="escolherMoeda()">${esc(moedaNome(p.moeda || 'BRL'))}</button></div>
     <label>País</label>
@@ -62,7 +61,7 @@ function openSettings(sec){
     ${p.skin ? '' : `<label>Fundo animado</label>
     <div class="semTopo btns">${[[true,'Ligado'],[false,'Desligado']].map(([v,t]) => `<button class="btn ${(p.fundo !== false) === v ? 'primary' : ''}" data-onclick="setPref('fundo',${v})">${t}</button>`).join('')}</div>
     ${p.fundo !== false ? `<div class="swatches">${Object.entries(COLORS).map(([k,c]) => `<button class="sw ${fundoCorDe(p) === k ? 'on' : ''}" style="background:linear-gradient(135deg,${c[1]},${c[2]});border-radius:50%" data-onclick="setPref('fundoCor','${k}')" aria-label="Fundo ${c[0]}" title="${c[0]}"></button>`).join('')}</div>
-    <div class="hint">${p.fundoCor && COLORS[p.fundoCor] ? '<a href="#" data-onclick="setPref(\'fundoCor\',\'\');return false" style="color:var(--brand)">Usar a cor do app</a>' : 'Segue a cor do app; toque numa cor para fixar.'}</div>
+    <div class="hint">${p.fundoCor && COLORS[p.fundoCor] ? '<a class="u-marca" href="#" data-onclick="setPref(\'fundoCor\',\'\');return false">Usar a cor do app</a>' : 'Segue a cor do app; toque numa cor para fixar.'}</div>
     <label>Intensidade do fundo</label>
     <div class="semTopo btns">${Object.entries(FUNDO_INT).map(([k, t]) => `<button class="btn ${fundoIntDe(p) === k ? 'primary' : ''}" data-onclick="setPref('fundoInt','${k}')">${t}</button>`).join('')}</div>` : ''}`}
     <label>Tamanho do texto</label>
@@ -89,11 +88,11 @@ function openSettings(sec){
   ['menu', 'sliders', 'Menu de baixo', 'Ordem das abas', `
     <div class="semTopo hint">O Resumo fica sempre no menu.</div>
     <div>${p.tabs.map((t,i) => { if (t === 'chat' || (WEB_APP && t === 'noticias')) return ''; const off = p.tabsOff.includes(t);
-      return `<div class="item" style="cursor:default;padding:6px 0">
+      return `<div class="item u-linha">
       <button class="iconbtn ${off ? 'muted' : 'in'}" data-onclick="toggleTab('${t}')" ${t === 'resumo' ? 'disabled style="opacity:.35"' : ''} aria-label="${off ? 'Mostrar' : 'Esconder'}">${I(off ? 'unchecked' : 'checked', 24)}</button>
       <div class="mid" style="${off ? 'opacity:.5' : ''}"><b>${I(TABS[t][0])} ${TABS[t][1]}</b>${off ? '<small>escondida</small>' : t === visTabs()[0] ? '<small>Aba inicial</small>' : ''}</div>
-      <button class="iconbtn" data-onclick="moveTab(${i},-1)" ${i ? '' : 'disabled style="opacity:.25"'} aria-label="Subir">▲</button>
-      <button class="iconbtn" data-onclick="moveTab(${i},1)" ${i < n-1 ? '' : 'disabled style="opacity:.25"'} aria-label="Descer">▼</button></div>`; }).join('')}</div>`],
+      <button class="iconbtn u-apagado" data-onclick="moveTab(${i},-1)" ${i ? '' : 'disabled'} aria-label="Subir">▲</button>
+      <button class="iconbtn u-apagado" data-onclick="moveTab(${i},1)" ${i < n-1 ? '' : 'disabled'} aria-label="Descer">▼</button></div>`; }).join('')}</div>`],
   ['seguranca', 'lock', 'Ícone e bloqueio', 'Ícone e senha', !isApp ? '' : `${demo}
     <label>Cor do ícone do app</label>
     <div class="swatches">${Object.entries(ICONES).filter(([k]) => !SKINS[k] || SKIN_ANTIGOS.includes(k) || (k === p.skin || k === N.icone()) && iconeTem(k)).map(([k,c]) => `<button class="sw ${N.icone() === k ? 'on' : ''}" style="background:linear-gradient(135deg,${c[1]},${c[2]});border-radius:14px" data-onclick="nativeOpts().setIcone('${k}');openSettings()" aria-label="${c[0]}" title="${c[0]}"></button>`).join('')}</div>
@@ -120,17 +119,25 @@ function openSettings(sec){
       <label>Avisar com antecedência de (pode marcar mais de uma)</label>
       <div class="semTopo btns">${[[1,'1 dia'],[3,'3 dias'],[5,'5 dias']].map(([d,t]) => `<button class="btn ${p.reminds.includes(d) ? 'primary' : ''}" data-onclick="toggleRemind(${d})">${p.reminds.includes(d) ? I('check', 15) : ''}${t}</button>`).join('')}</div>
       <label>Categorias que notificam (as que têm gastos fixos; toque para ligar ou desligar)</label>
-      <div class="chips" style="margin:0">${Object.entries(CAT_GASTO).filter(([k]) => k !== 'emprestimo' && (p.notifyCats[k] === false || db.expenses.some(x => x.cat === k && x.fixed))).map(([k,c]) => { const on = p.notifyCats[k] !== false; return `<button style="${on ? 'background:var(--brand);color:' + (theme.dark ? '#0b1020' : '#fff') : 'opacity:.6;text-decoration:line-through'}" data-onclick="toggleNotifyCat('${k}')">${I(c[0], 14)} ${esc(c[1])}</button>`; }).join('')}</div>
+      <div class="chips u-m0">${Object.entries(CAT_GASTO).filter(([k]) => k !== 'emprestimo' && (p.notifyCats[k] === false || db.expenses.some(x => x.cat === k && x.fixed))).map(([k,c]) => { const on = p.notifyCats[k] !== false; return `<button style="${on ? 'background:var(--brand);color:' + (theme.dark ? '#0b1020' : '#fff') : 'opacity:.6;text-decoration:line-through'}" data-onclick="toggleNotifyCat('${k}')">${I(c[0], 14)} ${esc(c[1])}</button>`; }).join('')}</div>
     </div>
     <div class="hint">Avisa nos dias marcados e no vencimento, às 9h.</div>${temNativo('bateria') ? `${batLivre ? '' : `<div class="btns"><button class="btn" data-onclick="nativo('bateria')">Tirar o app da economia de bateria</button></div>`}
-    <label>Previsões de gastos</label>
-    <div class="semTopo btns">${[[true,'Ligado'],[false,'Desligado']].map(([v,t]) => `<button class="btn ${!!(p.notifyPrev ?? p.notify) === v ? 'primary' : ''}" data-onclick="setNotifyTipo('notifyPrev',${v})">${t}</button>`).join('')}</div>
-    ${p.notifyPrev ?? p.notify ? `<label>Avisar quando chegar em (pode marcar mais de um)</label>
-    <div class="semTopo quebraLinha btns prevPontos">${Object.entries(PREV_PONTOS).map(([k, t]) => `<button class="btn ${prevPontos().includes(k) ? 'primary' : ''}" style="flex:1 0 30%;padding:11px 6px" data-onclick="togglePrevPonto('${k}')">${prevPontos().includes(k) ? I('check', 15) : ''}${t}</button>`).join('')}</div>
-    ${prevPontos().length ? '' : '<div class="hint warn">Nenhum ponto marcado: as previsões não vão avisar.</div>'}` : ''}
+    ${[['notifyOrc', 'Orçamento das categorias'], ['notifyCartao', 'Limite do cartão'], ['notifyMeta', 'Metas'], ['notifyPrev', 'Previsões de gastos']].map(([k, t]) => `
+    <label>${t}</label>
+    <div class="semTopo btns">${[[true,'Ligado'],[false,'Desligado']].map(([v,r]) => `<button class="btn ${!!(p[k] ?? p.notify) === v ? 'primary' : ''}"
+      data-onclick="setNotifyTipo('${k}',${v})">${r}</button>`).join('')}</div>`).join('')}
+    <div class="hint">Em que ponto avisar (50%, 70%, 80%, 90%, chegou ou passou do valor): <a href="#" class="u-marca" data-onclick="openSettings('avisos');return false">Avisos de valores</a>.</div>
     <label>Parcelas de financiamentos e empréstimos (no dia do vencimento)</label>
     <div class="semTopo btns">${[[true,'Ligado'],[false,'Desligado']].map(([v,t]) => `<button class="btn ${!!(p.notifyFin ?? p.notify) === v ? 'primary' : ''}" data-onclick="setNotifyTipo('notifyFin',${v})">${t}</button>`).join('')}</div>
     <div class="hint">Se atrasarem, escolha "Não otimizar" para o Cofrim.</div>` : ''}`],
+  ['avisos', 'bell', 'Avisos de valores', 'Quando avisar: de 50% a passou', `
+    <div class="semTopo hint">Escolha em que pontos o app avisa (no sino e, no Android com os lembretes ligados, no celular). Pode marcar mais de um.</div>
+    ${[['prev', 'Previsões de gastos', PREV_PONTOS, prevPontos()], ['orc', 'Orçamento de cada categoria', PONTOS, pontosDe('orc')],
+      ['cartao', 'Limite do cartão (quanto já está comprometido)', PONTOS, pontosDe('cartao')], ['meta', 'Metas (quanto já foi guardado)', PONTOS, pontosDe('meta')]]
+      .map(([tipo, t, lista, marcados]) => `<label>${t}</label>
+    <div class="semTopo quebraLinha btns pontos">${Object.entries(lista).map(([k, r]) => `<button class="btn ${marcados.includes(k) ? 'primary' : ''}"
+      data-onclick="togglePonto('${tipo}','${k}')">${r}</button>`).join('')}</div>
+    ${marcados.length ? '' : '<div class="hint warn">Nenhum ponto marcado: este aviso fica desligado.</div>'}`).join('')}`],
   ['widgets', 'chart', 'Widgets', 'Quadros da tela inicial', !(temNativo('widget')) ? '' : `
     <div class="semTopo hint">Seis quadros: <b>Resumo</b>, <b>Gastos</b>, <b>Saldo</b>, <b>Contas</b>, <b>Mascote</b> e <b>Gastar</b>.</div>
     ${temNativo('setWidgetOculto') ? `<label>Valores nos widgets</label>
@@ -157,13 +164,13 @@ function openSettings(sec){
   ['auto', 'sparkle', 'Lançamento automático', 'Sugestões de gasto', !(temNativo('avisosLigar')) ? '' : `
     <label>Sugestões de gasto</label>
     <div class="semTopo btns">${[[true,'Ligado'],[false,'Desligado']].map(([v,t]) => `<button class="btn ${!!nativo('avisosLigado') === v ? 'primary' : ''}" data-onclick="setAvisos(${v})">${t}</button>`).join('')}</div>
-    ${nativo('avisosLigado') && !nativo('avisosAcesso') ? `<div class="hint warn">${I('alert', 13)} Falta autorizar no Android. <a href="#" data-onclick="nativo('avisosConfigurar');return false" style="color:var(--brand)">Abrir a tela de autorização</a></div>` : ''}
+    ${nativo('avisosLigado') && !nativo('avisosAcesso') ? `<div class="hint warn">${I('alert', 13)} Falta autorizar no Android. <a class="u-marca" href="#" data-onclick="nativo('avisosConfigurar');return false">Abrir a tela de autorização</a></div>` : ''}
     <div class="hint">Compras e Pix avisados pelo banco viram sugestão; nada sai do aparelho.</div>
     ${temNativo('setAvisoGasto') && !nativo('avisosLigado') ? `<label class="apagado">Avisar quando encontrar um gasto</label>
     <div class="semTopo hint apagado">Ligue as sugestões de gasto para usar o aviso.</div>` : ''}
     ${temNativo('setAvisoGasto') && nativo('avisosLigado') ? `<label>Avisar quando encontrar um gasto</label>
     <div class="semTopo btns">${[[true,'Ligado'],[false,'Desligado']].map(([v,t]) => `<button class="btn ${!!nativo('avisoGasto') === v ? 'primary' : ''}" data-onclick="nativo('setAvisoGasto', ${v});openSettings()">${t}</button>`).join('')}</div>
-    ${nativo('avisoGasto') && !lembLigados() ? `<div class="hint warn">${I('alert', 13)} Os lembretes estão desligados neste aparelho: o aviso não aparece.</div><div class="btns" style="margin-top:6px"><button class="btn primary" data-onclick="ligarLembretes()">Ligar lembretes</button></div>`
+    ${nativo('avisoGasto') && !lembLigados() ? `<div class="hint warn">${I('alert', 13)} Os lembretes estão desligados neste aparelho: o aviso não aparece.</div><div class="btns u-mt6"><button class="btn primary" data-onclick="ligarLembretes()">Ligar lembretes</button></div>`
       : '<div class="hint">Notificação na hora, com o app aberto ou fechado; tocar abre o formulário já preenchido.</div>'}` : ''}
     <label>Apps ignorados</label>
     ${appsIgnorados().length ? `<div class="semTopo btns"><button class="btn" data-onclick="openAppsIgnorados()">Apps ignorados (${appsIgnorados().length})</button></div>` : '<div class="semTopo hint">Nenhum app ignorado.</div>'}`],
@@ -173,6 +180,7 @@ function openSettings(sec){
     <textarea id="sugTexto" maxlength="3000" style="height:130px;font:inherit" placeholder="O que você quer contar?"></textarea>
     <label>Seu e-mail (opcional, para receber resposta)</label>
     <input id="sugEmail" type="email" maxlength="120" autocomplete="email" placeholder="voce@exemplo.com">
+    <input id="sugIsca" class="isca" name="botcheck" tabindex="-1" autocomplete="off" aria-hidden="true">
     <div class="btns"><button class="btn" data-onclick="enviarSugestao('sugestao', this)">${I('sparkle')}Enviar sugestão</button>
       <button class="btn" data-onclick="enviarSugestao('problema', this)">${I('alert')}Informar um problema</button></div>
     <div class="btns"><button class="btn on" id="sugRetrato" data-onclick="sugRetratoAlternar(this)">${I('checked', 22)}Incluir um retrato da tela</button>
@@ -187,6 +195,7 @@ function openSettings(sec){
     ${archHtml()}
     <label>Lixeira</label>
     <div class="semTopo btns"><button class="btn" data-onclick="openTrash()">${I('trash')}Lançamentos excluídos (${db.trash.length})</button></div>
+    ${importacoesHtml()}
     <label>Planilha do Google</label>
     <div class="semTopo btns"><button class="btn" data-onclick="openSheetLink()">${I('doc')}${sheetId() ? 'Planilha ligada ao app' : 'Criar planilha ligada ao app'}</button></div>
     <label>Backup em arquivo</label>
@@ -207,7 +216,7 @@ function openSettings(sec){
     <div class="setGrid">${S.map(([k, ic, t, d]) => `<button class="setTile" data-onclick="openSettings('${k}')"><span>${I(ic, 22)}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>
     ${(temNativo('atualizar')) || WEB_APP ? `<div class="btns"><button class="btn" data-onclick="procurarAtualizacao()">${I('refresh')}Procurar atualizações</button></div>` : ''}
     <div class="btns foot"><button class="btn primary" data-onclick="closeForm()">Fechar</button></div>
-    <div class="hint" style="text-align:center" data-onclick="diagTap()">Cofrim · versão ${APP_VERSION}</div>`);
+    <div class="hint u-centro" data-onclick="diagTap()">Cofrim · versão ${APP_VERSION}</div>`);
   settingsOpen = true;
 }
 // O APK instalado tem ícone para esta cor ou tema? (Os temas por categoria chegaram ao ícone no APK 1.46.)
@@ -305,21 +314,42 @@ function diagErrors(){ try { return JSON.parse(localStorage.getItem(ERR_KEY) || 
 // Sugestões e bugs: enviadas de dentro do app pelo Web3Forms (api.web3forms.com, na CSP), que entrega no e-mail da
 // equipe (diaslab.apps@gmail.com, cadastrado no Web3Forms: a chave abaixo é pública e só serve para esse envio).
 let SUGESTAO_CHAVE = '57040c27-ab59-4c06-81f8-cb1f511c356c'; // let: os testes trocam pela de teste
+// Contra spam (a chave fica no app, qualquer um pode copiar): o campo isca escondido (botcheck do Web3Forms; pessoa não
+// vê nem preenche, robô preenche e a mensagem é descartada), no máximo SUG_POR_DIA envios por dia neste aparelho e
+// 30 s entre um e outro. A chave também só vale nos endereços do app (restrição de domínio no painel do Web3Forms).
+const SUG_KEY_ENVIOS = 'financas-sugestoes-envios', SUG_POR_DIA = 5;
+function sugEnviosHoje(){
+  try { const d = Date.now() - 864e5; return (JSON.parse(localStorage.getItem(SUG_KEY_ENVIOS)) || []).filter(t => typeof t === 'number' && t > d); }
+  catch(e){ return []; }
+}
 // Retrato da tela em texto, no lugar de uma print (o Web3Forms gratuito não aceita anexos): qual aba, janela e aviso
 // estavam abertos e o texto que aparecia neles, sem os dados da pessoa. Saem todos os números (valores, datas, saldos), o
 // que ela digitou (descrições, nomes, bancos, metas, categorias próprias), o nome e o e-mail dela.
 let telaRetrato = ''; // tirado na hora do erro (relatarProblema), antes de as Configurações cobrirem a tela
 function retratoTela(semFolha){
-  const proprios = new Set([myName(), sync.account, ...Object.values(db.membros || {}).map(m => m && (m.nome || m.name || m)),
-    ...['gasto', 'ganho'].flatMap(t => Object.values((db.cats || {})[t] || {}).map(c => c.name))]);
-  for (const c of COLS) for (const r of db[c] || []) for (const k of ['desc', 'name', 'bank', 'conta', 'credor', 'obs', 'by']) proprios.add(r[k]);
-  const lista = [...proprios].filter(t => typeof t === 'string' && t.trim().length >= 3).map(t => t.trim()).sort((a, b) => b.length - a.length);
-  const censura = t => lista.reduce((s, p) => s.split(p).join('•••'), t).replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '•••@•••').replace(/\d/g, '•');
+  // Tudo o que a pessoa digitou: qualquer texto guardado nos dados (lançamentos, contas, metas, categorias, cartões,
+  // membros), menos os códigos do próprio app (categoria, forma de pagamento, datas…), que dão o contexto. A troca não
+  // liga para maiúsculas: a tela mostra alguns títulos em MAIÚSCULAS.
+  const proprios = new Set([myName(), db.prefs.greet, sync.account]);
+  const CODIGOS = /^(id|pid|cat|pay|kind|start|end|month|mes|date|since|regra|index|tipo|emp|sub|accYM|u|ver|cor|icon)$/;
+  const junta = (v, k) => {
+    if (typeof v === 'string') { if (!CODIGOS.test(k)) proprios.add(v); return; }
+    if (!v || typeof v !== 'object') return;
+    if (/^(card|catMemo)/.test(k) && !Array.isArray(v)) Object.keys(v).forEach(b => proprios.add(b)); // cartões: chave = banco; catMemo: descrição
+    for (const [kk, vv] of Object.entries(v)) junta(vv, Array.isArray(v) ? k : kk);
+  };
+  for (const [k, v] of Object.entries(db)) if (k !== 'prefs') junta(v, k);
+  const lista = [...proprios].filter(t => typeof t === 'string' && t.trim().length >= 3 && !/^\d{4}-\d{2}/.test(t)).map(t => t.trim())
+    .sort((a, b) => b.length - a.length);
+  const re = lista.length && new RegExp(lista.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'giu');
+  const censura = t => (re ? t.replace(re, '•••') : t).replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '•••@•••').replace(/\d/g, '•');
   const vis = id => { const e = document.getElementById(id); return e && !e.hidden && e.offsetParent !== null ? e : null; };
   const folha = !semFolha && vis('sheet'), aviso = vis('dlg');
+  document.body.classList.add('semEtiquetas'); // innerText sem as etiquetas "Novo" (escondidas só durante a leitura)
   const partes = [`Tela: ${TABS[state.tab] ? TABS[state.tab][1] : state.tab}${state.tab === 'gastos' ? ' (' + state.gsub + ')' : ''}`,
     aviso && 'Aviso aberto:\n' + aviso.innerText.trim(), folha && 'Janela aberta:\n' + folha.innerText.trim(),
     'Conteúdo da tela:\n' + document.getElementById('app').innerText.trim()];
+  document.body.classList.remove('semEtiquetas');
   return censura(partes.filter(Boolean).join('\n\n')).replace(/\n{3,}/g, '\n\n').slice(0, 4000);
 }
 const sugRetratoLigado = () => { const b = document.getElementById('sugRetrato'); return !b || b.classList.contains('on'); };
@@ -340,15 +370,20 @@ async function enviarSugestao(tipo, btn){
   const txt = document.getElementById('sugTexto').value.trim(), email = document.getElementById('sugEmail').value.trim();
   if (!txt) return toast('Escreva a mensagem antes de enviar.');
   if (!SUGESTAO_CHAVE){ tell('O envio de sugestões ainda não está ligado nesta versão.'); return; }
+  const envios = sugEnviosHoje(), isca = document.getElementById('sugIsca');
+  if (envios.length >= SUG_POR_DIA){ tell(`Você já mandou ${SUG_POR_DIA} mensagens nas últimas 24 horas. Tente de novo amanhã, por favor.`); return; }
+  if (envios.length && Date.now() - Math.max(...envios) < 30e3) return toast('Espere alguns segundos antes de mandar outra mensagem.');
   const assunto = `Cofrim ${APP_VERSION} · ${tipo === 'problema' ? 'Problema' : 'Sugestão'}`;
   const info = (tipo === 'problema' ? diagText() : `Cofrim ${APP_VERSION}\nAparelho: ${navigator.userAgent}`)
     + (sugRetratoLigado() ? '\n\n--- Retrato da tela (dados escondidos) ---\n' + (telaRetrato || retratoTela(true)) : '');
   btn.disabled = true;
   try {
     const r = await fetch('https://api.web3forms.com/submit', {method:'POST', headers:{'Content-Type':'application/json', Accept:'application/json'},
-      body:JSON.stringify({access_key:SUGESTAO_CHAVE, subject:assunto, from_name:'Cofrim', ...(email ? {email} : {}), message:`${txt}\n\n---\n${info}`})});
+      body:JSON.stringify({access_key:SUGESTAO_CHAVE, subject:assunto, from_name:'Cofrim', botcheck:!!(isca && isca.value),
+        ...(email ? {email} : {}), message:`${txt}\n\n---\n${info}`})});
     if (!r.ok || !(await r.json()).success) throw new Error('Web3Forms: HTTP ' + r.status);
     document.getElementById('sugTexto').value = ''; telaRetrato = '';
+    try { localStorage.setItem(SUG_KEY_ENVIOS, JSON.stringify([...envios, Date.now()])); } catch(e){}
     toast('Mensagem enviada. Obrigado!');
   } catch(e){ logErr('sugestão', e); avisoErro('internet'); }
   finally { btn.disabled = false; }
@@ -435,7 +470,7 @@ const catsOpen = new Set(['Suas categorias']);
 function openCats(){
   settingsOpen = false; F = null;
   const row = (type, k, c) => `
-    <div class="item" style="cursor:default;padding:6px 0">${tile(c[0])}<div class="mid" style="${c[3] ? 'opacity:.5' : ''}"><b>${esc(c[1])}</b>${c[3] ? '<small>escondida</small>' : ''}</div>
+    <div class="item u-linha">${tile(c[0])}<div class="mid" style="${c[3] ? 'opacity:.5' : ''}"><b>${esc(c[1])}</b>${c[3] ? '<small>escondida</small>' : ''}</div>
       <button class="btn" style="flex:none;padding:8px 12px" data-onclick="editCat('${type}','${k}')">Editar</button>
       ${BASE_CATS[type][k] ? '' : `<button class="iconbtn out" data-onclick="deleteCat('${type}','${k}')" aria-label="Excluir categoria">${I('close', 20)}</button>`}
       ${k === 'outros' ? '' : `<button class="iconbtn ${c[3] ? 'muted' : 'in'}" data-onclick="toggleCat('${type}','${k}')" aria-label="${c[3] ? 'Mostrar' : 'Esconder'}">${I(c[3] ? 'unchecked' : 'checked', 24)}</button>`}</div>`;
@@ -450,6 +485,44 @@ function openCats(){
     <label>Ganhos</label>${novo('ganho')}
     <details class="grp" ${catsOpen.has('Ganhos') ? 'open' : ''} data-ontoggle="catsOpen[this.open ? 'add' : 'delete']('Ganhos')"><summary>Categorias de ganho<small>${Object.keys(CAT_GANHO).length}</small>${I('chev')}</summary>${Object.entries(CAT_GANHO).map(([k, c]) => row('ganho', k, c)).join('')}</details>
     <div class="btns foot"><button class="btn primary" data-onclick="openSettings('dados')">Voltar</button></div>`);
+}
+// Grava uma categoria (nova com k = '', ou já existente) e refaz as listas; devolve a chave. Usada pela tela de
+// categorias (formulário catEdit) e pela criação rápida (novaCategoria).
+function catSalvar(type, k, v){
+  k = k || 'c' + uid();
+  db.cats[type][k] = catLimpa(Object.assign(db.cats[type][k] || {}, {name:v.name, icon:v.icon, color:v.color}));
+  db.cfgMod = Date.now(); applyCats();
+  return k;
+}
+// Criar uma categoria sem sair do que se está fazendo: abre por cima (na camada dos seletores), pede nome, ícone e cor
+// e chama aoCriar(chave). Nome igual ao de uma categoria que já existe: usa essa (e a mostra, se estava escondida).
+// Usada pelos formulários (formCatNova) e pelo Importar planilha (nome: o da planilha, já escrito).
+let catNovaDe = null; // {type, aoCriar, icon, color}
+function novaCategoria(type, aoCriar, nome = ''){
+  catNovaDe = {type, aoCriar, icon:'tag', color:'#64748b'};
+  showPicker(`<h3>Nova categoria de ${type}</h3>
+    <label for="cnNome">Nome</label><input id="cnNome" type="text" maxlength="40" placeholder="Ex.: Pets" autocomplete="off" value="${esc(nome)}">
+    <label>Ícone</label><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button" class="${k === 'tag' ? 'on' : ''}"
+      data-i="${k}" aria-label="${n}" title="${n}" data-onclick="catNovaEscolhe(this,'icon')">${I(k, 23)}</button>`).join('')}</div>
+    <label>Cor</label><div class="swatches colorGrid">${CAT_COLORS.map(c => `<button type="button" class="sw" data-c="${c}" style="background:${c}"
+      aria-label="Cor ${c}" data-onclick="catNovaEscolhe(this,'color')"></button>`).join('')}</div>
+    <div class="err" id="cnErr"></div>
+    <div class="btns foot"><button class="btn" data-onclick="closePicker()">Cancelar</button>
+      <button class="btn primary" data-onclick="catNovaCriar()">Criar</button></div>`);
+}
+function catNovaEscolhe(b, campo){
+  catNovaDe[campo] = campo === 'icon' ? b.dataset.i : b.dataset.c;
+  b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+}
+function catNovaCriar(){
+  const nome = document.getElementById('cnNome').value.trim().slice(0, 40);
+  if (!nome) return void (document.getElementById('cnErr').textContent = 'Escreva o nome da categoria.');
+  const {type, aoCriar, icon, color} = catNovaDe, C = CAT_OF[type];
+  let k = Object.keys(C).find(c => plainName(C[c][1]) === plainName(nome));
+  if (k && C[k][3]){ db.cats[type][k] = Object.assign(db.cats[type][k] || {}, {hidden:false}); db.cfgMod = Date.now(); applyCats(); }
+  if (!k) k = catSalvar(type, '', {name:nome, icon, color});
+  save(); closePicker(); catNovaDe = null;
+  aoCriar(k);
 }
 function editCat(type, k){
   const c = CAT_OF[type][k];
@@ -486,8 +559,8 @@ function toggleTab(t){
   if (p.tabsOff.includes(state.tab)) state.tab = visTabs()[0];
   db.cfgMod = Date.now(); save(); render(); openSettings();
 }
-// Moeda e país (Idioma e região): listas longas, com busca. Os nomes em português vêm do navegador (Intl.DisplayNames).
-const nomeIntl = (tipo, c) => { try { return new Intl.DisplayNames(['pt-BR'], {type:tipo}).of(c) || c; } catch(e){ return c; } };
+// Moeda e país (Idioma e região): listas longas, com busca. Os nomes, no idioma do app, vêm do navegador (Intl.DisplayNames).
+const nomeIntl = (tipo, c) => { try { return new Intl.DisplayNames([LOCALES[lang()]], {type:tipo}).of(c) || c; } catch(e){ return c; } };
 const moedaNome = c => { const n = nomeIntl('currency', c); return `${cap(n === c ? MOEDAS_NOMES[c] || c : n)} (${c})`; };
 const paisNome = c => cap(nomeIntl('region', c));
 const porNome = (a, b) => a[1].localeCompare(b[1], 'pt-BR');
@@ -546,6 +619,10 @@ function avisoLembretes(){
   return true;
 }
 // Pontos de aviso das previsões: marca ou desmarca um, na ordem da lista.
-function togglePrevPonto(k){ const l = prevPontos(); setPref('prevPontos', Object.keys(PREV_PONTOS).filter(x => x === k ? !l.includes(x) : l.includes(x))); }
+// Marca ou desmarca um ponto de aviso (Avisos de valores); a ordem segue a da lista do tipo.
+function togglePonto(tipo, k){
+  const lista = tipo === 'prev' ? PREV_PONTOS : PONTOS, l = tipo === 'prev' ? prevPontos() : pontosDe(tipo);
+  setPref(tipo + 'Pontos', Object.keys(lista).filter(x => x === k ? !l.includes(x) : l.includes(x)));
+}
 function toggleRemind(d){ const r = db.prefs.reminds; setPref('reminds', r.includes(d) ? r.filter(x => x !== d) : r.concat(d).sort((a,b) => a - b)); }
 function toggleNotifyCat(k){ db.prefs.notifyCats[k] = db.prefs.notifyCats[k] === false; setPref('notifyCats', db.prefs.notifyCats); }

@@ -21,18 +21,57 @@ function openTrash(){
   const list = db.trash.map((t, i) => ({t, i})).reverse();
   showSheet(`<h3>Lixeira</h3>
     <div class="semTopo hint">O que você exclui fica aqui por 30 dias, só neste aparelho.</div>
-    ${list.length ? list.map(({t, i}) => { const r = t.rec, dias = Math.floor((Date.now() - t.at) / 864e5), v = r.value ?? r.total ?? r.target; return `
+    ${list.length ? list.map(({t, i}) => { const r = t.rec || {}, dias = Math.floor((Date.now() - t.at) / 864e5), v = r.value ?? r.total ?? r.target;
+      const quando = 'excluído ' + (dias ? 'há ' + dias + ' dia' + (dias > 1 ? 's' : '') : 'hoje');
+      if (t.col === 'lote') return `<div class="semCursor item"><div class="mid"><b>Planilha ${esc(t.lote.nome)}</b>
+        <small>Importação desfeita · ${plural(t.recs.length, 'lançamento', 'lançamentos')} · ${quando}</small></div>
+        <button class="btn" style="flex:none;padding:8px 12px" data-onclick="trashRestore(${i});openTrash()">Restaurar</button></div>`;
+      return `
       <div class="semCursor item"><div class="mid"><b>${esc(r.desc || r.name || r.ticker || (r.from ? r.from + ' → ' + r.to : t.col === 'previsoes' ? prevNome(r.cat) : 'Sem nome'))}</b>
-        <small>${COL_NAMES[t.col] || ''}${v ? ' · ' + fmt(v) : ''} · excluído ${dias ? 'há ' + dias + ' dia' + (dias > 1 ? 's' : '') : 'hoje'}</small></div>
+        <small>${COL_NAMES[t.col] || ''}${v ? ' · ' + fmt(v) : ''} · ${quando}</small></div>
         <button class="btn" style="flex:none;padding:8px 12px" data-onclick="trashRestore(${i});openTrash()">Restaurar</button></div>`; }).join('') : empty('trash', 'A lixeira está vazia.')}
     <div class="btns foot">${list.length ? '<button class="btn danger" data-onclick="trashEmpty()">Esvaziar</button>' : ''}<button class="btn primary" data-onclick="openSettings('dados')">Voltar</button></div>`);
 }
 function trashRestore(i){
   const t = db.trash.splice(i, 1)[0];
-  if (!db[t.col].some(r => r.id === t.rec.id)) db[t.col].push(touch(t.rec));
-  delete db.tomb[t.rec.id];
+  // Uma importação de planilha desfeita volta inteira, e a importação deixa de estar marcada como desfeita.
+  for (const {col, rec} of t.col === 'lote' ? t.recs : [t]){
+    if (!db[col].some(r => r.id === rec.id)) db[col].push(touch(rec));
+    delete db.tomb[rec.id];
+  }
+  if (t.col === 'lote'){ const imp = db.imports.find(x => x.id === t.lote.id); if (imp){ delete imp.desfeito; imp.u = Date.now(); } }
   save(); render();
 }
+// ---------- Importações de planilha (Importar planilha, em planilha-importar.js) ----------
+// db.imports = [{id, nome, at, n, u, desfeito?}]; cada lançamento importado guarda imp = o id. Desfazer tira todos de uma
+// vez: pelo aviso logo depois de importar (some também a importação) ou depois, pela lista, indo para a Lixeira como
+// um item só, que se restaura inteiro.
+const IMP_COLS = ['expenses', 'incomes', 'installments'];
+function loteTira(id){
+  const recs = [], t = Date.now();
+  for (const col of IMP_COLS){
+    for (const rec of db[col].filter(r => r.imp === id)){ recs.push({col, rec}); db.tomb[rec.id] = t; }
+    db[col] = db[col].filter(r => r.imp !== id);
+  }
+  return recs;
+}
+async function loteDesfazer(id){
+  const imp = db.imports.find(x => x.id === id), n = IMP_COLS.reduce((a, c) => a + db[c].filter(r => r.imp === id).length, 0);
+  const sai = n === 1 ? '1 lançamento sai do app e vai para a Lixeira, de onde dá para restaurar por 30 dias.'
+    : `${n.toLocaleString('pt-BR')} lançamentos saem do app e vão juntos para a Lixeira, de onde dá para restaurar por 30 dias.`;
+  if (!imp || !await ask(`Desfazer a importação da planilha ${imp.nome}?` + '\n' + sai, 'Desfazer importação', true)) return;
+  db.trash.push({col:'lote', lote:{id, nome:imp.nome}, recs:loteTira(id), at:Date.now()});
+  Object.assign(imp, {desfeito:Date.now(), u:Date.now()});
+  save(); render();
+  // Refaz a tela de onde veio: a do Importar planilha ou as Configurações › Dados e ajustes.
+  if (sheetOpen()) document.querySelector('#sheet h3').textContent === 'Importar planilha' ? planAjuda() : openSettings('dados');
+  toast('Importação desfeita: está na Lixeira', {dest:{k:'lixeira'}});
+}
+// Lista das importações (Configurações › Dados e ajustes e a tela do Importar planilha).
+const importacoesHtml = () => !db.imports.length ? '' : `<label>Importações de planilha</label>${[...db.imports].reverse().map(x => `
+  <div class="semCursor item"><div class="mid"><b>${esc(x.nome)}</b><small>${new Date(x.at).toLocaleDateString('pt-BR')} · ${plural(x.n, 'lançamento',
+    'lançamentos')}${x.desfeito ? ' · desfeita (na Lixeira)' : ''}</small></div>${x.desfeito ? '' : `<button class="btn" style="flex:none;padding:8px 12px"
+    data-onclick="loteDesfazer('${x.id}')">Desfazer</button>`}</div>`).join('')}`;
 async function trashEmpty(){
   if (!await ask('Esvaziar a lixeira?\nOs lançamentos excluídos não poderão mais ser restaurados.', 'Esvaziar', true)) return;
   db.trash = []; save(); openTrash();

@@ -26,18 +26,24 @@ function viewGastos(){
     <div class="row"><div><small>Ganhos</small><b>${fmt(tin)}</b></div><div><small>Saldo</small><b>${fmt(tin - tout - resPrev)}</b></div><div><small>Lançamentos</small><b>${list.length}</b></div></div>${resPrev ? `<small class="prevInc">Saldo ${prevInclui(resPrev)}</small>` : ''}</div>`,
   orcamento: () => `<h2>Orçamento do mês <button data-onclick="openForm('budgets', db.budgets)">${budgets.length ? 'Alterar' : 'Definir'}</button></h2>
   ${budgets.length ? `<div class="card">${budgets.map(b => { const c = CAT_GASTO[b.cat] || CAT_GASTO.outros; return `
-    <div class="catrow"><div class="top"><span>${catName(c)}</span><b>${fmt(b.used)} de ${fmt(b.lim)}</b></div>${b.extra ? `<div class="hint" style="margin-top:2px">inclui ${fmt(b.extra)} que sobraram do mês anterior</div>` : ''}
+    <div class="catrow"><div class="top"><span>${catName(c)}</span><b>${fmt(b.used)} de ${fmt(b.lim)}</b></div>${b.extra ? `<div class="hint u-mt2">inclui ${fmt(b.extra)} que sobraram do mês anterior</div>` : ''}
     <div class="bar"><i style="width:${Math.min(b.pct, 100)}%;background:${budgetColor(b.pct)}"></i></div>
     ${b.pct >= 80 ? `<div class="hint" style="margin-top:4px;color:${budgetColor(b.pct)}">${b.pct > 100 ? `Estourou em ${fmt(b.used - b.lim)}` : `${I('alert', 14)} ${Math.round(b.pct)}% do limite usado`}</div>` : ''}</div>`; }).join('')}</div>`
-  : '<div class="hint" style="margin:0 4px 12px">Defina um limite mensal por categoria para acompanhar quanto já foi usado.</div>'}`,
+  : vazioParte('Defina um limite mensal por categoria para acompanhar quanto já foi usado.', ['Definir orçamento', "openForm('budgets', db.budgets)"])}`,
   comparativo: () => cmp.length ? `<h2>Comparativo por categoria</h2>
   <div class="card">${cmp.map(r => { const c = CAT_GASTO[r.cat] || CAT_GASTO.outros, d = r.prev ? (r.cur - r.prev) / r.prev * 100 : null; return `
     <div class="catrow"><div class="top"><span>${catName(c)}</span><b>${fmt(r.cur)}</b></div>
-    <div class="hint" style="margin-top:3px">${monthName(addMonths(m, -1)).split(' ')[0]}: ${fmt(r.prev)}${d == null || !Math.round(d) ? '' : ` <b class="${d > 0 ? 'out' : 'in'}">${d > 0 ? '▲' : '▼'} ${Math.abs(Math.round(d))}%</b>`} · média de 6 meses: ${fmt(r.avg)}</div></div>`; }).join('')}</div>` : '',
+    <div class="hint u-mt3">${monthName(addMonths(m, -1)).split(' ')[0]}: ${fmt(r.prev)}${d == null || !Math.round(d) ? '' : ` <b class="${d > 0 ? 'out' : 'in'}">${d > 0 ? '▲' : '▼'} ${Math.abs(Math.round(d))}%</b>`} · média de 6 meses: ${fmt(r.avg)}</div></div>`; }).join('')}</div>` : '',
   receber: () => owed.length ? `<h2>A receber de gastos divididos</h2>
   <div class="card">${Object.entries(owed.reduce((g, {x}) => (g[x.who] = (g[x.who] || 0) + x.share, g), {})).map(([who, v]) => `<div class="hint" style="margin:0 0 6px">${esc(who)} te deve <b>${fmt(v)}</b></div>`).join('')}
     ${owed.map(({x, m: om}) => `<div class="semCursor item"><div class="mid"><b>${esc(x.desc)}</b><small>${esc(x.who)} · ${monthName(om)}</small></div>
       <div class="val in">${fmt(x.share)}</div><button class="btn" style="flex:none;padding:8px 10px" data-onclick="settle('${x.id}','${om}')">${I('check', 15)}Recebi</button></div>`).join('')}</div>` : '',
+  // Gastos avulsos que se repetem todo mês (recorrentes): virar fixo ou dizer que não é. Some quando não há nenhum.
+  recorrentes: () => { const rs = recorrentes(); return rs.length ? `<h2>Parecem gastos fixos</h2><div class="card">${rs.slice(0, 5).map(r => `
+    <div class="item semCursor">${ico(CAT_GASTO[r.ult.cat] || CAT_GASTO.outros)}<div class="mid"><b>${esc(r.ult.desc)}</b>
+      <small>${r.meses} dos últimos 6 meses · cerca de ${fmt(r.valor)}${r.dia ? ' · dia ' + r.dia : ''}</small></div></div>
+    <div class="btns semTopo recorrBtns"><button class="btn" data-onclick="recorrIgnorar('${r.k}')">Não é fixo</button>
+      <button class="btn primary" data-onclick="recorrFixar('${r.k}')">Virar fixo</button></div>`).join('')}</div>` : ''; },
   // Contas bancárias (antes no Resumo): saldo de hoje e no fim do mês, transferências.
   contas: () => `<h2>Contas <span>${db.accounts.length > 1 ? `<button data-onclick="openForm('transfers')">Transferir</button> · ` : ''}
     <button data-onclick="openForm('accounts')">+ Conta</button></span></h2>
@@ -47,17 +53,16 @@ function viewGastos(){
       <div class="val ${b < 0 ? 'out' : ''}">${fmt(b)}</div></div>`; }).join('')}
     <div class="semCursor item"><div class="mid"><b>Total nas contas</b></div><div class="val">${fmt(sum(db.accounts, accountBalance))}</div></div></div>
     ${db.transfers.length ? `<div class="card"><b>Transferências</b>${[...db.transfers].sort((a,b) => b.month.localeCompare(a.month)).slice(0, 5).map(t => `
-    <div class="item" data-onclick="edit('transfers','${t.id}')"><div class="mid"><b style="font-weight:500">${esc(t.from)} → ${esc(t.to)}</b>
+    <div class="item" data-onclick="edit('transfers','${t.id}')"><div class="mid"><b class="u-peso5">${esc(t.from)} → ${esc(t.to)}</b>
       <small>${monthName(t.month)}${bySmall(t)}</small></div><div class="val">${fmt(t.value)}</div></div>`).join('')}</div>` : ''}`
-  : '<div class="hint" style="margin:0 4px 12px">Cadastre suas contas para acompanhar o saldo de cada uma.'
-    + ' O saldo considera os ganhos e gastos em que você informar o mesmo nome no campo de banco/conta.</div>'}`,
+  : vazioParte('Cadastre suas contas para acompanhar o saldo de cada uma.', ['+ Cadastrar conta', "openForm('accounts')"])}`,
   faturas: () => inv.length ? `<h2>Faturas do cartão <button data-onclick="openForm('cardClose', db.cardClose)">Configurar cartões</button></h2>
   <div class="card">${inv.map(([bank, v]) => `<div class="semCursor item">${bancoSelo(bank)}<div class="mid"><b>${esc(bank)}</b>
     ${[db.cardClose[bank] ? 'Fecha no dia ' + db.cardClose[bank] : 'Sem dia de fechamento definido',
       db.cardLimit[bank] && 'Limite: ' + fmt(db.cardLimit[bank]),
       db.cardLimit[bank] && `Comprometido: ${fmt(cardUsed(bank))} (${Math.round(cardUsed(bank) / db.cardLimit[bank] * 100)}%)`,
-      db.accounts.length && cardAccount(bank) && 'Paga pela conta ' + esc(cardAccount(bank))].filter(Boolean).map(t => `<small style="display:block">${t}</small>`).join('')}
-    ${db.accounts.length && !cardAccount(bank) ? `<small class="warn" style="display:block">${I('alert', 13)} Escolha a conta que paga esta fatura; sem isso ela não é descontada de nenhuma conta.</small>` : ''}</div><div class="val out">${fmt(v)}</div></div>`).join('')}
+      db.accounts.length && cardAccount(bank) && 'Paga pela conta ' + esc(cardAccount(bank))].filter(Boolean).map(t => `<small class="u-bloco">${t}</small>`).join('')}
+    ${db.accounts.length && !cardAccount(bank) ? `<small class="warn u-bloco">${I('alert', 13)} Escolha a conta que paga esta fatura; sem isso ela não é descontada de nenhuma conta.</small>` : ''}</div><div class="val out">${fmt(v)}</div></div>`).join('')}
     ${inv.some(([bank]) => db.accounts.length && !cardAccount(bank)) ? `<div class="btns"><button class="btn primary" data-onclick="openForm('cardClose', db.cardClose)">Escolher a conta que paga</button></div>` : ''}</div>` : '',
   lancamentos: () => `<h2>Lançamentos <span>${ordemBtn()} · <button data-onclick="openGrpOrder()">Grupos</button></span></h2>
   <div class="card" style="padding:12px">
@@ -71,15 +76,16 @@ function viewGastos(){
     <button type="button" class="moreBtn" style="margin-top:10px;padding:10px" data-onclick="openSearch()">${I('search', 16)}Buscar em todos os meses</button>
   </div>
   <div id="expList">${expListHtml()}</div>`,
-  acoes: () => `<div class="btns"><button class="btn" data-onclick="openStatementHelp()">${I('upload')}Importar extrato</button><button class="btn" data-onclick="shown(printReport)">${I('doc')}Relatório (PDF)</button></div>
-  <div class="btns"><button class="btn" data-onclick="openSheetLink()">${I('doc')}${sheetId() ? 'Planilha do Google (ligada)' : 'Exportar para uma planilha do Google ligada ao app'}</button></div>
+  acoes: () => `<div class="btns"><button class="btn" data-onclick="openStatementHelp()">${I('upload')}Importar extrato</button></div>
+  <div class="btns"><button class="btn" data-onclick="shown(printReport)">${I('doc')}Relatório (PDF)</button></div>
+  <div class="btns"><button class="btn" data-onclick="openSheetLink()">${I('doc')}${sheetId() ? 'Planilha do Google (ligada)' : 'Ligar uma planilha do Google'}</button></div>
   <div class="btns"><button class="btn" data-onclick="shown(exportPlanilha)">${I('download')}Exportar planilha de ${m.slice(0,4)} (Excel)</button></div>
-  <div class="btns" style="margin-bottom:12px"><button class="cresce btn danger" data-onclick="openApagar('gastos')">${I('trash')}Apagar gastos por dia, mês ou ano</button></div>`
+  <div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('gastos')">${I('trash')}Apagar gastos por dia, mês ou ano</button></div>`
   };
   return `${head('Gastos', 'gastos')}${gastosSeg()}
-  <div class="nav"><button data-onclick="state.month=addMonths(state.month,-1);renderIn()">‹</button><b data-onclick="pickMonth()">${monthName(m)} ▾</b><button data-onclick="state.month=addMonths(state.month,1);renderIn()">›</button></div>
+  ${navMes()}
   ${archBanner(m.slice(0, 4))}${blocks('gastos', B)}
-  <div class="hint" style="text-align:center">Deslize a tela para os lados para trocar de mês. Num lançamento, deslize para a esquerda para excluir e, numa conta com vencimento, para a direita para marcar como paga.</div>`;
+  <div class="hint u-centro">Deslize a tela para os lados para trocar de mês. Num lançamento, deslize para a esquerda para excluir e, numa conta com vencimento, para a direita para marcar como paga.</div>`;
 }
 // Lista de lançamentos do mês com busca e filtros, em grupos (GRUPOS: assinaturas, fixos e anuais, parceladas e ocasionais),
 // na ordem escolhida em db.prefs.grpOrder. A busca e os filtros valem para todos. Fica separada da tela para o campo
@@ -87,7 +93,7 @@ function viewGastos(){
 function expListHtml(){
   const m = state.month, all = expensesOf(m), q = plain(state.q.trim());
   const list = all.filter(x => (!q || plain(x.desc + ' ' + (x.tags || '') + ' ' + (x.by || '')).includes(q)) && (!state.fcat || x.cat === state.fcat) && (!state.fbank || x.bank === state.fbank) && (!state.fpay || x.pay === state.fpay) && (!state.ftag || tagsOf(x).includes(state.ftag)));
-  if (!all.length) return empty('receipt','Nenhum gasto em ' + monthName(m) + '.<br>Toque em + para adicionar.');
+  if (!all.length) return empty('receipt', 'Nenhum gasto em ' + monthName(m) + '.', ['+ Adicionar gasto', "openForm('expenses')"]);
   if (!list.length) return empty('search','Nenhum lançamento com esses filtros.');
   const filt = q || state.fcat || state.fbank || state.fpay || state.ftag, open = state.gopen || (state.gopen = {});
   // Dentro de cada grupo, pela data: mais recente ou mais antigo primeiro (db.prefs.ordem); os sem dia ficam no fim.
@@ -108,7 +114,7 @@ function expListHtml(){
 function expRow(x, m){ const c = CAT_GASTO[x.cat] || CAT_GASTO.outros, inst = x.kind === 'installment', bill = !inst && x.fixed && x.due,
   paid = bill && isPaid(x, m); return `
     <div class="item" ${inst ? '' : `data-sw="${x.id}" data-bill="${bill ? 1 : ''}"`} data-onclick="edit('${inst ? 'installments' : 'expenses'}','${x.id}')">${ico(c)}<div class="mid"><b>${esc(x.desc)}</b>
-    <small>${esc(c[1])}${whereLabel(x)}${x.emp ? `<span class="tag">${esc(x.emp)}</span>` : ''}${inst ? `<span class="tag">${parcTag(x)}${x.paid ? ' paga' : ''}</span>` : x.fixed ? `<span class="tag">${x.fixed === 'y' ? 'anual' : isSub(x) ? 'assinatura' : 'fixo'}</span>` : x.day ? `<span class="tag">dia ${x.day}</span>` : ''}${bill ? `<span class="tag">${paid ? 'pago' : 'vence dia ' + dueDay(x, m)}</span>` : ''}${tagsOf(x).map(t => `<span class="tag">#${esc(t)}</span>`).join('')}${x.share ? `<span class="tag">dividido com ${esc(x.who)}${x.got ? ', recebido' : ''}</span>` : ''}${x.photo ? `<span class="tag">${I('doc', 11)} comprovante</span>` : ''}${byTag(x)}</small></div>
+    <small>${esc(c[1])}${whereLabel(x)}${x.emp ? `<span class="tag">${esc(x.emp)}</span>` : ''}${inst ? `<span class="tag">${parcTag(x)}${x.paid ? ' paga' : ''}</span>` : x.fixed ? `<span class="tag">${repete(x) ? repTexto(x) : x.fixed === 'y' ? 'anual' : isSub(x) ? 'assinatura' : 'fixo'}</span>` : x.day ? `<span class="tag">dia ${x.day}</span>` : ''}${bill ? `<span class="tag">${paid ? 'pago' : 'vence dia ' + dueDay(x, m)}</span>` : ''}${tagsOf(x).map(t => `<span class="tag">#${esc(t)}</span>`).join('')}${x.share ? `<span class="tag">dividido com ${esc(x.who)}${x.got ? ', recebido' : ''}</span>` : ''}${x.photo ? `<span class="tag">${I('doc', 11)} comprovante</span>` : ''}${byTag(x)}</small></div>
     <div class="val out">${fmt(x.value)}</div>${bill ? `<button class="iconbtn ${paid ? 'in' : 'muted'}" data-onclick="togglePaid('${x.id}','${m}')" aria-label="Marcar como pago">${I(paid ? 'checked' : 'unchecked', 24)}</button>` : ''}</div>`; }
 // Busca em todos os meses: ganhos, gastos e compras parceladas, pela descrição, etiqueta ou banco.
 let searchHits = [];
@@ -156,16 +162,17 @@ function viewParcelas(){
     <div class="row"><div><small>Valor total</small><b>${fmt(falta + pago)}</b></div><div><small>Já pago</small><b>${fmt(pago)}</b></div></div></div>
   ${fins.length ? `<h2>Financiamentos e empréstimos</h2><div class="card">${fins.map(parcItem).join('')}</div>` : ''}
   ${compras.length ? `${fins.length ? '<h2>Compras parceladas</h2>' : ''}<div class="card">${compras.map(parcItem).join('')}</div>` : ''}
-  ${ps.length ? '<div class="hint" style="text-align:center">A contagem avança sozinha quando o mês vira: as parcelas dos meses que já passaram contam como pagas. Toque num item para ver as parcelas.</div>'
-    : empty('card', 'Nenhuma compra parcelada, financiamento ou empréstimo.<br>As parcelas entram sozinhas nos gastos de cada mês.')}`;
+  ${ps.length ? '<div class="hint u-centro">A contagem avança sozinha quando o mês vira: as parcelas dos meses que já passaram contam como pagas. Toque num item para ver as parcelas.</div>'
+    : empty('card', 'Nenhuma compra parcelada, financiamento ou empréstimo.<br>As parcelas entram sozinhas nos gastos de cada mês.',
+      ['+ Compra parcelada', "openForm('installments')"])}`;
 }
 // Um item da lista: nome, credor (ou banco e pagamento), "parcela X de N", valor da parcela, próximo vencimento e a barra.
 function parcItem(p){
   const c = CAT_GASTO[p.cat] || CAT_GASTO.outros, done = p.paid >= p.n, j = Math.min(p.paid, p.n - 1);
   const onde = isFin(p) ? esc(p.credor || PARC_TIPOS[p.tipo]) : esc(c[1]) + whereLabel(p);
   return `<div class="item" data-onclick="abrirParc('${p.id}')">${ico(c)}<div class="mid"><b>${esc(p.desc)}</b>
-      <small style="display:block">${onde}${bySmall(p)}</small>
-      <small style="display:block">${done ? 'quitado' : `parcela ${p.paid + 1} de ${p.n} · vence ${vencTxt(parcVenc(p, p.paid))}`}</small>
+      <small class="u-bloco">${onde}${bySmall(p)}</small>
+      <small class="u-bloco">${done ? 'quitado' : `parcela ${p.paid + 1} de ${p.n} · vence ${vencTxt(parcVenc(p, p.paid))}`}</small>
       <div class="bar" style="margin:6px 0 0;height:6px"><i style="width:${p.paid / p.n * 100}%"></i></div></div>
     <div class="val ${done ? 'in' : 'out'}">${fmt(parcVal(p, j))}</div></div>`;
 }
@@ -198,21 +205,21 @@ function viewParcDet(p){
   <div class="hero">
     <b style="font-size:19px;display:block">${esc(p.desc)}</b>
     ${onde.filter(Boolean).map(t => `<small>${t}</small>`).join('')}
-    <small style="margin-top:12px">Saldo devedor hoje</small>${bigNum(saldo)}
+    <small class="u-mt12">Saldo devedor hoje</small>${bigNum(saldo)}
     ${p.taxa && rest ? '<small>Valor aproximado; o valor oficial é o informado pelo banco.</small>' : ''}
     ${progresso}
-    <div class="row" style="justify-content:space-between"><small>${plural(pagas, 'paga', 'pagas')}</small><small>${rest ? `${plural(rest, 'restante', 'restantes')} · até ${MESES[+addMonths(p.start, n - 1).slice(5) - 1].slice(0, 3)}/${addMonths(p.start, n - 1).slice(0, 4)}` : 'quitado'}</small></div>
+    <div class="row ponta"><small>${plural(pagas, 'paga', 'pagas')}</small><small>${rest ? `${plural(rest, 'restante', 'restantes')} · até ${MESES[+addMonths(p.start, n - 1).slice(5) - 1].slice(0, 3)}/${addMonths(p.start, n - 1).slice(0, 4)}` : 'quitado'}</small></div>
   </div>
   <div class="grid2">
-    <div class="card" style="margin:0">${prox ? `<small class="muted">Parcela ${prox.j + 1} de ${n}</small><b style="display:block;font-size:18px">${fmt(prox.val)}</b>
-      <small class="${prox.dias < 0 ? 'out' : 'muted'}" style="display:block">${vencTxt(prox.v)} · ${quando(prox)}</small>
+    <div class="card u-m0">${prox ? `<small class="muted">Parcela ${prox.j + 1} de ${n}</small><b style="display:block;font-size:18px">${fmt(prox.val)}</b>
+      <small class="${prox.dias < 0 ? 'out' : 'muted'} u-bloco">${vencTxt(prox.v)} · ${quando(prox)}</small>
       <div class="btns"><button class="btn primary" data-onclick="pagarParc('${p.id}',1)">${I('check', 16)}Pagar</button></div>`
       : `<small class="muted">Próxima parcela</small><b style="display:block;font-size:18px" class="in">Quitado</b>`}</div>
-    <div class="card" style="margin:0"><small class="muted">Já pago</small><b style="display:block;font-size:18px" class="in">${fmt(parcPago(p) + abatido(p))}</b>
-      <small class="muted" style="display:block">${plural(pagas, 'parcela', 'parcelas')}${p.ab ? ' e ' + plural(p.ab.length, 'abatimento', 'abatimentos') : ''}</small>
+    <div class="card u-m0"><small class="muted">Já pago</small><b style="display:block;font-size:18px" class="in">${fmt(parcPago(p) + abatido(p))}</b>
+      <small class="muted u-bloco">${plural(pagas, 'parcela', 'parcelas')}${p.ab ? ' e ' + plural(p.ab.length, 'abatimento', 'abatimentos') : ''}</small>
       ${fin && rest ? `<div class="btns"><button class="btn" data-onclick="openAbater('${p.id}')">${I('coins', 16)}Abater</button></div>` : ''}</div>
   </div>
-  <h2 style="display:block">Lançamentos<small style="display:block;text-transform:none;letter-spacing:0;font-weight:400;margin-top:2px">${plural(pend, 'pendente', 'pendentes')} · ${plural(concl, 'concluída', 'concluídas')}</small></h2>
+  <h2 class="u-bloco">Lançamentos<small style="display:block;text-transform:none;letter-spacing:0;font-weight:400;margin-top:2px">${plural(pend, 'pendente', 'pendentes')} · ${plural(concl, 'concluída', 'concluídas')}</small></h2>
   <div class="card">
     ${venc.length ? `<div class="pGrp out">VENCIDAS</div>${venc.map(linha).join('')}` : ''}
     ${aVencer.length ? `<div class="pGrp">A VENCER</div>${verAV.map(linha).join('')}
@@ -312,5 +319,22 @@ function parcPdf(id){
     ${p.ab ? `<h2>Abatimentos</h2>${table(['Data', 'Efeito', 'Valor'], p.ab.map(a => [fmtDate(a.d), a.modo === 'parcela' ? 'reduziu a parcela' : 'reduziu o prazo', fmt(a.v)]))}` : ''}
     <div class="rodape">Gerado pelo app Cofrim${p.taxa ? '. Saldo devedor calculado pela tabela Price; o valor oficial é o informado pelo banco.' : ''}</div>`;
   const name = 'parcelas-' + plain(p.desc).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  tr(document.getElementById('report')); // no idioma do app já na hora de imprimir (a troca automática viria depois)
   if (temNativo('imprimir')) nativo('imprimir', name); else window.print();
+}
+
+// Gasto que se repete vira fixo: começa neste mês ou, se ele já foi lançado neste mês, no próximo (sem contar duas vezes).
+// Os avulsos dos meses de antes ficam como estão.
+function recorrFixar(k){
+  const r = recorrentes().find(x => x.k === k); if (!r) return render();
+  const jaEsteMes = db.expenses.some(x => !x.fixed && x.start === curYM && recorrChave(x.desc) === k), u = r.ult;
+  const rec = touch({id:uid(), desc:u.desc, cat:u.cat, value:r.valor, fixed:true, start:jaEsteMes ? addMonths(curYM, 1) : curYM, end:'',
+    due:r.dia || '', bank:u.bank || '', pay:u.pay || ''});
+  db.expenses.push(rec); save(); render();
+  showUndo(`${u.desc} agora é um gasto fixo`, () => {
+    db.expenses = db.expenses.filter(x => x.id !== rec.id); db.tomb[rec.id] = Date.now(); save(); render(); });
+}
+function recorrIgnorar(k){
+  db.prefs.recorrIgnorados = [...(db.prefs.recorrIgnorados || []), k]; db.cfgMod = Date.now(); save(); render();
+  showUndo('Não vai mais aparecer como gasto fixo', () => { db.prefs.recorrIgnorados = db.prefs.recorrIgnorados.filter(x => x !== k); save(); render(); });
 }

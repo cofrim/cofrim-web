@@ -27,14 +27,14 @@ function iniciar(){
   seguro('lembretes', lembMigrar); // interruptor dos lembretes deste aparelho: decidido na primeira abertura (antes da sincronização)
   seguro('virada do mês', rollover);
   seguro('modo divertido', funVisit);
-  if (lang() !== 'pt') seguro('idioma', () => { document.documentElement.lang = LOCALES[lang()]; trAll(); }); // partes fixas da página (login, bloqueio)
+  // idioma para o lado nativo (widgets, avisos) e as partes fixas da página (login, bloqueio)
+  seguro('idioma', () => { trAvisaNativo(); if (lang() !== 'pt'){ document.documentElement.lang = LOCALES[lang()]; trAll(); } });
   seguro('tela', render);
   seguro('tema do dia', sorteioDoDia); // tema ou cor do dia, se ligado: troca antes de a abertura e as telas aparecerem
   seguro('abertura', abertura);
   restoreFromIdb();
   save(false);
-  updateRates();
-  refreshQuotes();
+  aposAbertura(() => { updateRates(); refreshQuotes(); }); // a rede e o redesenho que ela traz esperam a abertura sair da frente
   if (needGate()){
     // Sem conta não há dados a proteger: desliga o bloqueio que tenha ficado ligado de antes (sair() desliga no lado nativo).
     if (canSync() && temNativo('bloqueio') && nativo('bloqueio') && temNativo('sair')) nativo('sair');
@@ -43,11 +43,11 @@ function iniciar(){
     // Quem já usava o app antes do aviso de conta nova: a conta atual vira a "última usada", sem repetir as boas-vindas.
     if (canSync() && !sync.account && temNativo('conta') && nativo('conta')){ sync.account = nativo('conta'); saveSync(); }
     netConferir(); // sem internet ao abrir: aviso (com internet, nada)
-    syncNow(); aposAbertura(() => { startSheets(); onFoto(); onAtalho(); prevAvisos(); webVerificar(); avisoTravou(); });
+    aposAbertura(() => { syncNow(); startSheets(); onFoto(); onAtalho(); prevAvisos(); webVerificar(); avisoTravou(); });
     // depois da animação de abertura; o convite do bloqueio vem no fim das telas de início
   }
 }
-esperarDados(iniciar);
+esperarDados(() => trCarregar(iniciar)); // em inglês ou espanhol, as traduções chegam antes da primeira tela
 let saiuEm = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden){ saiuEm = Date.now(); return; }

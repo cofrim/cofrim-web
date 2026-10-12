@@ -380,6 +380,12 @@ function mergeDb(a, b){
   out.cats = {gasto:{...(cfg.cats || {}).gasto}, ganho:{...(cfg.cats || {}).ganho}};
   for (const t of ['gasto', 'ganho']) for (const [k, v] of Object.entries(((outro.cats || {})[t]) || {}))
     if (!out.cats[t][k] && !BASE_CATS[t][k] && !tomb['cat:' + t + ':' + k]) out.cats[t][k] = v;
+  out.conq = {...b.conq}; // datas das conquistas: todas as dos dois lados, a mais antiga de cada nível
+  for (const [k, t] of Object.entries(a.conq || {})) out.conq[k] = Math.min(t, out.conq[k] || t);
+  // Importações de planilha: as dos dois lados; da mesma, a alterada por último (desfeita ou restaurada).
+  const imps = new Map((b.imports || []).map(x => [x.id, x]));
+  for (const x of a.imports || []) if (!imps.has(x.id) || (x.u || 0) >= (imps.get(x.id).u || 0)) imps.set(x.id, x);
+  out.imports = [...imps.values()].sort((x, y) => x.at - y.at);
   out.membros = {...b.membros};
   for (const [k, m] of Object.entries(a.membros || {})) if (!out.membros[k] || (m.t || 0) >= (out.membros[k].t || 0)) out.membros[k] = m;
   // Última versão do app vista nesta conta (novidades depois de reinstalar): a mais nova dos dois lados.

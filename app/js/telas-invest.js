@@ -17,14 +17,15 @@ function viewInvest(){
     months = g.date ? monthDiff(g.date, curYM) : 0; return `
     <div class="card">
       <div class="item" data-onclick="edit('goals','${g.id}')">${tile('target')}<div class="mid"><b>${esc(g.name)}</b>
-        <small>${g.date ? 'até ' + monthName(g.date) : 'sem prazo'}${bySmall(g)}</small></div><div class="val">${Math.round(pct)}%</div></div>
+        <small>${g.date ? 'até ' + monthName(g.date) : 'sem prazo'}
+        ${g.auto ? ` · guarda ${fmt(g.auto)} todo dia ${g.autoDia || 1}` : ''}${bySmall(g)}</small></div><div class="val">${Math.round(pct)}%</div></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="grid3"><div class="stat"><small>Guardado</small><b class="in" style="font-size:14px">${fmt(g.saved)}</b></div>
-        <div class="stat"><small>Meta</small><b style="font-size:14px">${fmt(g.target)}</b></div>
-        <div class="stat"><small>Falta</small><b style="font-size:14px">${fmt(left)}</b></div></div>
+      <div class="grid3"><div class="stat"><small>Guardado</small><b class="in u-fs14">${fmt(g.saved)}</b></div>
+        <div class="stat"><small>Meta</small><b class="u-fs14">${fmt(g.target)}</b></div>
+        <div class="stat"><small>Falta</small><b class="u-fs14">${fmt(left)}</b></div></div>
       ${left <= 0 ? `<div class="hint in">${I('checked', 15)} Meta alcançada</div>` : g.date ? `<div class="hint">${months > 0 ? `Guardando ${fmt(left / months)} por mês você chega lá no prazo (${months} ${months > 1 ? 'meses' : 'mês'}).` : 'O prazo desta meta já chegou.'}</div>` : ''}
       <div class="btns"><button class="btn primary" data-onclick="openForm('goalAdd', null, {id:'${g.id}'})">+ Guardar dinheiro</button></div>
-    </div>`; }).join('') : '<div class="hint" style="margin:0 4px 12px">Crie uma meta (viagem, reserva de emergência…) e acompanhe quanto falta.</div>'}`,
+    </div>`; }).join('') : vazioParte('Crie uma meta (viagem, reserva de emergência…) e acompanhe quanto falta.', ['+ Criar meta', "openForm('goals')"])}`,
   carteira: () => `<h2>Meus investimentos ${vs.some(v => v.ticker) ? `<button data-onclick="refreshQuotes(true)">${quoting ? 'Atualizando…' : I('refresh', 14) + 'Atualizar cotações'}</button>` : ''}</h2>
   ${vs.length ? vs.map(v => { const c = CAT_INV[v.cat] || CAT_INV.outros, p = projection(v), ap = (v.monthly||0)*12;
     if (v.ticker){ const cost = v.qty*v.paid, gain = v.value - cost, cls = gain < 0 ? 'out' : 'in', sign = gain < 0 ? '−' : '+';
@@ -45,11 +46,11 @@ function viewInvest(){
       ${(d0 => d0 && cost ? (c => `<div class="hint">Desde ${fmtDate(d0)}: você ${gain < 0 ? '−' : '+'}${Math.abs(gain / cost * 100).toLocaleString('pt-BR', {maximumFractionDigits:1})}% · CDI ≈ +${c.toLocaleString('pt-BR', {maximumFractionDigits:1})}%. <b class="${gain / cost * 100 >= c ? 'in' : 'out'}">${gain / cost * 100 >= c ? 'Rendeu mais' : 'Rendeu menos'} que o CDI.</b></div>`)(cdiSince(d0)) : '')(v.lots.map(l => l.date).filter(Boolean).sort()[0])}
       ${v.alertUp || v.alertDown ? `<div class="hint">${I('alert', 13)} Alerta de preço: ${[v.alertUp && 'acima de ' + fmtQ(v.alertUp), v.alertDown && 'abaixo de ' + fmtQ(v.alertDown)].filter(Boolean).join(' · ')}</div>` : ''}
       <label>Compras (${v.lots.length})</label>
-      ${v.lots.map((l,i) => `<div class="item" style="cursor:default;padding:6px 0"><div class="mid"><b style="font-weight:500">${l.qty.toLocaleString('pt-BR',{maximumFractionDigits:8})} × ${fmtQ(l.paid)}</b><small>${fmtDate(l.date)} · ${fmt(l.qty*l.paid)}</small></div>
+      ${v.lots.map((l,i) => `<div class="item u-linha"><div class="mid"><b class="u-peso5">${l.qty.toLocaleString('pt-BR',{maximumFractionDigits:8})} × ${fmtQ(l.paid)}</b><small>${fmtDate(l.date)} · ${fmt(l.qty*l.paid)}</small></div>
         <button class="iconbtn" data-onclick="removeLot('${v.id}',${i})" aria-label="Excluir compra">${I('close', 18)}</button></div>`).join('')}
-      ${sales.length ? `<label>Vendas (${sales.length})</label>${sales.map(s => `<div class="item" style="cursor:default;padding:6px 0"><div class="mid"><b style="font-weight:500">${s.qty.toLocaleString('pt-BR',{maximumFractionDigits:8})} × ${fmtQ(s.price)}</b><small>${fmtDate(s.date)} · custo médio ${fmtQ(s.cost)}</small></div><div class="val">${signed(s.qty * (s.price - s.cost))}</div></div>`).join('')}` : ''}
-      ${divs.length ? `<label>Proventos (${divs.length})</label>${divs.map(d => `<div class="item" style="cursor:default;padding:6px 0"><div class="mid"><small>${fmtDate(d.date)}</small></div><div class="val in">+${fmt(d.value)}</div></div>`).join('')}` : ''}
-      ${sales.length || divs.length ? `<div class="grid3" style="margin-top:12px">
+      ${sales.length ? `<label>Vendas (${sales.length})</label>${sales.map(s => `<div class="item u-linha"><div class="mid"><b class="u-peso5">${s.qty.toLocaleString('pt-BR',{maximumFractionDigits:8})} × ${fmtQ(s.price)}</b><small>${fmtDate(s.date)} · custo médio ${fmtQ(s.cost)}</small></div><div class="val">${signed(s.qty * (s.price - s.cost))}</div></div>`).join('')}` : ''}
+      ${divs.length ? `<label>Proventos (${divs.length})</label>${divs.map(d => `<div class="item u-linha"><div class="mid"><small>${fmtDate(d.date)}</small></div><div class="val in">+${fmt(d.value)}</div></div>`).join('')}` : ''}
+      ${sales.length || divs.length ? `<div class="grid3 u-mt12">
         <div class="stat"><small>Lucro das vendas</small>${signed(realized)}</div>
         <div class="stat"><small>Proventos</small>${signed(divTotal)}</div>
         <div class="stat"><small>Retorno total</small>${signed(gain + realized + divTotal)}</div></div>` : ''}
@@ -63,21 +64,21 @@ function viewInvest(){
       <div class="item" data-onclick="edit('investments','${v.id}')">${ico(c)}<div class="mid"><b>${esc(v.name)}</b>
         <small>${esc(c[1])}${v.broker ? ' · ' + esc(v.broker) : ''} · ${rateLabel(v)}${bySmall(v)}</small></div>
         <div class="val muted">≈ ${(annualRate(v)*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}% a.a.</div></div>
-      <div class="grid3" style="margin-top:12px">
-        <div class="stat"><small>Hoje</small><b style="font-size:14px">${fmt(v.value)}</b></div>
-        <div class="stat"><small>Em 12 meses</small><b style="font-size:14px">${fmt(p)}</b></div>
-        <div class="stat"><small>Rendimento</small><b class="in" style="font-size:14px">+${fmt(p - v.value - ap)}</b></div>
+      <div class="grid3 u-mt12">
+        <div class="stat"><small>Hoje</small><b class="u-fs14">${fmt(v.value)}</b></div>
+        <div class="stat"><small>Em 12 meses</small><b class="u-fs14">${fmt(p)}</b></div>
+        <div class="stat"><small>Rendimento</small><b class="in u-fs14">+${fmt(p - v.value - ap)}</b></div>
       </div>
       <div class="btns"><button class="btn primary" data-onclick="openForm('invAdd', null, {id:'${v.id}'})">${I('plus', 16)}Fazer um aporte</button></div>
       <div class="hint">O valor é atualizado sozinho a cada virada de mês com o rendimento${v.monthly ? ` e o aporte mensal de ${fmt(v.monthly)}` : ''}.</div>
     </div>`; }).join('')
-  : empty('trend','Cadastre seus investimentos para ver<br>quanto você terá daqui a um ano.')}`,
+  : empty('trend', 'Cadastre seus investimentos para ver<br>quanto você terá daqui a um ano.', ['+ Cadastrar investimento', "openForm('investments')"])}`,
   taxas: () => `<div class="hint" style="text-align:center;padding:0 10px">Projeção bruta (sem IR), com as taxas: CDI ${r.cdi}% · Selic ${r.selic}% · IPCA ${r.ipca}% a.a. (${ratesInfo()}).
-    <a href="#" data-onclick="openRates();return false" style="color:var(--brand)">Ver taxas</a>
+    <a class="u-marca" href="#" data-onclick="openRates();return false">Ver taxas</a>
     ${vs.some(v => v.ticker) ? '<br>Ações e moedas entram pelo valor atual, sem projeção. As cotações podem ter alguns minutos de atraso.' : ''}</div>`
   };
   return head('Investimentos', 'invest') + blocks('invest', B)
-    + (vs.length ? `<div class="btns" style="margin-bottom:12px"><button class="cresce btn danger" data-onclick="openApagar('invest')">${I('trash')}Apagar investimentos por dia, mês ou ano</button></div>` : '');
+    + (vs.length ? `<div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('invest')">${I('trash')}Apagar investimentos por dia, mês ou ano</button></div>` : '');
 }
 function openDiv(id){ const v = db.investments.find(x => x.id === id); openForm('div', null, {id, title:'Provento de ' + v.ticker}); }
 function buyMore(id){

@@ -1,605 +1,192 @@
 // Cofrim — idiomas (português, inglês e espanhol).
 // Carregado na ordem do index.html (lista e dependências em docs/MAPA.md).
 //
-// O app é escrito em português. Em inglês ou espanhol, depois que uma tela é desenhada, tr() troca os trechos de texto
-// conhecidos (tabela T) pelos do idioma escolhido. Os valores continuam em reais, no formato brasileiro. O assistente
-// entende perguntas só em português (as respostas dele passam pela mesma troca de trechos).
+// O app é escrito em português. Em inglês ou espanhol, depois que uma tela é desenhada, tr() troca cada texto pela
+// tradução da frase inteira, guardada em js/idioma-en.js e js/idioma-es.js (TR_TEXTOS; carregados só quando o idioma
+// não é português). Na tabela, `{}` (ou `{v}`, `{nome}`…) marca o lugar de um número, valor, data ou nome; na tela, o
+// que a pessoa digitou (descrições, nomes, bancos…) nunca é traduzido. Os valores continuam em reais, no formato
+// brasileiro. O assistente entende perguntas só em português (as respostas passam pela mesma troca).
 const LANGS = {pt:'Português', en:'English', es:'Español'};
 const LOCALES = {pt:'pt-BR', en:'en-US', es:'es-ES'};
 const lang = () => (db && db.prefs && LANGS[db.prefs.lang]) ? db.prefs.lang : 'pt';
-
-// [português, inglês, espanhol]. Trechos que começam com minúscula valem também com a primeira letra maiúscula.
-const T = {
-  // ---- abas, títulos e botões gerais
-  'Resumo':['Summary','Resumen'], 'Ganhos':['Income','Ingresos'], 'Gastos':['Expenses','Gastos'], 'Investir':['Invest','Invertir'],
-  'Investimentos':['Investments','Inversiones'],
-  'Notícias':['News','Noticias'], 'Assistente':['Assistant','Asistente'], 'Configurações':['Settings','Ajustes'], 'Salvar':['Save','Guardar'],
-  'Cancelar':['Cancel','Cancelar'],
-  'Excluir':['Delete','Eliminar'], 'Editar':['Edit','Editar'], 'Fechar':['Close','Cerrar'], 'Voltar':['Back','Volver'], 'Pronto':['Done','Listo'],
-  'Entendi':['Got it','Entendido'],
-  'Concluir':['Finish','Terminar'], 'Desfazer':['Undo','Deshacer'], 'Salvo':['Saved','Guardado'], 'Excluído':['Deleted','Eliminado'],
-  'Alteração salva':['Change saved','Cambio guardado'],
-  'Sim':['Yes','Sí'], 'Não':['No','No'], 'Ligado':['On','Activado'], 'Desligado':['Off','Desactivado'], 'Ligadas':['On','Activadas'],
-  'Desligadas':['Off','Desactivadas'],
-  'Abrir':['Open','Abrir'], 'Copiar':['Copy','Copiar'], 'Copiado':['Copied','Copiado'], 'Restaurar':['Restore','Restaurar'],
-  'Restaurar padrão':['Restore default','Restaurar predeterminado'],
-  'Subir':['Move up','Subir'], 'Descer':['Move down','Bajar'], 'Esconder':['Hide','Ocultar'], 'Mostrar':['Show','Mostrar'], 'Anterior':['Previous','Anterior'], 
-  'Personalizar':['Customize','Personalizar'], 'Personalizar esta tela':['Customize this screen','Personalizar esta pantalla'],
-  'Personalizar o Resumo':['Customize the Summary','Personalizar el Resumen'],
-  'Mostrar valores':['Show amounts','Mostrar valores'], 'Adicionar':['Add','Añadir'], 'Enviar':['Send','Enviar'], 'Falar':['Speak','Hablar'],
-  'Hoje é':['Today is','Hoy es'], 'Hoje':['Today','Hoy'], 'Saldo':['Balance','Saldo'], 'mês':['month','mes'], 'meses':['months','meses'],
-  'por mês':['per month','por mes'],
-  'por ano':['per year','por año'], 'Por mês':['Per month','Por mes'], 'Por ano':['Per year','Por año'], 'opcional':['optional','opcional'],
-  'Não informar':['Not set','Sin indicar'],
-  'Não informado':['Not set','Sin indicar'], 'Não definido':['Not set','Sin definir'], 'Escolher':['Choose','Elegir'],
-  'Pesquisar':['Search','Buscar'], 'nunca':['never','nunca'],
-  // ---- meses e dias
-  'janeiro':['January','enero'], 'fevereiro':['February','febrero'], 'março':['March','marzo'], 'abril':['April','abril'], 'maio':['May','mayo'],
-  'junho':['June','junio'],
-  'julho':['July','julio'], 'agosto':['August','agosto'], 'setembro':['September','septiembre'], 'outubro':['October','octubre'],
-  'novembro':['November','noviembre'], 'dezembro':['December','diciembre'],
-  'jan':['Jan','ene'], 'fev':['Feb','feb'], 'mar':['Mar','mar'], 'abr':['Apr','abr'], 'mai':['May','may'], 'jun':['Jun','jun'], 'jul':['Jul','jul'],
-  'ago':['Aug','ago'], 'set':['Sep','sep'],
-  'out':['Oct','oct'], 'nov':['Nov','nov'], 'dez':['Dec','dic'], 'dom':['Sun','dom'], 'seg':['Mon','lun'], 'ter':['Tue','mar'], 'qua':['Wed','mié'],
-  'qui':['Thu','jue'], 'sex':['Fri','vie'], 'sáb':['Sat','sáb'],
-  'Escolher mês':['Choose month','Elegir mes'], 'Escolher ano':['Choose year','Elegir año'], 'Mês anterior':['Previous month','Mes anterior'],
-  'Próximo mês':['Next month','Mes siguiente'],
-  'Ano anterior':['Previous year','Año anterior'], 'Próximo ano':['Next year','Año siguiente'], 'Mês atual':['This month','Mes actual'],
-  'Sem data':['No date','Sin fecha'],
-  // ---- Resumo
-  'Atalhos para adicionar':['Quick add shortcuts','Accesos para añadir'], 'Gasto':['Expense','Gasto'], 'Ganho':['Income','Ingreso'],
-  'Saldo de':['Balance for','Saldo de'], 'Saldo do ano':['Year balance','Saldo del año'],
-  'Ganho total':['Total income','Ingreso total'], 'Gasto total':['Total spent','Gasto total'],
-  'Rendimento de investimentos':['Investment returns','Rendimiento de inversiones'],
-  'Toque em um mês para ver os valores':['Tap a month to see the amounts','Toca un mes para ver los valores'],
-  'Ver gastos do mês':['See the month expenses','Ver gastos del mes'],
-  'Rendimento estimado':['Estimated return','Rendimiento estimado'],
-  'Rendimento estimado dos investimentos em':['Estimated investment return in','Rendimiento estimado de las inversiones en'],
-  'Meses passados usam o valor registrado pelo app':['Past months use the amount the app recorded','Los meses pasados usan el valor registrado por la app'],
-  'os futuros são projeção':['future ones are projections','los futuros son proyecciones'],
-  'Não entra no saldo do ano':['It is not part of the year balance','No entra en el saldo del año'],
-  'Média mensal de gastos em':['Average monthly spending in','Gasto mensual promedio en'], 'Investido hoje':['Invested today','Invertido hoy'],
-  'Previsão':['Forecast','Previsión'],
-  'falta':['short','faltan'], 'sobra':['left','sobran'], 'Saldo das contas no fim do mês':['Accounts balance at month end','Saldo de las cuentas a fin de mes'],
-  'Até o fim de':['By the end of','Hasta el fin de'], 'ainda entram':['still coming in','aún entran'], 'e saem':['and going out','y salen'],
-  'lançamentos com dia depois de hoje':['entries dated after today','movimientos con día posterior a hoy'],
-  'Considera ganhos e gastos fixos, anuais, parcelas e o que já está lançado em cada mês':['Includes fixed and yearly income and expenses, installments and what is already entered each month','Considera ingresos y gastos fijos, anuales, cuotas y lo ya registrado en cada mes'],
-  'Gastos por categoria em':['Expenses by category in','Gastos por categoría en'],
-  'Gastos por categoria':['Expenses by category','Gastos por categoría'], 'Gastos por banco em':['Expenses by bank in','Gastos por banco en'],
-  'Gastos por banco':['Expenses by bank','Gastos por banco'],
-  'Gastos por forma de pagamento em':['Expenses by payment method in','Gastos por forma de pago en'],
-  'Gastos por forma de pagamento':['Expenses by payment method','Gastos por forma de pago'],
-  'Nenhum gasto cadastrado neste ano':['No expenses entered this year','No hay gastos registrados este año'],
-  'Compras parceladas':['Installment purchases','Compras a plazos'], 'Ver todos':['See all','Ver todos'],
-  'Falta pagar':['Left to pay','Falta pagar'], 'Parcelas deste mês':['Installments this month','Cuotas de este mes'],
-  'Faturas de':['Card bills of','Facturas de'], 'Contas':['Accounts','Cuentas'], 'Transferir':['Transfer','Transferir'],
-  '+ Conta':['+ Account','+ Cuenta'], 'saldo de hoje':['balance today','saldo de hoy'], 'fim do mês':['month end','fin de mes'],
-  'Total nas contas':['Total in accounts','Total en las cuentas'],
-  'Transferências':['Transfers','Transferencias'], 'Contas a vencer':['Bills due','Cuentas por vencer'], 'vence hoje':['due today','vence hoy'],
-  'vence em':['due in','vence en'], 'venceu há':['overdue by','venció hace'],
-  'dia':['day','día'], 'dias':['days','días'], 'Pago':['Paid','Pagado'], 'Orçamento de':['Budget for','Presupuesto de'], 'usado':['used','usado'],
-  'Gastos acima do seu padrão':['Spending above your usual','Gastos por encima de lo habitual'],
-  'neste mês':['this month','este mes'], 'acima da sua média de':['above your average of','por encima de tu promedio de'],
-  'Planejamento':['Planning','Planificación'], 'Reserva de emergência':['Emergency fund','Fondo de emergencia'],
-  'sem histórico':['no history yet','sin historial'], 'Você tem':['You have','Tienes'],
-  'em contas e investimentos e gasta em média':['in accounts and investments and spend on average','en cuentas e inversiones y gastas en promedio'],
-  'O recomendado é guardar de':['The usual advice is to keep','Lo recomendado es guardar de'], 'meses de gastos':['months of expenses','meses de gastos'],
-  'Depois de um mês de gastos lançados, o app calcula quantos meses suas contas e investimentos cobrem':['After a month of expenses, the app calculates how many months your accounts and investments cover','Tras un mes de gastos registrados, la app calcula cuántos meses cubren tus cuentas e inversiones'],
-  'Assinaturas':['Subscriptions','Suscripciones'], 'Dívidas':['Debts','Deudas'], 'Quitação':['Payoff','Liquidación'], 'Metas':['Goals','Metas'],
-  'Projeção em 12 meses':['12-month projection','Proyección a 12 meses'],
-  'Total hoje':['Total today','Total hoy'], 'Nenhuma meta cadastrada':['No goals yet','No hay metas'],
-  'Nenhum investimento cadastrado':['No investments yet','No hay inversiones'],
-  'Nenhuma compra parcelada em aberto':['No open installment purchases','No hay compras a plazos abiertas'],
-  'Nenhuma compra no crédito neste mês':['No credit card purchases this month','No hay compras con tarjeta este mes'],
-  'Resumo do mês atual':['This month at a glance','Resumen del mes actual'],
-  'Ver gastos':['See expenses','Ver gastos'], 'Período arquivado':['Archived period','Período archivado'], 'estes lançamentos vêm do arquivo e não podem ser editados':['these entries come from the archive and cannot be edited','estos movimientos vienen del archivo y no se pueden editar'],
-  'carregando o arquivo da sua conta':['loading the archive from your account','cargando el archivo de tu cuenta'],
-  'entre com a conta Google para ver os lançamentos':['sign in with Google to see the entries','inicia sesión con Google para ver los movimientos'],
-  'Sem conexão':['Offline','Sin conexión'],
-  'o que você lançar fica salvo e sincroniza depois':['what you enter is saved and syncs later','lo que registres queda guardado y se sincroniza después'],
-  'Lançar':['Add','Registrar'], 'Ignorar':['Ignore','Ignorar'], 'Ignorar todas':['Ignore all','Ignorar todas'],
-  // ---- blocos personalizáveis
-  'Contas a vencer e avisos de orçamento':['Bills due and budget alerts','Cuentas por vencer y avisos de presupuesto'],
-  'Gráfico de ganhos e gastos':['Income and expenses chart','Gráfico de ingresos y gastos'],
-  'Média de gastos e total investido':['Average spending and total invested','Gasto promedio y total invertido'],
-  'Previsão dos próximos meses':['Forecast for the next months','Previsión de los próximos meses'],
-  'Contas bancárias':['Bank accounts','Cuentas bancarias'], 'Faturas do cartão do mês':['This month card bills','Facturas de la tarjeta del mes'],
-  'Planejamento (reserva, assinaturas, dívidas)':['Planning (fund, subscriptions, debts)','Planificación (fondo, suscripciones, deudas)'],
-  'Porquinho (modo divertido)':['Piggy (fun mode)','Cerdito (modo divertido)'],
-  'Conquistas (modo divertido)':['Achievements (fun mode)','Logros (modo divertido)'],
-  'Total de ganhos do mês':['Total income for the month','Total de ingresos del mes'],
-  'Fixos (todo mês)':['Fixed (every month)','Fijos (todos los meses)'], 'Anuais (uma vez por ano)':['Yearly (once a year)','Anuales (una vez al año)'],
-  'Ganhos avulsos':['One-off income','Ingresos puntuales'],
-  'Ganhos, gastos e saldo do mês':['Income, expenses and balance for the month','Ingresos, gastos y saldo del mes'],
-  'Orçamento do mês':['Monthly budget','Presupuesto del mes'],
-  'Comparativo por categoria':['Comparison by category','Comparativo por categoría'],
-  'A receber de gastos divididos':['To receive from shared expenses','Por cobrar de gastos compartidos'],
-  'Faturas do cartão':['Card bills','Facturas de la tarjeta'], 'Lançamentos':['Entries','Movimientos'],
-  'Importar extrato, relatório e planilha':['Import statement, report and spreadsheet','Importar extracto, informe y hoja de cálculo'],
-  'Total investido e projeção':['Total invested and projection','Total invertido y proyección'],
-  'Evolução do total investido':['Total invested over time','Evolución del total invertido'], 'Meus investimentos':['My investments','Mis inversiones'],
-  'Taxas usadas na projeção':['Rates used in the projection','Tasas usadas en la proyección'], 'Personalizar:':['Customize:','Personalizar:'],
-  'Toque no círculo para mostrar ou esconder um bloco e use as setas para mudar a ordem':['Tap the circle to show or hide a block and use the arrows to change the order','Toca el círculo para mostrar u ocultar un bloque y usa las flechas para cambiar el orden'],
-  // ---- Ganhos
-  'Ganhos em':['Income in','Ingresos en'], 'Fixos mensais':['Monthly fixed','Fijos mensuales'], 'todo mês de':['every','todos los meses de'],
-  'desde':['since','desde'], 'até':['until','hasta'],
-  'Cadastre seu salário e outros ganhos fixos':['Add your salary and other fixed income','Registra tu salario y otros ingresos fijos'],
-  'Eles entram automaticamente em todos os meses':['They are added to every month automatically','Se suman automáticamente a todos los meses'],
-  '13º, férias, bônus…':['13th salary, vacation pay, bonus…','Aguinaldo, vacaciones, bonos…'],
-  'Escolha o mês em que você recebe':['Choose the month you get paid','Elige el mes en que cobras'],
-  'Nenhum ganho avulso cadastrado':['No one-off income yet','No hay ingresos puntuales'],
-  // ---- Gastos
-  'Do mês':['This month','Del mes'], 'Alterar':['Change','Cambiar'], 'Definir':['Set','Definir'], 
-  'Defina um limite mensal por categoria para acompanhar quanto já foi usado':['Set a monthly limit per category to track how much has been used','Define un límite mensual por categoría para ver cuánto se ha usado'],
-  'Estourou em':['Over by','Excedido en'], 'do limite usado':['of the limit used','del límite usado'], 'inclui':['includes','incluye'],
-  'que sobraram do mês anterior':['left over from last month','que sobraron del mes anterior'],
-  'média de 6 meses':['6-month average','promedio de 6 meses'], 'te deve':['owes you','te debe'], 'Recebi':['Received','Recibido'],
-  'Configurar cartões':['Set up cards','Configurar tarjetas'],
-  'fecha no dia':['closes on day','cierra el día'], 'sem dia de fechamento definido':['no closing day set','sin día de cierre'],
-  'paga pela conta':['paid from account','pagada desde la cuenta'],
-  'limite':['limit','límite'], 'comprometido':['committed','comprometido'], 'Escolha a conta que paga esta fatura; sem isso ela não é descontada de nenhuma conta':['Choose the account that pays this bill; otherwise it is not deducted from any account','Elige la cuenta que paga esta factura; si no, no se descuenta de ninguna cuenta'],
-  'Escolher a conta que paga':['Choose the paying account','Elegir la cuenta que paga'],
-  'Buscar por descrição':['Search by description','Buscar por descripción'], 'Limpar busca':['Clear search','Borrar búsqueda'],
-  'Categoria':['Category','Categoría'], 'Banco':['Bank','Banco'], 'Pagamento':['Payment','Pago'], 'Etiqueta':['Tag','Etiqueta'],
-  'Todos':['All','Todos'], 'Buscar em todos os meses':['Search all months','Buscar en todos los meses'],
-  'Nenhum gasto em':['No expenses in','No hay gastos en'], 'Toque em + para adicionar':['Tap + to add one','Toca + para añadir'],
-  'Nenhum lançamento com esses filtros':['No entries match these filters','Ningún movimiento con estos filtros'],
-  'lançamentos':['entries','movimientos'], 'Mostrar mais':['Show more','Mostrar más'], 'restantes':['left','restantes'],
-  'parcela':['installment','cuota'], 'paga':['paid','pagada'],
-  'fixo':['fixed','fijo'], 'anual':['yearly','anual'], 'vence dia':['due on day','vence el día'], 'dividido com':['shared with','compartido con'],
-  'recebido':['received','recibido'], 'comprovante':['receipt','comprobante'],
-  'Marcar como pago':['Mark as paid','Marcar como pagado'], 'Importar extrato':['Import statement','Importar extracto'],
-  'Relatório (PDF)':['Report (PDF)','Informe (PDF)'], 'Exportar planilha de':['Export spreadsheet for','Exportar hoja de cálculo de'],
-  'Deslize a tela para os lados para trocar de mês':['Swipe the screen sideways to change month','Desliza la pantalla hacia los lados para cambiar de mes'],
-  'Num lançamento, deslize para a esquerda para excluir e, numa conta com vencimento, para a direita para marcar como paga':['On an entry, swipe left to delete and, on a bill with a due date, right to mark it as paid','En un movimiento, desliza a la izquierda para eliminar y, en una cuenta con vencimiento, a la derecha para marcarla como pagada'],
-  'Valor total':['Total amount','Valor total'], 'Já pago':['Already paid','Ya pagado'], 'Valor da parcela':['Installment amount','Valor de la cuota'],
-  'quitado':['paid off','liquidado'], 'termina em':['ends in','termina en'],
-  'Pagar parcela':['Pay installment','Pagar cuota'], '− Desfazer':['− Undo','− Deshacer'],
-  'Nenhuma compra parcelada':['No installment purchases','No hay compras a plazos'],
-  'As parcelas entram sozinhas nos gastos dos meses seguintes':['Installments are added to the following months automatically','Las cuotas se suman solas a los gastos de los meses siguientes'],
-  'A contagem avança sozinha quando o mês vira':['The count moves forward by itself when the month changes','La cuenta avanza sola al cambiar de mes'],
-  'as parcelas dos meses que já passaram contam como pagas':['installments of past months count as paid','las cuotas de meses pasados cuentan como pagadas'],
-  'Use os botões para corrigir':['Use the buttons to correct it','Usa los botones para corregir'],
-  // ---- Investir
-  'Total investido hoje':['Total invested today','Total invertido hoy'], 'Aportes do ano':['Contributions this year','Aportes del año'], 'O histórico começa neste mês e ganha uma barra a cada mês de uso':['The history starts this month and gets a bar for each month of use','El historial empieza este mes y suma una barra por cada mes de uso'],
-  '+ Nova meta':['+ New goal','+ Nueva meta'], 'sem prazo':['no deadline','sin plazo'], 'Guardado':['Saved','Ahorrado'], 'Meta':['Goal','Meta'],
-  'Falta':['Left','Falta'], 'Meta alcançada':['Goal reached','Meta alcanzada'],
-  'Guardando':['Saving','Ahorrando'], 'por mês você chega lá no prazo':['per month you get there on time','por mes llegas a tiempo'],
-  'O prazo desta meta já chegou':['This goal deadline has arrived','El plazo de esta meta ya llegó'],
-  '+ Guardar dinheiro':['+ Save money','+ Ahorrar dinero'], 'Crie uma meta (viagem, reserva de emergência…) e acompanhe quanto falta':['Create a goal (trip, emergency fund…) and track how much is left','Crea una meta (viaje, fondo de emergencia…) y sigue cuánto falta'],
-  'Atualizar cotações':['Update quotes','Actualizar cotizaciones'], 'Atualizando…':['Updating…','Actualizando…'],
-  'Quantidade':['Quantity','Cantidad'], 'Valor hoje':['Value today','Valor hoy'], 'Preço médio':['Average price','Precio medio'],
-  'Cotação atual':['Current quote','Cotización actual'], 'Total investido':['Total invested','Total invertido'],
-  'Rendimento':['Return','Rendimiento'], 'Você':['You','Tú'], 'CDI ≈':['CDI ≈','CDI ≈'],
-  'Rendeu mais que o CDI':['Beat the CDI','Rindió más que el CDI'], 'Rendeu menos que o CDI':['Below the CDI','Rindió menos que el CDI'],
-  'Alerta de preço':['Price alert','Alerta de precio'], 'acima de':['above','por encima de'], 'abaixo de':['below','por debajo de'],
-  'Vendas':['Sales','Ventas'], 'Proventos':['Dividends','Dividendos'], 'custo médio':['average cost','costo medio'],
-  'Lucro das vendas':['Profit from sales','Ganancia de ventas'], 'Retorno total':['Total return','Retorno total'],
-  'Nova compra':['New purchase','Nueva compra'], 'Vender':['Sell','Vender'], 'Registrar provento':['Record dividend','Registrar dividendo'],
-  'Cotação de':['Quote from','Cotización de'],
-  'Fazer um aporte':['Make a contribution','Hacer un aporte'], 'O valor é atualizado sozinho a cada virada de mês com o rendimento':['The value updates itself each month with the return','El valor se actualiza solo cada mes con el rendimiento'],
-  'e o aporte mensal de':['and the monthly contribution of','y el aporte mensual de'],
-  'Cadastre seus investimentos para ver':['Add your investments to see','Registra tus inversiones para ver'],
-  'quanto você terá daqui a um ano':['how much you will have in a year','cuánto tendrás dentro de un año'],
-  'Projeção bruta (sem IR), com as taxas':['Gross projection (before tax), with rates','Proyección bruta (sin impuestos), con las tasas'],
-  'Ver taxas':['See rates','Ver tasas'],
-  'Ações e moedas entram pelo valor atual, sem projeção':['Stocks and currencies count at current value, without projection','Acciones y monedas entran por su valor actual, sin proyección'], 'As cotações podem ter alguns minutos de atraso':['Quotes may be a few minutes delayed','Las cotizaciones pueden tener unos minutos de retraso'],
-  'atualizadas em':['updated on','actualizadas el'], 'pelo Banco Central':['by the Central Bank','por el Banco Central'],
-  'ainda não atualizadas pela internet':['not yet updated online','aún no actualizadas por internet'],
-  // ---- Notícias
-  'Principais do dia':['Top of the day','Lo principal del día'], 'Onde investir':['Where to invest','Dónde invertir'],
-  'Atualizar':['Refresh','Actualizar'], 'Destaque':['Featured','Destacado'], 'Notícia':['News','Noticia'],
-  'Carregando notícias…':['Loading news…','Cargando noticias…'],
-  'Não foi possível carregar as notícias':['Could not load the news','No se pudieron cargar las noticias'],
-  'Verifique a internet e toque em Atualizar':['Check your connection and tap Refresh','Revisa la conexión y toca Actualizar'],
-  'Sem conexão: mostrando as últimas notícias salvas':['Offline: showing the last saved news','Sin conexión: mostrando las últimas noticias guardadas'],
-  'Matérias e análises publicadas por sites de notícias. Não são uma recomendação deste app: avalie seu perfil e seus objetivos antes de investir':['Articles and analysis from news sites. They are not a recommendation from this app: consider your profile and goals before investing','Artículos y análisis de sitios de noticias. No son una recomendación de esta app: evalúa tu perfil y objetivos antes de invertir'],
-  'há':['ago','hace'],
-  // ---- Assistente
-  'Olá! Sou o assistente do app':['Hello! I am the app assistant','¡Hola! Soy el asistente de la app'],
-  'Oinc! Sou o porquinho de plantão':['Oink! I am the piggy on duty','¡Oink! Soy el cerdito de guardia'],
-  'Pergunte sobre os dados que você cadastrou. As respostas são calculadas aqui no aparelho, sem enviar nada para a internet':['Ask about the data you entered in the app (in Portuguese: the assistant understands Portuguese only). Answers are calculated on this device, without sending anything online','Pregunta sobre los datos que registraste (en portugués: el asistente solo entiende portugués). Las respuestas se calculan en el teléfono, sin enviar nada a internet'],
-  'Pergunte o que quiser sobre os seus números: eu faço as contas aqui mesmo no aparelho, sem contar nada para a internet':['Ask me anything about your numbers (in Portuguese): I do the math right here on the device','Pregunta lo que quieras sobre tus números (en portugués): hago las cuentas aquí mismo'],
-  'Para lançar um gasto, escreva por exemplo':['To add an expense, type for example','Para registrar un gasto, escribe por ejemplo'],
-  'Pergunte ou lance: mercado 45 pix':['Ask or add: mercado 45 pix','Pregunta o registra: mercado 45 pix'],
-  'Lançar este gasto?':['Add this expense?','¿Registrar este gasto?'], 'Lançar este ganho?':['Add this income?','¿Registrar este ingreso?'],
-  'Não era isso':['Not what I meant','No era eso'], 'Lançado':['Added','Registrado'],
-  'Abri o formulário já preenchido para você conferir e salvar':['I opened the form already filled in for you to check and save','Abrí el formulario ya completado para que lo revises y guardes'], 'Desfeito: o lançamento foi removido':['Undone: the entry was removed','Deshecho: el movimiento se eliminó'],
-  'Quanto gastei este mês?':['Quanto gastei este mês? (spending this month)','Quanto gastei este mês? (gastos del mes)'],
-  // ---- Formulários
-  'Novo gasto':['New expense','Nuevo gasto'], 'Novo ganho':['New income','Nuevo ingreso'],
-  'Nova compra parcelada':['New installment purchase','Nueva compra a plazos'], 'Novo investimento':['New investment','Nueva inversión'],
-  'Nova meta':['New goal','Nueva meta'],
-  'Editar gasto':['Edit expense','Editar gasto'], 'Editar ganho':['Edit income','Editar ingreso'],
-  'Editar compra parcelada':['Edit installment purchase','Editar compra a plazos'], 'Editar investimento':['Edit investment','Editar inversión'],
-  'Editar meta':['Edit goal','Editar meta'],
-  'Valor':['Amount','Valor'], 'Descrição':['Description','Descripción'], 'Descrição (opcional)':['Description (optional)','Descripción (opcional)'],
-  'Tipo':['Type','Tipo'], 'Mês':['Month','Mes'], 'A partir de':['Starting','A partir de'],
-  'Até (opcional)':['Until (optional)','Hasta (opcional)'], 'Só neste mês':['This month only','Solo este mes'],
-  'Fixo — repete todo mês (aluguel, internet…)':['Fixed — every month (rent, internet…)','Fijo — todos los meses (alquiler, internet…)'],
-  'Anual — uma vez por ano (IPVA, seguro…)':['Yearly — once a year (car tax, insurance…)','Anual — una vez al año (impuesto del auto, seguro…)'],
-  'Fixo — repete todo mês':['Fixed — every month','Fijo — todos los meses'],
-  'Anual — uma vez por ano (13º, bônus…)':['Yearly — once a year (13th salary, bonus…)','Anual — una vez al año (aguinaldo, bonos…)'],
-  'Avulso — só em um mês':['One-off — one month only','Puntual — solo un mes'],
-  'Mês em que paga (repete todo ano)':['Month you pay (repeats every year)','Mes en que pagas (se repite cada año)'],
-  'Mês em que recebe (repete todo ano)':['Month you get paid (repeats every year)','Mes en que cobras (se repite cada año)'],
-  'Banco / conta (opcional)':['Bank / account (optional)','Banco / cuenta (opcional)'], 'Forma de pagamento':['Payment method','Forma de pago'],
-  'Conta onde cai (opcional)':['Account it goes to (optional)','Cuenta donde entra (opcional)'],
-  'Dia em que cai (opcional)':['Day it arrives (optional)','Día en que entra (opcional)'],
-  'Etiquetas (opcional, separadas por vírgula)':['Tags (optional, comma separated)','Etiquetas (opcional, separadas por comas)'],
-  'Dividir com (nome da pessoa, opcional)':['Split with (person name, optional)','Compartir con (nombre, opcional)'],
-  'Parte que a outra pessoa vai te pagar':['Part the other person will pay you','Parte que la otra persona te pagará'],
-  'Parte que a outra pessoa te paga a cada vez':['Part the other person pays you each time','Parte que la otra persona te paga cada vez'],
-  'Dia da compra (opcional, usado na fatura do cartão)':['Purchase day (optional, used for the card bill)','Día de la compra (opcional, usado en la factura)'],
-  'Dia do vencimento (opcional, para lembretes)':['Due day (optional, for reminders)','Día de vencimiento (opcional, para recordatorios)'],
-  'Aplicar a alteração':['Apply the change','Aplicar el cambio'],
-  'Só a partir de um mês (mantém o histórico)':['Only from a given month (keeps history)','Solo desde un mes (mantiene el historial)'],
-  'Em todos os meses, inclusive os passados':['In every month, including past ones','En todos los meses, incluidos los pasados'],
-  'Vale a partir de':['Applies from','Vale desde'], 'Comprovante':['Receipt','Comprobante'], 'Tirar foto':['Take photo','Tomar foto'],
-  'Galeria':['Gallery','Galería'], 'Ver':['View','Ver'], 'Trocar':['Change','Cambiar'], 'Remover':['Remove','Quitar'],
-  'Tire a foto na hora ou escolha uma da galeria':['Take a photo now or choose one from the gallery','Toma la foto ahora o elige una de la galería'],
-  'Anexar foto do comprovante':['Attach receipt photo','Adjuntar foto del comprobante'],
-  'Mais opções':['More options','Más opciones'], 'Menos opções':['Fewer options','Menos opciones'],
-  'Repetir um gasto':['Repeat an expense','Repetir un gasto'], 'Mais categorias…':['More categories…','Más categorías…'],
-  'Histórico de alterações':['Change history','Historial de cambios'], 'Número de parcelas':['Number of installments','Número de cuotas'],
-  'Informar':['Enter','Indicar'], 'Valor total da compra':['Total purchase amount','Valor total de la compra'],
-  'Valor de cada parcela':['Amount of each installment','Valor de cada cuota'], 'Parcelas já pagas':['Installments already paid','Cuotas ya pagadas'],
-  'Mês da 1ª parcela':['Month of the 1st installment','Mes de la 1.ª cuota'], 
-  'Nome':['Name','Nombre'], 'Ativo — pesquise por código ou nome':['Asset — search by ticker or name','Activo — busca por código o nombre'],
-  'Moeda — pesquise por código ou nome':['Currency — search by code or name','Moneda — busca por código o nombre'],
-  'Quantidade comprada':['Quantity bought','Cantidad comprada'],
-  'Preço pago por unidade (R$)':['Price paid per unit (R$)','Precio pagado por unidad (R$)'], 'Data da compra':['Purchase date','Fecha de compra'],
-  'Valor investido hoje':['Amount invested today','Valor invertido hoy'],
-  'Rendimento atrelado a':['Return linked to','Rendimiento ligado a'],
-  'Aporte mensal (opcional)':['Monthly contribution (optional)','Aporte mensual (opcional)'],
-  'Escolha o ativo na lista de resultados':['Pick the asset from the results list','Elige el activo en la lista de resultados'],
-  'Quantidade vendida':['Quantity sold','Cantidad vendida'],
-  'Preço de venda por unidade (R$)':['Sale price per unit (R$)','Precio de venta por unidad (R$)'], 'Data da venda':['Sale date','Fecha de venta'],
-  'Lançar o lucro nos Ganhos':['Add the profit to Income','Registrar la ganancia en Ingresos'],
-  'Conta que recebe o dinheiro (opcional)':['Account that receives the money (optional)','Cuenta que recibe el dinero (opcional)'],
-  'Valor recebido (dividendos, JCP, rendimentos)':['Amount received (dividends, interest)','Valor recibido (dividendos, intereses)'],
-  'Data do recebimento':['Date received','Fecha de cobro'], 'Lançar nos Ganhos':['Add to Income','Registrar en Ingresos'],
-  'Conta bancária':['Bank account','Cuenta bancaria'], 'Nome do banco ou da conta':['Bank or account name','Nombre del banco o cuenta'],
-  'Saldo no início do mês abaixo':['Balance at the start of the month below','Saldo al inicio del mes de abajo'],
-  'Acompanhar o saldo a partir de':['Track the balance starting','Seguir el saldo desde'],
-  'Transferência entre contas':['Transfer between accounts','Transferencia entre cuentas'],
-  'Sai de':['From','Sale de'], 'Entra em':['To','Entra en'], 'Dia (opcional)':['Day (optional)','Día (opcional)'],
-  'Nome da meta':['Goal name','Nombre de la meta'], 'Valor da meta':['Goal amount','Valor de la meta'],
-  'Quanto já tem guardado':['How much you already saved','Cuánto ya ahorraste'],
-  'Prazo (opcional)':['Deadline (optional)','Plazo (opcional)'], 'Guardar dinheiro na meta':['Save money toward the goal','Ahorrar para la meta'],
-  'Valor a guardar agora':['Amount to save now','Valor a ahorrar ahora'], 'Valor do aporte':['Contribution amount','Valor del aporte'],
-  'Orçamento mensal por categoria':['Monthly budget by category','Presupuesto mensual por categoría'], 'limite por mês':['monthly limit','límite por mes'], 'O que sobrar do limite passa para o mês seguinte?':['Does what is left of the limit carry over to next month?','¿Lo que sobre del límite pasa al mes siguiente?'],
-  'Com "Sim", se você gastar menos que o limite de uma categoria, a diferença soma ao limite dela no mês seguinte':['With "Yes", if you spend less than a category limit, the difference is added to its limit next month','Con "Sí", si gastas menos que el límite de una categoría, la diferencia se suma a su límite el mes siguiente'],
-  'Cartões de crédito':['Credit cards','Tarjetas de crédito'], 'dia de fechamento':['closing day','día de cierre'],
-  'dia de pagamento da fatura':['bill payment day','día de pago de la factura'],
-  'limite do cartão (opcional)':['card limit (optional)','límite de la tarjeta (opcional)'],
-  'conta que paga a fatura':['account that pays the bill','cuenta que paga la factura'],
-  'Conta com o mesmo nome do cartão':['Account with the same name as the card','Cuenta con el mismo nombre que la tarjeta'],
-  'Taxas de referência':['Reference rates','Tasas de referencia'], 'Atualização':['Updates','Actualización'],
-  'Automática — pela internet (Banco Central)':['Automatic — online (Central Bank)','Automática — por internet (Banco Central)'],
-  'Manual — uso os valores abaixo':['Manual — I use the values below','Manual — uso los valores de abajo'],
-  'Atualizar taxas agora':['Update rates now','Actualizar tasas ahora'],
-  'Avisar quando passar de (R$)':['Alert when above (R$)','Avisar cuando supere (R$)'],
-  'Avisar quando cair abaixo de (R$)':['Alert when below (R$)','Avisar cuando baje de (R$)'],
-  'Deixe em branco para desligar':['Leave blank to turn off','Déjalo en blanco para desactivar'],
-  'cotação atual':['current quote','cotización actual'], 'Editar categoria':['Edit category','Editar categoría'],
-  'Nova categoria de gasto':['New expense category','Nueva categoría de gasto'],
-  'Nova categoria de ganho':['New income category','Nueva categoría de ingreso'], 'Ícone':['Icon','Ícono'], 'Cor (aparece com a opção "Uma cor por categoria")':['Color (shown with the "One color per category" option)','Color (se ve con la opción "Un color por categoría")'],
-  'Preencha':['Fill in','Completa'], 'Valor inválido em':['Invalid value in','Valor inválido en'],
-  'O mês final não pode ser antes do inicial':['The end month cannot be before the start','El mes final no puede ser anterior al inicial'],
-  'A parte da outra pessoa precisa ser menor que o valor total':['The other person part must be less than the total','La parte de la otra persona debe ser menor que el total'], 'As parcelas pagas não podem passar do total de parcelas':['Paid installments cannot exceed the total','Las cuotas pagadas no pueden superar el total'],
-  'Você não tem essa quantidade para vender':['You do not have that quantity to sell','No tienes esa cantidad para vender'],
-  'Escolha duas contas diferentes':['Choose two different accounts','Elige dos cuentas distintas'],
-  'O valor de baixo precisa ser menor que o de cima':['The lower value must be less than the upper one','El valor inferior debe ser menor que el superior'],
-  'Total':['Total','Total'], 'pago':['paid','pagado'], 'Investido':['Invested','Invertido'], 'vale hoje':['worth today','vale hoy'],
-  'Em 12 meses':['In 12 months','En 12 meses'],
-  // ---- Configurações
-  'Aparência':['Appearance','Apariencia'], 'Tema':['Theme','Tema'], 'Automático':['Automatic','Automático'], 'Claro':['Light','Claro'],
-  'Escuro':['Dark','Oscuro'], 'Cor':['Color','Color'],
-  'Índigo':['Indigo','Índigo'], 'Esmeralda':['Emerald','Esmeralda'], 'Oceano':['Ocean','Océano'], 'Rosa':['Pink','Rosa'],
-  'Laranja':['Orange','Naranja'], 'Grafite':['Graphite','Grafito'],
-  'Tamanho do texto':['Text size','Tamaño del texto'], 'Pequeno':['Small','Pequeño'], 'Normal':['Normal','Normal'], 'Grande':['Large','Grande'],
-  'Maior':['Larger','Más grande'], 'Idioma':['Language','Idioma'],
-  'Girar a tela com o celular':['Rotate the screen with the phone','Girar la pantalla con el teléfono'],
-  'Não, sempre em pé':['No, always portrait','No, siempre vertical'], 'Animações':['Animations','Animaciones'],
-  'Cor dos ícones das categorias':['Category icon color','Color de los íconos de categorías'], 'Do tema':['Theme color','Del tema'],
-  'Uma cor por categoria':['One color per category','Un color por categoría'], 'Modo divertido':['Fun mode','Modo divertido'],
-  'Mascote, conquistas e recados bem-humorados':['Mascot, achievements and playful messages','Mascota, logros y mensajes divertidos'],
-  'Toque no círculo para esconder ou mostrar uma aba e use as setas para mudar a ordem':['Tap the circle to hide or show a tab and use the arrows to change the order','Toca el círculo para ocultar o mostrar una pestaña y usa las flechas para cambiar el orden'],
-  'O Resumo fica sempre no menu':['The Summary always stays in the menu','El Resumen siempre queda en el menú'],
-  'Aba inicial':['Start tab','Pestaña inicial'], 'escondida':['hidden','oculta'], 
-  'Cor do ícone do app':['App icon color','Color del ícono de la app'], 'Ao trocar, o Android fecha o app: é só abrir de novo pelo ícone novo':['When changing it, Android closes the app: just open it again from the new icon','Al cambiarlo, Android cierra la app: ábrela de nuevo desde el ícono nuevo'],
-  'Se o ícone sumir da tela inicial, adicione de novo pela lista de apps':['If the icon disappears from the home screen, add it again from the app list','Si el ícono desaparece de la pantalla de inicio, agrégalo de nuevo desde la lista de apps'],
-  'Pedir senha ou biometria ao abrir':['Ask for password or biometrics on open','Pedir contraseña o biometría al abrir'],
-  'Desligar pede a senha ou a biometria':['Turning it off asks for the password or biometrics','Desactivarlo pide la contraseña o la biometría'],
-  'Pedir de novo após':['Ask again after','Pedir de nuevo tras'], 'Sempre':['Always','Siempre'],
-  'Notificações de contas a vencer':['Bill due notifications','Notificaciones de cuentas por vencer'], 'Avisar quando chegar em (pode marcar mais de um)':['Notify when it reaches (you can pick more than one)','Avisar al llegar a (puedes marcar más de uno)'], 'Nenhum ponto marcado: as previsões não vão avisar.':['No point selected: forecasts will not notify.','Ningún punto marcado: las previsiones no avisarán.'], '50% do previsto':['50% of forecast','50% de lo previsto'], '80% do previsto':['80% of forecast','80% de lo previsto'], '90% do previsto':['90% of forecast','90% de lo previsto'], 'Chegou no previsto':['Reached the forecast','Llegó a lo previsto'], 'Passou do previsto':['Went over the forecast','Pasó de lo previsto'], 'Previsões de gastos':['Spending forecasts','Previsiones de gastos'], 'Avisar com antecedência de (pode marcar mais de uma)':['Notify in advance (you can pick more than one)','Avisar con anticipación de (puedes marcar más de una)'],
-  'Categorias que notificam (as que têm gastos fixos; toque para ligar ou desligar)':['Categories that notify (those with fixed expenses; tap to turn on or off)','Categorías que notifican (las que tienen gastos fijos; toca para activar o desactivar)'],
-  'Vale para gastos fixos com dia de vencimento':['Applies to fixed expenses with a due day','Vale para gastos fijos con día de vencimiento'], 'Avisa nos dias marcados e no vencimento, às 9h':['Notifies on the chosen days and on the due day, at 9 am','Avisa en los días marcados y en el vencimiento, a las 9 h'],
-  'Sem nenhuma marcada, avisa só no dia':['With none selected, it notifies only on the day','Sin ninguna marcada, avisa solo ese día'], 
-  'Sincronização':['Sync','Sincronización'], 'Conta Google':['Google account','Cuenta de Google'], 'Conectado como':['Signed in as','Conectado como'],
-  'Sincronizado em':['Synced on','Sincronizado el'], 'Ainda não sincronizado':['Not synced yet','Aún no sincronizado'],
-  'Sincronizando…':['Syncing…','Sincronizando…'], 'Sincronizar agora':['Sync now','Sincronizar ahora'],
-  'Versões salvas':['Saved versions','Versiones guardadas'], 'Sair ou trocar de conta':['Sign out or switch account','Cerrar sesión o cambiar de cuenta'],
-  'Desfazer a última junção':['Undo the last merge','Deshacer la última unión'],
-  'Sugerir lançamentos pelas notificações do banco':['Suggest entries from bank notifications','Sugerir movimientos por las notificaciones del banco'],
-  'Taxas de referência (CDI, Selic, IPCA)':['Reference rates (CDI, Selic, IPCA)','Tasas de referencia (CDI, Selic, IPCA)'],
-  'Categorias':['Categories','Categorías'],
-  'Criar, renomear ou esconder categorias':['Create, rename or hide categories','Crear, renombrar u ocultar categorías'],
-  'Anos antigos':['Older years','Años anteriores'], 'Arquivar anos antigos':['Archive older years','Archivar años anteriores'],
-  'Trazer de volta':['Bring back','Traer de vuelta'], 'Arquivado até':['Archived up to','Archivado hasta'],
-  'Lançamentos excluídos':['Deleted entries','Movimientos eliminados'], 'Backup em arquivo':['File backup','Copia en archivo'],
-  'Exportar':['Export','Exportar'], 'Importar':['Import','Importar'], 'Apagar tudo':['Delete everything','Borrar todo'],
-  'Apagar todos os meus dados':['Delete all my data','Borrar todos mis datos'],
-  'versão':['version','versión'], 'Categorias de ganho':['Income categories','Categorías de ingreso'],
-  'O assistente entende só português':['The assistant understands Portuguese only','El asistente solo entiende portugués'],
-  'Gastos separados':['Expenses split up','Gastos separados'], 'assinatura':['subscription','suscripción'],
-  'Na aba Gastos, os lançamentos ficam em Assinaturas, Fixos e Ocasionais, cada grupo com o seu total. A busca procura nos três':['In the Expenses tab, entries are grouped into Subscriptions, Fixed and One-off, each with its total. Search looks in all three','En la pestaña Gastos, los movimientos se dividen en Suscripciones, Fijos y Ocasionales, cada grupo con su total. La búsqueda mira en los tres'],
-  'Netflix, Spotify, academia e parecidos entram sozinhos em Assinaturas. Num gasto fixo, "Mais opções" deixa marcar ou desmarcar':['Netflix, Spotify, gym and similar go to Subscriptions by themselves. On a fixed expense, "More options" lets you mark or unmark it','Netflix, Spotify, gimnasio y similares van solos a Suscripciones. En un gasto fijo, "Más opciones" permite marcar o desmarcar'],
-  'Fixos e anuais':['Fixed and yearly','Fijos y anuales'], 'Parceladas':['Installments','En cuotas'],
-  'Ordenar grupos':['Reorder groups','Ordenar grupos'], 'Ordem dos grupos':['Group order','Orden de los grupos'],
-  'Use as setas para escolher a ordem dos grupos na lista de lançamentos':['Use the arrows to choose the order of the groups in the entries list','Usa las flechas para elegir el orden de los grupos en la lista de movimientos'],
-  'Fecha no dia':['Closes on day','Cierra el día'], 'Sem dia de fechamento definido':['No closing day set','Sin día de cierre definido'],
-  'Limite:':['Limit:','Límite:'], 'Comprometido:':['Committed:','Comprometido:'], 'Paga pela conta':['Paid from account','Pagada con la cuenta'],
-  'Perfil':['Profile','Perfil'], 'Seu nome, saudação e tutorial':['Your name, greeting and tutorial','Tu nombre, saludo y tutorial'],
-  'Idioma, cores e texto':['Language, colors and text','Idioma, colores y texto'],
-  'Menu de baixo':['Bottom menu','Menú inferior'], 'Ordem das abas':['Tab order','Orden de las pestañas'],
-  'Ícone e bloqueio':['Icon and lock','Ícono y bloqueo'], 'Ícone e senha':['Icon and password','Ícono y contraseña'],
-  'Lembretes':['Reminders','Recordatorios'],
-  'Contas a vencer e economia de bateria':['Upcoming bills and battery saver','Cuentas por vencer y ahorro de batería'],
-  'Conta e sincronização':['Account and sync','Cuenta y sincronización'],
-  'Conta Google, cópias e conta compartilhada':['Google account, backups and shared account','Cuenta de Google, copias y cuenta compartida'],
-  'Lançamento automático':['Automatic entries','Registro automático'], 'Sugestões de gasto':['Spending suggestions','Sugerencias de gasto'],
-  'Dados e ajustes':['Data and settings','Datos y ajustes'], 'Categorias, backup e lixeira':['Categories, backup and trash','Categorías, copia y papelera'],
-  'Seu nome':['Your name','Tu nombre'], 'Trocar o nome':['Change name','Cambiar el nombre'], 'Informar o nome':['Add your name','Agregar tu nombre'],
-  'Ajuda':['Help','Ayuda'], 'Ver o tutorial':['See the tutorial','Ver el tutorial'], 
-  'Planilha do Google':['Google Sheet','Hoja de Google'], 'Abrir a planilha':['Open the sheet','Abrir la hoja'],
-  'Sincronizar com a planilha':['Sync with the sheet','Sincronizar con la hoja'], 'Desligar a planilha':['Unlink the sheet','Desvincular la hoja'],
-  'Criar a planilha ligada':['Create the linked sheet','Crear la hoja vinculada'],
-  'Planilha ligada ao app':['Sheet linked to the app','Hoja vinculada a la app'],
-  'Criar planilha ligada ao app':['Create a sheet linked to the app','Crear una hoja vinculada a la app'],
-  'Planilha do Google (ligada)':['Google Sheet (linked)','Hoja de Google (vinculada)'],
-  'Exportar para uma planilha do Google ligada ao app':['Export to a Google Sheet linked to the app','Exportar a una hoja de Google vinculada a la app'],
-  'Widgets':['Widgets','Widgets'], 'Quadros da tela inicial':['Home screen boxes','Cuadros de la pantalla de inicio'],
-  'Escolher o que aparece':['Choose what shows','Elegir qué aparece'],
-  'Procurar atualizações':['Check for updates','Buscar actualizaciones'], 'Atualizar agora':['Update now','Actualizar ahora'],
-  'Baixar e instalar':['Download and install','Descargar e instalar'], 'Depois':['Later','Después'],
-  'O que vem nesta versão':['What comes in this version','Qué trae esta versión'],
-  'Guia do app':['App guide','Guía de la app'],
-  'Todas as funções, onde ficam e como usar':['Every feature, where it is and how to use it','Todas las funciones, dónde están y cómo usarlas'],
-  'Tema especial':['Special theme','Tema especial'], 'Nenhum':['None','Ninguno'],
-  'Vales':['Vouchers','Vales'], 'Crédito do mês':['Month credit','Crédito del mes'], 'Gasto do mês':['Month spending','Gasto del mes'],
-  'Saldo do vale':['Voucher balance','Saldo del vale'],
-  'Gastos nos vales':['Voucher spending','Gastos con vales'], 'Créditos dos vales':['Voucher credits','Créditos de vales'],
-  '+ Gasto neste vale':['+ Expense on this voucher','+ Gasto en este vale'], '+ Crédito deste vale':['+ Credit for this voucher','+ Crédito de este vale'],
-  'Sexo':['Sex','Sexo'], 'Masculino':['Male','Masculino'], 'Feminino':['Female','Femenino'],
-  'Prefiro não dizer':['Prefer not to say','Prefiero no decir'], 'Atualizações':['Updates','Actualizaciones'],
-  'Procurar atualização agora':['Check for updates now','Buscar actualización ahora'],
-  'Como você quer ser chamado?':['What should we call you?','¿Cómo quieres que te llamemos?'],
-  'Saudação no topo':['Greeting at the top','Saludo arriba'], 'Bem-vindo':['Welcome','Bienvenido'], 'Bem-vinda':['Welcome','Bienvenida'],
-  'Boas-vindas':['Welcome','Bienvenida'],
-  'Continuar':['Continue','Continuar'], 'Pular':['Skip','Omitir'], 'Próximo':['Next','Siguiente'], 'Começar':['Start','Empezar'],
-  'Lançar é rápido':['Adding is quick','Registrar es rápido'], 'Gastos do mês':["Month's expenses",'Gastos del mes'],
-  'Investimentos e metas':['Investments and goals','Inversiones y metas'],
-  'Sua conta e a conta compartilhada':['Your account and the shared account','Tu cuenta y la cuenta compartida'], 'Do seu jeito':['Your way','A tu manera'],
-  'Conta compartilhada':['Shared account','Cuenta compartida'], 'Mesmos dados em dupla':['Same data for two','Mismos datos en pareja'],
-  'Ligada: vocês veem os mesmos dados':['On: you both see the same data','Activada: ven los mismos datos'],
-  'Google Drive e cópias':['Google Drive and backups','Google Drive y copias'],
-  'Você vai usar uma conta compartilhada?':['Will you use a shared account?','¿Vas a usar una cuenta compartida?'],
-  'Sim, recebi um código de convite':['Yes, I got an invite code','Sí, recibí un código de invitación'],
-  'Sim, quero convidar alguém':['Yes, I want to invite someone','Sí, quiero invitar a alguien'],
-  'Não, vou usar só eu':["No, it's just me",'No, solo yo'], 'Abrir a tela do Google':['Open the Google screen','Abrir la pantalla de Google'],
-  'Conta compartilhada (casal ou família)':['Shared account (couple or family)','Cuenta compartida (pareja o familia)'],
-  'Convidar alguém':['Invite someone','Invitar a alguien'], 'Tenho um convite':['I have an invite','Tengo una invitación'],
-  'Copiar convite':['Copy invite','Copiar invitación'],
-  'Convidar mais alguém':['Invite someone else','Invitar a alguien más'],
-  'Sair da conta compartilhada':['Leave shared account','Salir de la cuenta compartida'], 'Convidar':['Invite','Invitar'], 'Entrar':['Join','Entrar'],
-  'Código do convite':['Invite code','Código de invitación'],
-  'Novo aviso do':['New notice from','Nuevo aviso de'], 'Ver todas':['See all','Ver todas'],
-  'Mais perto de ganhar:':['Closest to unlock:','Más cerca de ganar:'], 
-  'Tirar o app da economia de bateria':['Remove the app from battery saver','Quitar la app del ahorro de batería'],
-  'Ocasionais':['One-off','Ocasionales'], 'É uma assinatura?':['Is it a subscription?','¿Es una suscripción?'],
-  'Automático, pelo nome (Netflix, Spotify, academia…)':['Automatic, by name (Netflix, Spotify, gym…)','Automático, por el nombre (Netflix, Spotify, gimnasio…)'],
-  'Sim, mostrar em Assinaturas':['Yes, show under Subscriptions','Sí, mostrar en Suscripciones'],
-  'Não, é uma conta fixa':['No, it is a fixed bill','No, es una cuenta fija'],
-  'Toque em um grupo para abrir':['Tap a group to open it','Toca un grupo para abrirlo'], 'Categoria escondida some das listas de escolha, mas os lançamentos antigos continuam com ela':['A hidden category disappears from the pick lists, but old entries keep it','Una categoría oculta desaparece de las listas, pero los movimientos antiguos la conservan'],
-  'Suas categorias':['Your categories','Tus categorías'], 'Casa':['Home','Casa'], 'Transporte':['Transport','Transporte'],
-  'Saúde e cuidados':['Health and care','Salud y cuidado'], 'Família':['Family','Familia'], 'Finanças e outros':['Finance and other','Finanzas y otros'],
-  // ---- categorias
-  'Moradia':['Housing','Vivienda'], 'Alimentação':['Food','Alimentación'], 'Saúde':['Health','Salud'], 'Lazer':['Leisure','Ocio'],
-  'Educação':['Education','Educación'],
-  'Contas e assinaturas':['Bills and subscriptions','Cuentas y suscripciones'], 'Mercado':['Groceries','Supermercado'],
-  'Restaurantes e delivery':['Restaurants and delivery','Restaurantes y delivery'], 'Café e lanches':['Coffee and snacks','Café y meriendas'],
-  'Combustível':['Fuel','Combustible'], 'Estacionamento e pedágio':['Parking and tolls','Estacionamiento y peajes'],
-  'Ônibus, metrô e apps':['Bus, subway and rides','Bus, metro y apps'], 'Manutenção do carro':['Car maintenance','Mantenimiento del auto'],
-  'Farmácia':['Pharmacy','Farmacia'], 'Academia e esportes':['Gym and sports','Gimnasio y deportes'],
-  'Beleza e cuidados':['Beauty and care','Belleza y cuidado'], 'Roupas e calçados':['Clothes and shoes','Ropa y calzado'],
-  'Eletrônicos':['Electronics','Electrónica'], 'Presentes':['Gifts','Regalos'], 'Pets':['Pets','Mascotas'],
-  'Filhos e família':['Kids and family','Hijos y familia'], 'Cinema e streaming':['Movies and streaming','Cine y streaming'],
-  'Shows e eventos':['Shows and events','Conciertos y eventos'], 'Bares e festas':['Bars and parties','Bares y fiestas'], 'Jogos':['Games','Juegos'],
-  'Viagens':['Travel','Viajes'], 'Casa e manutenção':['Home and repairs','Casa y mantenimiento'],
-  'Água, luz e gás':['Water, power and gas','Agua, luz y gas'], 'Internet e celular':['Internet and phone','Internet y teléfono'],
-  'Seguros':['Insurance','Seguros'], 'Impostos e taxas':['Taxes and fees','Impuestos y tasas'], 'Doações':['Donations','Donaciones'],
-  'Empréstimo':['Loan','Préstamo'], 'Outros':['Other','Otros'], 'Salário':['Salary','Salario'],
-  'Freelance / extra':['Freelance / extra','Freelance / extra'], 'Rendimentos':['Investment income','Rendimientos'],
-  'Vale-alimentação':['Grocery voucher','Vale de alimentos'], 'Vale-refeição':['Meal voucher','Vale de comida'],
-  'Renda fixa (CDB, LCI, LCA)':['Fixed income (CDB, LCI, LCA)','Renta fija (CDB, LCI, LCA)'], 'Tesouro Direto':['Treasury bonds','Bonos del Tesoro'],
-  'Poupança':['Savings account','Cuenta de ahorro'], 'Ações':['Stocks','Acciones'],
-  'Fundos imobiliários':['Real estate funds','Fondos inmobiliarios'], 'Moedas (dólar, euro…)':['Currencies (dollar, euro…)','Monedas (dólar, euro…)'],
-  'Cripto':['Crypto','Cripto'],
-  'Previdência':['Pension','Jubilación'], 'Crédito':['Credit','Crédito'], 'Débito':['Debit','Débito'], 'Dinheiro':['Cash','Efectivo'],
-  'Boleto':['Bank slip','Boleto'], 'Outro':['Other','Otro'], 'Prefixado':['Fixed rate','Prefijado'], 'IPCA +':['IPCA +','IPCA +'],
-  'Carro':['Car','Auto'], 'Compras':['Shopping','Compras'],
-  // ---- folhas novas
-  'Assinaturas e contas fixas':['Subscriptions and fixed bills','Suscripciones y cuentas fijas'], 'Tudo o que se repete todo mês, do mais caro ao mais barato, com o custo em um ano':['Everything that repeats every month, from most to least expensive, with the yearly cost','Todo lo que se repite cada mes, del más caro al más barato, con el costo anual'],
-  'Toque em um item para editar ou encerrar':['Tap an item to edit or end it','Toca un elemento para editarlo o terminarlo'],
-  'Uma vez por ano':['Once a year','Una vez al año'], 'Nenhum gasto fixo mensal cadastrado':['No monthly fixed expenses yet','No hay gastos fijos mensuales'],
-  'Dívidas e parcelas':['Debts and installments','Deudas y cuotas'], 'Saldo devedor':['Outstanding balance','Saldo pendiente'],
-  'Tudo termina em':['Everything ends in','Todo termina en'], 'parcelas de':['installments of','cuotas de'],
-  'Simular quitação':['Simulate payoff','Simular liquidación'],
-  'Compra':['Purchase','Compra'], 'Parcelas a adiantar':['Installments to pay early','Cuotas a adelantar'], 'faltam':['left','faltan'],
-  'cada':['each','cada'], 'Você paga agora':['You pay now','Pagas ahora'], 'Última parcela':['Last installment','Última cuota'],
-  'quitada':['paid off','liquidada'], 'Hoje a compra termina em':['Today the purchase ends in','Hoy la compra termina en'],
-  'Sobra por mês depois disso':['Left over per month after that','Sobra por mes después de eso'],
-  'você deixa de pagar essa parcela':['you stop paying that installment','dejas de pagar esa cuota'],
-  'Conta feita sem desconto':['Calculated without discount','Cálculo sin descuento'], 'Se o banco ou a loja der desconto para adiantar, a economia é maior':['If the bank or store gives a discount for paying early, you save more','Si el banco o la tienda da descuento por adelantar, el ahorro es mayor'],
-  'Digite quantas parcelas você quer adiantar':['Type how many installments you want to pay early','Escribe cuántas cuotas quieres adelantar'], 'Lixeira':['Trash','Papelera'], 'O que você exclui fica aqui por 30 dias, só neste aparelho':['What you delete stays here for 30 days, on this device only','Lo que eliminas queda aquí 30 días, solo en este teléfono'],
-  'excluído':['deleted','eliminado'], 'Esvaziar':['Empty','Vaciar'], 'A lixeira está vazia':['The trash is empty','La papelera está vacía'],
-  'Digite pelo menos duas letras':['Type at least two letters','Escribe al menos dos letras'], 'Nada encontrado':['Nothing found','Nada encontrado'],
-  'Descrição, etiqueta ou banco':['Description, tag or bank','Descripción, etiqueta o banco'], 'Bem-vindo!':['Welcome!','¡Bienvenido!'], 'Três passos para o app começar a mostrar o seu mês':['Three steps for the app to start showing your month','Tres pasos para que la app empiece a mostrar tu mes'],
-  'Dá para pular e fazer depois':['You can skip and do it later','Puedes saltarlo y hacerlo después'],
-  'Pular por agora':['Skip for now','Saltar por ahora'], 'Cadastre seu salário':['Add your salary','Registra tu salario'],
-  'Ele entra sozinho em todos os meses':['It is added to every month automatically','Se suma solo a todos los meses'],
-  'Cadastre um gasto fixo':['Add a fixed expense','Registra un gasto fijo'],
-  'Aluguel, internet, academia…':['Rent, internet, gym…','Alquiler, internet, gimnasio…'],
-  'Cadastre uma conta do banco':['Add a bank account','Registra una cuenta bancaria'],
-  'Para acompanhar o saldo dela':['To track its balance','Para seguir su saldo'],
-  'Novidades da versão':['What is new in version','Novedades de la versión'], 'Diagnóstico':['Diagnostics','Diagnóstico'],
-  'Senha':['Password','Contraseña'], 'Senha incorreta':['Wrong password','Contraseña incorrecta'],
-  'Salvar em arquivo':['Save to file','Guardar en archivo'], 'Limpar erros':['Clear errors','Borrar errores'],
-  // ---- avisos e confirmações
-  'Excluir a categoria':['Delete the category','¿Eliminar la categoría'], 'passam para':['move to','pasan a'],
-  'Arquivo de backup inválido':['Invalid backup file','Archivo de copia no válido'],
-  'Substituir todos os dados atuais pelos do backup?':['Replace all current data with the backup?','¿Reemplazar todos los datos actuales por los de la copia?'],
-  'Substituir':['Replace','Reemplazar'], 'Sair':['Sign out','Salir'],
-  'Sair da conta Google?':['Sign out of the Google account?','¿Cerrar sesión de Google?'], 'Os dados deste aparelho serão apagados. Eles continuam salvos na sua conta e voltam quando você entrar de novo com ela':['The data on this device will be erased. It stays saved in your account and comes back when you sign in again','Los datos de este teléfono se borrarán. Siguen guardados en tu cuenta y vuelven al iniciar sesión de nuevo'],
-  'Apagar todos os seus dados?':['Delete all your data?','¿Borrar todos tus datos?'],
-  'Tem certeza? Isso não pode ser desfeito':['Are you sure? This cannot be undone','¿Seguro? No se puede deshacer'], 'Sim, apagar':['Yes, delete','Sí, borrar'],
-  'Esvaziar a lixeira?':['Empty the trash?','¿Vaciar la papelera?'], 'Os lançamentos excluídos não poderão mais ser restaurados':['Deleted entries can no longer be restored','Los movimientos eliminados ya no se podrán restaurar'],
-  'Conta paga! Menos um boleto no mundo':['Bill paid! One less bill in the world','¡Cuenta pagada! Una factura menos en el mundo'],
-  'Categoria excluída':['Category deleted','Categoría eliminada'], 'Arquivo salvo':['File saved','Archivo guardado'],
-  'Não consegui salvar as últimas alterações neste aparelho (armazenamento cheio?). Exporte um backup em Configurações antes de fechar o app':['Could not save the latest changes on this device (storage full?). Export a backup in Settings before closing the app','No se pudieron guardar los últimos cambios (¿almacenamiento lleno?). Exporta una copia en Ajustes antes de cerrar la app'],
-  'Proteja seus dados':['Protect your data','Protege tus datos'], 'Habilitar biometria':['Enable biometrics','Activar biometría'],
-  'Não habilitar biometria':['Do not enable biometrics','No activar biometría'],
-  'Habilite a biometria para o app pedir sua digital ou seu rosto sempre que for aberto. Se a biometria falhar, vale a senha do celular':['Enable biometrics so the app asks for your fingerprint or face whenever it opens. If biometrics fail, the phone password works','Activa la biometría para que la app pida tu huella o rostro al abrirse. Si falla, vale la contraseña del teléfono'],
-  'Entrar com Google':['Sign in with Google','Iniciar sesión con Google'], 'Demonstração':['Demo','Demostración'], 'Entre com sua conta Google para começar. Seus dados ficam guardados no seu próprio Google Drive':['Sign in with your Google account to start. Your data is stored in your own Google Drive','Inicia sesión con tu cuenta de Google para empezar. Tus datos se guardan en tu propio Google Drive'],
-  // ---- modo divertido
-  'Conquistas':['Achievements','Logros'], 'de':['of','de'], 'Conquistada':['Earned','Conseguido'], 'Para ganhar':['To earn','Para ganar'],
-  'Desafio de':['Challenge for','Desafío de'], 'Gaste menos de':['Spend less than','Gasta menos de'],
-  'em':['in','en'], 'foi o gasto do mês passado':['that was last month spending','fue el gasto del mes pasado'], 'Até agora':['So far','Hasta ahora'],
-  'Ainda cabem':['Still room for','Aún caben'], 'Passou em':['Over by','Te pasaste en'],
-  'Mês que vem tem outro!':['Another one next month!','¡El mes que viene hay otro!'],
-  'Cofrinho vazio':['Empty piggy bank','Alcancía vacía'], 'Aprendiz da poupança':['Saving apprentice','Aprendiz del ahorro'],
-  'Caçador de boletos':['Bill hunter','Cazador de facturas'], 'Mestre do orçamento':['Budget master','Maestro del presupuesto'],
-  'Lenda das finanças':['Finance legend','Leyenda de las finanzas'],
-  'dias seguidos':['days in a row','días seguidos'], 'Primeiro passo':['First step','Primer paso'],
-  'cadastre o primeiro lançamento':['add your first entry','registra tu primer movimiento'],
-  'Detetive de gastos':['Expense detective','Detective de gastos'], 'cadastre 25 gastos':['add 25 expenses','registra 25 gastos'],
-  'Mês no azul':['Month in the black','Mes en positivo'],
-  'gaste menos do que ganhou no mês atual':['spend less than you earned this month','gasta menos de lo que ganaste este mes'],
-  'Trinca azul':['Three in the black','Trío en positivo'],
-  'fique três meses seguidos no azul':['stay in the black three months in a row','queda en positivo tres meses seguidos'],
-  'Investidor':['Investor','Inversor'], 'cadastre um investimento':['add an investment','registra una inversión'],
-  'Planejador':['Planner','Planificador'], 'defina um orçamento por categoria':['set a budget for a category','define un presupuesto por categoría'],
-  'Sonhador':['Dreamer','Soñador'], 'crie uma meta':['create a goal','crea una meta'],
-  'Meta batida':['Goal hit','Meta cumplida'], 'alcance uma meta':['reach a goal','alcanza una meta'], 'Organizado':['Organized','Organizado'],
-  'anexe um comprovante a um gasto':['attach a receipt to an expense','adjunta un comprobante a un gasto'], 'Em dia':['Up to date','Al día'],
-  'tenha contas com vencimento e nenhuma atrasada':['have bills with due dates and none overdue','ten cuentas con vencimiento y ninguna atrasada'],
-  'Livre de parcelas':['Installment free','Libre de cuotas'],
-  'quite todas as compras parceladas':['pay off all installment purchases','liquida todas las compras a plazos'],
-  'Fogo no cofrinho':['Piggy on fire','Alcancía en llamas'],
-  'abra o app 7 dias seguidos':['open the app 7 days in a row','abre la app 7 días seguidos'], 'Desafiante':['Challenger','Desafiante'],
-  'cumpra um desafio do mês':['complete a monthly challenge','cumple un desafío del mes'],
-  'Sobrando':['Leftover','Sobran'], 'este mês':['this month','este mes'], 'Tô até mais gordinho!':['I am even chubbier!','¡Hasta estoy más gordito!'],
-  'Mês no azul! Já posso sonhar com milho premium?':['Month in the black! Can I dream of premium corn?','¡Mes en positivo! ¿Puedo soñar con maíz premium?'],
-  'Olha esse saldo de':['Look at this balance of','Mira este saldo de'], 'Orgulho define':['So proud','Puro orgullo'],
-  'Assim eu encho rapidinho. Continua!':['I will fill up fast like this. Keep going!','Así me lleno rápido. ¡Sigue!'],
-  'Tudo sob controle por aqui. Bora registrar os gastos?':['All under control here. Shall we log expenses?','Todo bajo control. ¿Registramos los gastos?'],
-  'Equilibrado, como todo porquinho deveria ser':['Balanced, as every piggy should be','Equilibrado, como todo cerdito debería ser'],
-  'Nem aperto, nem folga. Seguimos de olho':['Not tight, not loose. We keep watching','Ni ajustado ni holgado. Seguimos atentos'],
-  'Me conta: o que você gastou hoje?':['Tell me: what did you spend today?','Cuéntame: ¿qué gastaste hoy?'],
-  'Faltam':['Short by','Faltan'], 'para fechar o mês. Respira, a gente ajeita':['to close the month. Breathe, we will fix it','para cerrar el mes. Respira, lo arreglamos'], 'Tô sentindo um vento aqui dentro… saiu mais do que entrou':['I feel a draft in here… more went out than came in','Siento un viento aquí dentro… salió más de lo que entró'],
-  'Mês no vermelho em':['Month in the red by','Mes en negativo en'],
-  'Bora rever os gastos?':['Shall we review the expenses?','¿Revisamos los gastos?'],
-  'Ai, minhas moedinhas! Segura o cartão um pouquinho':['Oh, my coins! Hold the card for a bit','¡Ay, mis monedas! Guarda la tarjeta un ratito'],
-  'Anotado! A carteira sentiu, mas sobreviveu':['Noted! The wallet felt it, but survived','¡Anotado! La billetera lo sintió, pero sobrevivió'],
-  'Gasto registrado. O porquinho viu tudo':['Expense saved. The piggy saw everything','Gasto registrado. El cerdito lo vio todo'],
-  'Mais um pra conta. Literalmente':['One more for the account. Literally','Uno más a la cuenta. Literalmente'],
-  'Registrado! Saber para onde vai o dinheiro já é meio caminho':['Saved! Knowing where money goes is half the way','¡Registrado! Saber adónde va el dinero ya es medio camino'], 'Parcelado registrado. O você do futuro mandou um abraço meio torto':['Installment saved. Future you sends a slightly awkward hug','Compra a plazos registrada. Tu yo del futuro manda un abrazo medio torcido'],
-  'Anotado! Parcela é gasto de pijama: discreto, mas tá lá':['Noted! Installments are expenses in pajamas: quiet, but there','¡Anotado! La cuota es un gasto en pijama: discreto, pero ahí está'], 'Dinheiro na conta! O porquinho fez a dancinha':['Money in! The piggy did a little dance','¡Dinero en la cuenta! El cerdito bailó'],
-  'Caiu! Hora de fingir costume':['It landed! Time to act casual','¡Cayó! Hora de disimular'],
-  'Ganho registrado. Continue assim!':['Income saved. Keep it up!','Ingreso registrado. ¡Sigue así!'],
-  'Investimento registrado. O seu eu do futuro agradece':['Investment saved. Future you says thanks','Inversión registrada. Tu yo del futuro lo agradece'],
-  'Plantou hoje, colhe depois':['Plant today, harvest later','Siembra hoy, cosecha después'],
-  'Meta criada! Sonho com prazo vira plano':['Goal created! A dream with a deadline becomes a plan','¡Meta creada! Un sueño con plazo se vuelve plan'],
-  'Mais perto da meta! O porquinho aprova':['Closer to the goal! The piggy approves','¡Más cerca de la meta! El cerdito aprueba'],
-  'Guardado! Cada moedinha conta':['Saved! Every coin counts','¡Ahorrado! Cada moneda cuenta'],
-  'Aporte feito. Juros compostos, podem trabalhar!':['Contribution made. Compound interest, get to work!','Aporte hecho. ¡Interés compuesto, a trabajar!'],
-  'Aporte registrado. Devagar e sempre':['Contribution saved. Slow and steady','Aporte registrado. Poco a poco'],
-  'Pago! Boleto derrotado':['Paid! Bill defeated','¡Pagado! Factura derrotada'],
-  'Em dia! O porquinho respira aliviado':['Up to date! The piggy breathes easy','¡Al día! El cerdito respira aliviado'],
-  'Oinc! Mês no azul':['Oink! Month in the black','¡Oink! Mes en positivo'], 'Tudo sob controle':['All under control','Todo bajo control'],
-  'Segura o cartão…':['Hold the card…','Guarda la tarjeta…'],
-  // ---- novidades
-  'Lançamento rápido':['Quick entry','Registro rápido'], 'Valor e categoria bastam; o resto fica em "Mais opções". Os gastos que você mais repete viram botões':['Amount and category are enough; the rest is under "More options". Expenses you repeat most become buttons','Valor y categoría bastan; el resto queda en "Más opciones". Los gastos que más repites se vuelven botones'],
-  'Menos telas do Android':['Fewer Android screens','Menos pantallas de Android'], 'Listas, meses, datas, confirmações e avisos agora são do próprio app':['Lists, months, dates, confirmations and notices are now the app own','Listas, meses, fechas, confirmaciones y avisos ahora son de la propia app'],
-  'Etiquetas, busca e lixeira':['Tags, search and trash','Etiquetas, búsqueda y papelera'], 'Esconder valores':['Hide amounts','Ocultar valores'], 'O botão do olho troca os valores por •••• para abrir o app em público':['The eye button replaces amounts with •••• so you can open the app in public','El botón del ojo cambia los valores por •••• para abrir la app en público'],
-  'Reserva de emergência, assinaturas, dívidas, simulador de quitação e limite do cartão':['Emergency fund, subscriptions, debts, payoff simulator and card limit','Fondo de emergencia, suscripciones, deudas, simulador de liquidación y límite de la tarjeta'], 'Deslizar o lançamento':['Swipe an entry','Deslizar el movimiento'],
-  'Para a esquerda exclui; para a direita marca a conta como paga':['Left deletes; right marks the bill as paid','A la izquierda elimina; a la derecha marca la cuenta como pagada'],
-  'Marque gastos com etiquetas, busque em todos os meses e recupere o que excluiu por 30 dias':['Tag expenses, search all months and recover what you deleted for 30 days','Etiqueta gastos, busca en todos los meses y recupera lo eliminado durante 30 días'],
-  // ---- Configurações (textos curtos da 1.76)
-  'Intensidade do fundo':['Background intensity','Intensidad del fondo'],
-  'Reorganizar esta tela':['Rearrange this screen','Reorganizar esta pantalla'], 'Menu':['Menu','Menú'],
-  'Apps ignorados':['Ignored apps','Apps ignoradas'], 'Nenhum app ignorado':['No ignored apps','Ninguna app ignorada'],
-  'Voltar a sugerir':['Suggest again','Volver a sugerir'],
-  'Fundo animado':['Animated background','Fondo animado'], 'Usar a cor do app':['Use the app color','Usar el color de la app'],
-  'Segue a cor do app; toque numa cor para fixar':['Follows the app color; tap a color to keep it','Sigue el color de la app; toca un color para fijarlo'],
-  'Explorar':['Explore','Explorar'], 'Organizar':['Organize','Organizar'], 'Planejar':['Plan','Planificar'], 'Acompanhar':['Track','Seguimiento'],
-  'Ferramentas':['Tools','Herramientas'], 'Cartões e faturas':['Cards and bills','Tarjetas y facturas'],
-  'Parceladas e financiamentos':['Installments and loans','Cuotas y financiamientos'], 'Vales (refeição e alimentação)':['Meal and food vouchers','Vales (comida y alimentación)'],
-  'Dívidas e quitação':['Debts and payoff','Deudas y liquidación'], 'Saúde financeira':['Financial health','Salud financiera'],
-  'Notificações':['Notifications','Notificaciones'], 'Versões salvas na conta':['Versions saved in the account','Versiones guardadas en la cuenta'],
-  'Temas especiais':['Special themes','Temas especiales'], 'Personagem, cenário animado e estilo de interface próprios':['Their own character, animated scenery and interface style','Personaje, escenario animado y estilo de interfaz propios'],
-  'Incluir um retrato da tela':['Include a snapshot of the screen','Incluir una captura de la pantalla'], 'Ver o que vai':['See what is sent','Ver lo que se envía'],
-  'Idioma e região':['Language and region','Idioma y región'], 'Sugestões e bugs':['Suggestions and bugs','Sugerencias y errores'],
-  'Mande uma ideia ou informe um problema':['Send an idea or report a problem','Envía una idea o informa un problema'],
-  'Enviar sugestão':['Send suggestion','Enviar sugerencia'], 'Informar um problema':['Report a problem','Informar un problema'], 'Idioma, moeda e país':['Language, currency and country','Idioma, moneda y país'],
-  'Tema, cores e animações':['Theme, colors and animations','Tema, colores y animaciones'],
-  'Nome, tutorial e versão':['Name, tutorial and version','Nombre, tutorial y versión'], 'temas com mascote':['themes with a mascot','temas con mascota'],
-  'Contas, parcelas e previsões':['Bills, installments and forecasts','Cuentas, cuotas y previsiones'],
-  'Ligue as sugestões de gasto para usar o aviso.':['Turn on spending suggestions to use the alert.','Activa las sugerencias de gasto para usar el aviso.'],
-  'Abre o Cofrim direto da tela inicial':['Opens Cofrim straight from the home screen','Abre Cofrim directo desde la pantalla de inicio'],
-  'O app confere sozinho a cada abertura':['The app checks by itself every time it opens','La app lo revisa sola cada vez que se abre'],
-  'Com um tema especial, Tema e Cor não valem':['With a special theme, Theme and Color do not apply','Con un tema especial, Tema y Color no se aplican'],
-  'No iPhone, adicione de novo à Tela de Início para trocar o ícone':['On iPhone, add it to the Home Screen again to change the icon','En el iPhone, agrégala de nuevo a la pantalla de inicio para cambiar el ícono'],
-  'Mais desenhos nas cores comuns':['More designs in the regular colors','Más diseños en los colores comunes'], 'O app fecha ao trocar; abra pelo ícone novo':['The app closes when you change it; open it from the new icon','La app se cierra al cambiarlo; ábrela desde el ícono nuevo'],
-  'Só neste aparelho; as escolhas ficam na conta':['This device only; your choices stay in the account','Solo en este dispositivo; lo que elijas queda en la cuenta'],
-  'Se atrasarem, escolha "Não otimizar" para o Cofrim':['If they arrive late, choose "Don\'t optimize" for Cofrim','Si se atrasan, elige "No optimizar" para Cofrim'],
-  'Seis quadros':['Six boxes','Seis cuadros'],
-  'Mostra R$ •••• no lugar dos valores':['Shows R$ •••• instead of the amounts','Muestra R$ •••• en lugar de los valores'],
-  'Segure o widget para ajustar fundo e cantos':['Hold the widget to adjust background and corners','Mantén pulsado el widget para ajustar fondo y esquinas'],
-  'O mascote do app, com a cara do mês':["The app's mascot, with the month's mood",'La mascota de la app, con la cara del mes'],
-  'Linhas sem dado não aparecem':['Rows without data are hidden','Las filas sin datos no aparecen'],
-  'O Android pede confirmação':['Android asks for confirmation','Android pide confirmación'],
-  'Compras e Pix avisados pelo banco viram sugestão; nada sai do aparelho':['Purchases and Pix notified by the bank become suggestions; nothing leaves the device','Compras y Pix avisados por el banco se vuelven sugerencias; nada sale del dispositivo'],
-  'Seus dados ficam numa área privada do Drive; "Salvar cópia" gera um arquivo seu':['Your data lives in a private area of Drive; "Save copy" makes a file of your own','Tus datos quedan en un área privada del Drive; "Guardar copia" crea un archivo tuyo'],
-  'Cópia semanal no celular: a última em':['Weekly copy on the phone: last on','Copia semanal en el teléfono: la última el'], 'Apaga tudo, aqui e na conta. Não dá para desfazer':['Deletes everything, here and in the account. It cannot be undone','Borra todo, aquí y en la cuenta. No se puede deshacer'],
-};
-// Monta, para o idioma atual, o mapa de trechos e uma expressão que acha todos de uma vez (os mais longos primeiro).
+const TR_TEXTOS = {};
+let trPedido = '', trEsperando = [];
+// Carrega as traduções do idioma escolhido (uma vez); ao chegar, traduz a tela de novo. fim (opcional) roda quando
+// elas chegam, ou na hora se não precisa carregar; sem o arquivo (erro), roda assim mesmo, em português.
+function trCarregar(fim){
+  const l = lang();
+  if (l === 'pt' || TR_TEXTOS[l]){ if (fim) fim(); return; }
+  if (fim) trEsperando.push(fim);
+  if (trPedido === l) return;
+  trPedido = l;
+  const chegou = () => { const f = trEsperando; trEsperando = []; f.forEach(x => x()); };
+  const s = document.createElement('script'); s.src = `js/idioma-${l}.js`;
+  s.onload = () => { trCache = null; trFeito = new WeakMap(); trAll(); chegou(); };
+  s.onerror = () => { trPedido = ''; chegou(); };
+  document.head.appendChild(s);
+}
+// Partes trocáveis de um texto: números e valores (R$ 1.234,56 · 10/04/2026 · +3,5% · 2 mil), níveis em algarismo romano
+// no fim ("Nível IV") e os `{…}` da tabela.
+const TR_NUM = '(?<![\\p{L}\\p{N}])(?:[+\\-−]\\s?)?(?:R\\$\\s?)?[+\\-−]?(?:\\d+(?:[.,:/]\\d+)*|\\{\\w*\\})(?:\\s?mil(?![\\p{L}]))?%?'
+  + '|(?<= )(?:I{1,3}|IV|VI{0,3}|IX|X)(?=[.!]?$)';
+const TR_MESES = '(?:' + 'janeiro fevereiro março abril maio junho julho agosto setembro outubro novembro dezembro'.split(' ')
+  .map(m => `[${m[0]}${m[0].toUpperCase()}]${m.slice(1)}`).join('|') + ')';
+const TR_MES_CURTO = '(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/\\d{2,4}'; // "mai/2027"
+// Monta, para o idioma atual: exatos (frase inteira), modelos (frase com `{}`) e trechos (frases sem `{}` com mais de
+// uma palavra, usados só quando a frase inteira não está na tabela).
 let trCache = null;
 function trSetup(){
-  const l = lang();
+  const l = lang(), tab = TR_TEXTOS[l];
+  if (!tab){ trCarregar(); return null; }
   if (trCache && trCache.l === l) return trCache;
-  const i = l === 'en' ? 0 : 1, map = new Map();
-  for (const [pt, v] of Object.entries(T)){
-    map.set(pt, v[i]);
-    const Pt = pt[0].toUpperCase() + pt.slice(1), V = v[i][0].toUpperCase() + v[i].slice(1);
-    if (Pt !== pt && !map.has(Pt)) map.set(Pt, V);
+  const exato = new Map(), modelo = new Map(), plurais = [], trecho = new Map();
+  const maiuscula = s => s[0].toUpperCase() + s.slice(1);
+  const poe = (pt, v) => {
+    if (!exato.has(pt)) exato.set(pt, v);
+    const m = trModelo(pt, v);
+    if (m && m.re) plurais.push(m);
+    else if (m && !modelo.has(m.chave)) modelo.set(m.chave, m.partes);
+    if (!m && / /.test(pt) && !/[{}]/.test(pt)) trecho.set(pt, v);
+    // frase curta com uma parte só ("{} meses"): vale também como trecho de uma frase maior
+    else if (m && !m.re && m.partes.length === 3 && m.partes[1].i === 0 && m.chave.split(' ').length <= 3) trecho.set(m.chave, m.partes);
+  };
+  for (const [pt, v] of Object.entries(tab)){
+    poe(pt, v);
+    if (pt[0] !== pt[0].toUpperCase()) poe(maiuscula(pt), maiuscula(v)); // trecho em minúscula vale também com maiúscula
+    const sem = pt.replace(/^\{\}\s*/, ''), vsem = v.replace(/^\{0?\}\s*/, ''); // "{}Ver o tutorial": o {} é o ícone
+    if (sem !== pt && vsem !== v && sem) poe(sem, vsem);
   }
-  const chaves = [...map.keys()].sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  trCache = {l, map, re:new RegExp('(?<![\\p{L}\\p{N}])(?:' + chaves.join('|') + ')(?![\\p{L}])', 'gu')};
+  const chaves = [...trecho.keys()].sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  trCache = {l, exato, modelo, plurais, trecho, usu:null,
+    re:chaves.length ? new RegExp('(?<![\\p{L}\\p{N}])(?:' + chaves.join('|') + ')(?![\\p{L}])', 'gu') : null};
   return trCache;
 }
-// Troca os trechos conhecidos de um texto; o que não está na tabela (nomes, valores) fica como está.
+// Frase da tabela com partes trocáveis → {chave com `{}`, partes da tradução: texto ou {i} (parte da frase) ou {s}
+// (final do plural)}. A tradução usa `{}` na mesma ordem, `{0}`, `{1}`… (posição no original) ou o mesmo nome (`{v}`);
+// número igual ao do original também vale como parte. Plural montado no código ("categoria${n > 1 ? 's' : ''}"): o `{}`
+// colado numa palavra casa com qualquer final curto e, na tradução, vira o plural do idioma (re). Sem partes, null.
+function trModelo(pt, v){
+  const marca = new RegExp(`${TR_NUM}|\\{\\w*\\}`, 'gu'), colado = (s, t, i) => t[0] === '{' && /\p{L}/u.test(s[i - 1] || '');
+  const tokens = [];
+  const chave = pt.replace(marca, (t, i) => { tokens.push({t, colado:colado(pt, t, i)}); return tokens.at(-1).colado ? '\u0001' : '{}'; });
+  if (!tokens.length || !/\p{L}{2}/u.test(chave.replace(/\{\}|\u0001/g, ''))) return null;
+  let parte = 0, fim = 0;
+  tokens.forEach(k => { if (k.colado) k.s = fim++; else k.i = parte++; });
+  const comChave = tokens.map((k, j) => k.t.includes('{') ? j : -1).filter(j => j >= 0), partes = [];
+  let seq = 0, ultimo = 0, achou;
+  while ((achou = marca.exec(v))){
+    const t = achou[0], nome = (t.match(/\{(\w*)\}/) || [])[1];
+    let j = -1;
+    if (nome === '') j = comChave[seq++] ?? -1;
+    else if (/^\d+$/.test(nome || '')) j = comChave[+nome] ?? -1;
+    else if (nome !== undefined) j = tokens.findIndex(k => k.t.includes(`{${nome}}`));
+    else j = tokens.findIndex(k => k.t === t);
+    if (j < 0) continue;
+    const k = tokens[j];
+    partes.push(v.slice(ultimo, achou.index), k.colado ? {s:k.s} : {i:k.i}); ultimo = achou.index + t.length;
+  }
+  partes.push(v.slice(ultimo));
+  const re = fim && new RegExp('^' + chave.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\u0001/g, '(\\p{L}{0,3})') + '$', 'u');
+  return {chave, partes, re};
+}
+// Final do plural na tradução: nada se o original estava no singular; "n" no verbo em espanhol ("faltan"); senão "s"
+// (ou "es" depois de consoante, em espanhol).
+function trSufixo(pt, antes, l){
+  if (!pt) return '';
+  if (pt === 'm') return l === 'es' ? 'n' : '';
+  return l === 'es' && /[^aeiouáéíóú]$/i.test(antes) ? 'es' : 's';
+}
+// O que a pessoa digitou (lançamentos, contas, metas, cartões, categorias próprias…) e os nomes das categorias: partes
+// da frase que não são traduzidas (as categorias do app são, sozinhas). Refeito quando os dados mudam.
+const TR_CODIGOS = /^(id|pid|cat|pay|kind|start|end|month|mes|date|since|regra|index|tipo|emp|sub|accYM|u|ver|cor|icon|color|lang)$/;
+function trUsuario(c){
+  const marca = [db, db.mod, db.expenses.length, db.incomes.length, myName()].join();
+  if (c.usu && c.usuDb === db && c.usuMarca === marca) return c.usu;
+  c.usuDb = db; c.usuMarca = marca;
+  const lista = new Set([myName()]);
+  const junta = (v, k) => {
+    if (typeof v === 'string'){ if (!TR_CODIGOS.test(k) && v.trim().length >= 3) lista.add(v.trim()); return; }
+    if (v && typeof v === 'object') for (const [kk, vv] of Object.entries(v)) junta(vv, Array.isArray(v) ? k : kk);
+  };
+  for (const [k, v] of Object.entries(db)) if (k !== 'prefs') junta(v, k);
+  const cats = Object.values({...CAT_GASTO, ...CAT_GANHO, ...CAT_INV}).map(t => t[1]);
+  c.usuSet = new Set([...lista].filter(t => !cats.includes(t))); // texto inteiro digitado pela pessoa: fica como está
+  cats.forEach(t => lista.add(t));
+  const re = [...lista].filter(Boolean).sort((a, b) => b.length - a.length).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  c.usu = new RegExp(`(?<![\\p{L}\\p{N}])(?:${re.join('|') || '\\b\\B'})(?![\\p{L}\\p{N}])|${TR_MESES}(?: (?:de )?\\d{4})?|${TR_MES_CURTO}|#[0-9a-fA-F]{3,8}\\b|${TR_NUM}`, 'gu');
+  return c.usu;
+}
+// Frases que não estão na tabela (com `{}` no lugar das partes trocáveis), juntadas quando é um Set: o teste de
+// cobertura (testes-traducao.js) liga para listar o que falta traduzir.
+let trFaltas = null;
+// Traduz um texto: a frase inteira; senão o modelo (frase com as partes trocáveis no lugar de `{}`); senão cada pedaço
+// separado por " · " ou quebra de linha; por último, os trechos conhecidos, sem mexer no que a pessoa digitou.
 function trText(s){
   if (lang() === 'pt' || !s) return s;
-  const c = trSetup(), t = s.trim();
-  if (c.map.has(t)) return s.replace(t, c.map.get(t));
-  return s.replace(c.re, m => c.map.get(m) ?? m);
+  const c = trSetup();
+  if (!c) return s;
+  const t = s.trim();
+  if (!t) return s;
+  const v = trFrase(c, t);
+  return v === t ? s : s.replace(t, () => v);
+}
+function trFrase(c, t){
+  if (trUsuario(c) && c.usuSet.has(t)) return t;
+  if (c.exato.has(t)) return c.exato.get(t);
+  // marcador na frente ("• ", "+ ", "1. ") ou dois-pontos no fim: traduz o resto
+  const ponta = t.match(/^([•·›+=]\s*|\d+\.\s+)(.+)$/su) || t.match(/^()(.+?)(:)$/su);
+  if (ponta) return ponta[1] + trFrase(c, ponta[2]) + (ponta[3] || '');
+  const partes = [];
+  const chave = t.replace(trUsuario(c), p => { partes.push(p); return '{}'; });
+  const m = partes.length && c.modelo.get(chave);
+  if (m) return trMonta(c, m, partes);
+  for (const p of c.plurais){ const f = p.re.exec(chave); if (f) return trMonta(c, p.partes, partes, f.slice(1)); }
+  const sep = t.split(/( · |\n)/);
+  if (sep.length > 1) return sep.map((p, i) => i % 2 || !p.trim() ? p : p.replace(p.trim(), () => trFrase(c, p.trim()))).join('');
+  if (trFaltas && /\p{L}{2}/u.test(chave)) trFaltas.add(chave);
+  if (!c.re) return t;
+  let i = 0;
+  const troca = x => { const v = c.trecho.get(x); return v === undefined ? x : Array.isArray(v) ? v[0] + '{}' + v[2] : v; };
+  return chave.replace(c.re, troca).replace(/\{\}/g, () => trParte(c, partes[i++] ?? ''));
+}
+function trMonta(c, modelo, partes, fins = []){
+  let out = '';
+  for (const x of modelo) out += typeof x === 'string' ? x : x.s !== undefined ? trSufixo(fins[x.s], out, c.l) : trParte(c, partes[x.i] ?? '');
+  return out;
+}
+// Parte trocável já tirada da frase (depois de trUsuario): categoria do app e mês são traduzidos; número e texto da pessoa
+// ficam como estão.
+function trParte(c, p){
+  if (c.usuSet.has(p)) return p;
+  if (c.exato.has(p)) return c.exato.get(p);
+  const curto = p.match(/^([a-z]{3})(\/\d+)$/);
+  if (curto) return (c.exato.get(curto[1]) || curto[1]) + curto[2];
+  const m = p.match(new RegExp(`^(${TR_MESES})( (de )?(\\d{4}))?$`, 'u'));
+  if (!m) return p;
+  let mes = c.exato.get(m[1].toLowerCase()) || m[1];
+  if (c.l === 'en' || m[1][0] !== m[1][0].toLowerCase()) mes = mes[0].toUpperCase() + mes.slice(1); // "Outubro" → "Octubre"
+  return m[4] ? `${mes}${c.l === 'es' && m[3] ? ' de ' : ' '}${m[4]}` : mes;
+}
+// Frase montada com partes que são texto, não só números (assistente): tf('Você gastou {} {}', valor, filtro). Em outro
+// idioma usa a tradução da frase inteira, com as partes (já traduzidas por quem chama) no lugar de `{}` ou `{0}`, `{1}`…
+function tf(pt, ...partes){
+  const c = lang() !== 'pt' && trSetup(), v = (c && c.exato.get(pt)) || pt;
+  let i = 0;
+  return v.replace(/\{(\d?)\}/g, (m, n) => String(partes[n === '' ? i++ : +n] ?? ''));
+}
+// Textos para o lado nativo (nativo, js/nativo.js): título e texto da notificação; lembretes agendados e widgets vão em
+// JSON, e cada texto dele é traduzido, menos os códigos (tema, cor, humor, categoria, banco, ids).
+function trNativo(nome, args){
+  if (lang() === 'pt' || !['notificar', 'lembretes', 'widget'].includes(nome)) return args;
+  if (nome === 'notificar') return args.map(a => typeof a === 'string' ? trText(a) : a);
+  try {
+    const codigo = /^(skin|cor|fundo|humor|k|c|a|id)$/;
+    return [JSON.stringify(JSON.parse(args[0]), (k, v) => typeof v === 'string' && !codigo.test(k) ? trText(v) : v), ...args.slice(1)];
+  } catch(e){ return args; }
 }
 // Texto já traduzido não passa de novo: traduzir a tradução estragava ("Sign out" virava "Sign Oct") e a que contém a
-// frase original ("Quanto gastei este mês? (spending this month)") crescia sem parar, travando a tela.
-const trFeito = new WeakMap();
+// frase original crescia sem parar, travando a tela.
+let trFeito = new WeakMap();
 // Traduz uma parte da tela já desenhada: textos e os atributos lidos por leitor de tela e campos vazios.
 function tr(root){
   if (lang() === 'pt' || !root) return;
@@ -636,11 +223,18 @@ const trObs = new MutationObserver(ms => {
   }
 });
 trObs.observe(document.body, {childList:true, subtree:true, characterData:true});
+// O lado nativo (APK) mostra alguns textos sozinho (widgets, avisos do banco, desbloqueio): ele guarda o idioma.
+const trAvisaNativo = () => { if (temNativo('setIdioma')) nativo('setIdioma', lang()); };
 function setLang(l){
   const voltar = lang() !== 'pt' && l === 'pt'; // as partes fixas já traduzidas só voltam ao português recarregando
-  db.prefs.lang = l; db.cfgMod = Date.now(); save(); trCache = null;
+  db.prefs.lang = l; db.cfgMod = Date.now(); save(); trCache = null; trAvisaNativo();
   document.documentElement.lang = LOCALES[l];
   if (voltar) return temNativo('recarregar') ? nativo('recarregar') : location.reload();
   // no APK, o lado nativo recarrega (a página pode ter vindo de uma atualização)
-  render(); openSettings(); trAll();
+  trCarregar(() => { render(); openSettings(); trAll(); later('avisos', () => shown(() => { scheduleReminders(); updateWidget(); })); });
 }
+// Com os dados já lidos (APK, ou navegador sem cifra) e o app em inglês ou espanhol, as traduções entram aqui mesmo, antes
+// dos próximos arquivos do index.html: a abertura segue na mesma ordem, já no idioma certo. Senão, trCarregar (inicio.js).
+// A barra invertida em <\/script impede que o fim da tag apareça no texto: no app.html da atualização (empacotar.ps1)
+// este código vai embutido numa tag <script>.
+if (document.readyState === 'loading' && lang() !== 'pt') document.write(`<script src="js/idioma-${lang()}.js"><\/script>`);

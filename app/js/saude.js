@@ -84,7 +84,7 @@ function calcSaude(ym){
 const SAUDE_VAZIO = 'Lance seus ganhos e gastos para ver sua saúde financeira.';
 function saudeBloco(m){
   const r = calcSaude(m);
-  return `<h2>Saúde financeira</h2><div class="card saude" data-onclick="abrirSaude()">${r.semDados ? `<div class="hint" style="margin:0">${SAUDE_VAZIO}</div>`
+  return `<h2>Saúde financeira</h2><div class="card saude" data-onclick="abrirSaude()">${r.semDados ? `<div class="hint u-m0">${SAUDE_VAZIO}</div>`
     : `<div class="saudeTopo"><div class="saudeNota" style="color:${r.cor}">${r.nota}<small>/100</small></div><div><b style="color:${r.cor}">${r.faixa}</b><small>${esc(r.fraco.curta)}</small></div></div>`}
     <div class="saudeVer">Ver detalhe da análise ${I('chev', 14)}</div></div>`;
 }
@@ -94,7 +94,7 @@ function viewSaude(){
   const m = state.month, r = calcSaude(m), ant = addMonths(m, -1), ra = calcSaude(ant);
   const dif = !r.semDados && !ra.semDados ? r.nota - ra.nota : null;
   const topo = `<h1><span class="volta"><button class="iconbtn" data-onclick="fecharSaude()" aria-label="Voltar para Gastos">‹</button>Detalhe da análise</span></h1>`;
-  if (r.semDados) return `${topo}<div class="card"><div class="hint" style="margin:0">${SAUDE_VAZIO}</div></div>${saudeItens(r)}`;
+  if (r.semDados) return `${topo}<div class="card"><div class="hint u-m0">${SAUDE_VAZIO}</div></div>${saudeItens(r)}`;
   return `${topo}
   <div class="card saude"><div class="saudeTopo"><div class="saudeNota" style="color:${r.cor}">${r.nota}<small>/100</small></div><div><b style="color:${r.cor}">${r.faixa}</b>
     ${dif != null ? `<small>${dif > 0 ? '+' : ''}${dif === 0 ? 'Igual a' : dif + ' desde'} ${monthName(ant).split(' ')[0]}</small>` : ''}</div></div>
@@ -102,8 +102,8 @@ function viewSaude(){
   ${saudeItens(r)}`;
 }
 const saudeItens = r => `<h2>Composição do score</h2><div class="card">${r.componentes.map(c => c.nota == null
-  ? `<div class="catrow"><div class="top"><span>${c.nome}</span><b class="muted">Sem dados suficientes</b></div>${c.ativar ? `<div class="hint" style="margin-top:2px">${c.ativar}</div>` : ''}</div>`
+  ? `<div class="catrow"><div class="top"><span>${c.nome}</span><b class="muted">Sem dados suficientes</b></div>${c.ativar ? `<div class="hint u-mt2">${c.ativar}</div>` : ''}</div>`
   : `<div class="catrow"><div class="top"><span>${c.nome}</span><b style="color:${saudeFaixa(c.nota)[2]}">${c.nota}</b></div>
     <div class="bar" style="margin:6px 0"><i style="width:${c.nota}%;background:${saudeFaixa(c.nota)[2]}"></i></div><div class="semTopo hint">${esc(c.frase)}</div>
     ${c.nota < 60 ? `<div class="hint saudeDica">${I('sparkle', 13)} ${c.dica}</div>` : ''}</div>`).join('')}</div>
-  <div class="hint" style="text-align:center">Pesos: poupança 25, reserva 25, dívidas 20, orçamento 15, regularidade 10 e fontes de renda 5. O que está sem dados fica de fora da conta.</div>`;
+  <div class="hint u-centro">Pesos: poupança 25, reserva 25, dívidas 20, orçamento 15, regularidade 10 e fontes de renda 5. O que está sem dados fica de fora da conta.</div>`;

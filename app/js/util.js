@@ -43,7 +43,10 @@ function parseMoney(s){
   return parseFloat(s);
 }
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
-const moneyStr = v => v == null || v === '' ? '' : Number(v).toFixed(moeda.casas).replace('.',',');
+// Valor para um campo de dinheiro, no mesmo formato da máscara do campo (centsMask): milhar com ponto e centavos com
+// vírgula ("13.300,00"); parseMoney lê de volta.
+const moneyStr = v => v == null || v === '' ? ''
+  : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:moeda.casas, maximumFractionDigits:moeda.casas});
 const sum = (a, f) => a.reduce((t,x) => t + f(x), 0);
 function round2(v){ return Math.round(v*100)/100; } // função (e não const): o fixDb a usa ao abrir o app, antes desta linha
 const sheetOpen = () => document.getElementById('sheet').classList.contains('open');

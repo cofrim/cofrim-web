@@ -4,4 +4,6 @@
 // e nativo('x', …) chama, ou devolve undefined quando ela não existe, sem erro na web. O ./checa.sh recusa "Android."
 // fora deste arquivo e do web.js. Carregado logo no começo do index.html, antes de dados.js (que lê o arquivo do app).
 function temNativo(nome){ const A = window.Android; return nome === undefined ? !!A : !!A && typeof A[nome] === 'function'; }
-function nativo(nome, ...args){ return temNativo(nome) ? window.Android[nome](...args) : undefined; }
+// Os textos que saem para o lado nativo (notificações, lembretes agendados, widgets) vão no idioma do app (trNativo,
+// js/idioma.js, carregado depois deste arquivo).
+function nativo(nome, ...args){ return temNativo(nome) ? window.Android[nome](...(window.trNativo ? trNativo(nome, args) : args)) : undefined; }

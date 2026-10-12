@@ -11,6 +11,20 @@
 // Se o mesmo lançamento mudou nos dois lados, vale a planilha. Compras parceladas, investimentos e contas não vão
 // para a planilha. O endereço dela fica em db.prefs.sheet (acompanha a conta da pessoa em todos os aparelhos).
 const SHEET_TIPOS = [['', 'Só neste mês'], ['1', 'Fixo (todo mês)'], ['y', 'Anual']];
+// Em alguns meses (repete, em calculos.js): na planilha, "A cada 6 meses" ou "Meses: jan, fev, mar" (a lista da coluna
+// sugere os intervalos mais comuns; outro valor também vale).
+const SHEET_REP = ['A cada 2 meses', 'A cada 3 meses', 'A cada 4 meses', 'A cada 6 meses'];
+const sheetTipo = x => repete(x) ? (Array.isArray(x.rep) ? 'Meses: ' + x.rep.map(m => MESES[m - 1].slice(0, 3)).join(', ') : `A cada ${x.rep} meses`)
+  : SHEET_TIPOS.find(t => t[0] === (x.fixed === 'y' ? 'y' : x.fixed ? '1' : ''))[1];
+// rep do texto da coluna Tipo (tp já sem acentos e em minúsculas); undefined se não é de alguns meses.
+function sheetRep(tp){
+  const n = tp.match(/^a cada (\d+) mes/);
+  if (n) return +n[1];
+  const l = tp.match(/^meses?\s*:\s*(.+)$/);
+  if (!l) return undefined;
+  const ms = l[1].split(/[\s,;]+/).map(t => MESES.findIndex(m => plain(m).slice(0, 3) === t.slice(0, 3)) + 1).filter(m => m > 0);
+  return ms.length ? [...new Set(ms)].sort((a, b) => a - b) : undefined;
+}
 const SHEET_TABS = {
   expenses:{nome:'Gastos', pay:true, cats:() => CAT_GASTO},
   incomes:{nome:'Ganhos', pay:false, cats:() => CAT_GANHO}};
@@ -24,7 +38,7 @@ const sheetUrl = () => 'https://docs.google.com/spreadsheets/d/' + sheetId();
 function sheetCells(x, col){
   const T = SHEET_TABS[col], c = T.cats()[x.cat];
   return [x.start || '', String((col === 'expenses' && x.fixed ? x.due : x.day) || ''), x.desc || '', c ? c[1] : '', round2(x.value || 0), x.bank || '',
-    ...(T.pay ? [PAY[x.pay] || ''] : []), (SHEET_TIPOS.find(t => t[0] === (x.fixed === 'y' ? 'y' : x.fixed ? '1' : '')))[1], x.end || ''];
+    ...(T.pay ? [PAY[x.pay] || ''] : []), sheetTipo(x), x.end || ''];
 }
 // Marca do conteúdo de uma linha: números e textos em forma única, para "5" e 5 ou "45,9" e 45.9 darem o mesmo.
 function sheetHash(cells){
@@ -51,11 +65,13 @@ function sheetRead(c, col){
   if (!String(desc).trim() && !(value > 0)) return null;
   const cats = T.cats(), t = plain(String(cat).trim());
   const key = Object.keys(cats).find(k => plain(cats[k][1]) === t) || (cats[t] ? t : col === 'expenses' && desc ? guessCat(String(desc)) : 'outros');
-  const quando = sheetMonth(mes), tp = plain(String(tipo)), fixed = tp.startsWith('fix') ? true : tp.startsWith('anual') ? 'y' : false;
+  const quando = sheetMonth(mes), tp = plain(String(tipo)), rep = sheetRep(tp);
+  const fixed = tp.startsWith('fix') ? true : tp.startsWith('anual') || rep ? 'y' : false;
   const d = parseInt(dia) || quando.day || 0, dOk = d >= 1 && d <= 31 ? d : '';
   const out = {desc:String(desc).trim() || (cats[key] || [0, 'Lançamento'])[1], cat:cats[key] ? key : 'outros', fixed, start:quando.ym || curYM,
     end:fixed ? sheetMonth(ate).ym : '', bank:String(banco).trim()};
   if (value > 0) out.value = round2(value);
+  if (rep) out.rep = rep;
   if (T.pay) out.pay = Object.keys(PAY).find(k => plain(PAY[k]) === plain(String(pay).trim())) || '';
   if (col === 'expenses' && fixed){ out.due = dOk; out.day = ''; } else out.day = dOk;
   return out;
@@ -90,7 +106,7 @@ async function sheetSync(interactive){
         if (!rid){
           if (d && d.value > 0){ db[col].push(touch({id:uid(), ...d})); veio++; }
           else pend[col].push(dados); // linha nova ainda sem valor (a pessoa está digitando): fica como está
-        } else if (d && rec && sheetHash(dados) !== String(c[n - 1])){ Object.assign(touch(rec), d); veio++; }
+        } else if (d && rec && sheetHash(dados) !== String(c[n - 1])){ Object.assign(touch(rec), d, {edi:Date.now()}); if (!d.rep) delete rec.rep; veio++; }
       }
     });
     // Linhas apagadas na planilha: o lançamento vai para a lixeira. Trava: nunca mais da metade de uma vez (aba apagada, erro).
@@ -161,7 +177,7 @@ const sheetCreate = umaVez(async function(semPerguntar){
       fmt(1, 3, {type:'TEXT'}); fmt(8 + p, 9 + p, {type:'TEXT'}); fmt(5, 6, {type:'NUMBER', pattern:'#,##0.00'});
       req.push({setDataValidation:{range:colRange(4, 5), rule:lista(Object.values(T.cats()).map(c => c[1]))}});
       if (T.pay) req.push({setDataValidation:{range:colRange(7, 8), rule:lista(Object.values(PAY))}});
-      req.push({setDataValidation:{range:colRange(7 + p, 8 + p), rule:lista(SHEET_TIPOS.map(t => t[1]))}});
+      req.push({setDataValidation:{range:colRange(7 + p, 8 + p), rule:lista([...SHEET_TIPOS.map(t => t[1]), ...SHEET_REP])}});
       for (const k of [0, n - 1]) req.push({updateDimensionProperties:{range:{sheetId:sid, dimension:'COLUMNS', startIndex:k, endIndex:k + 1},
         properties:{hiddenByUser:true}, fields:'hiddenByUser'}});
       req.push({updateDimensionProperties:{range:{sheetId:sid, dimension:'COLUMNS', startIndex:3, endIndex:4}, properties:{pixelSize:240},

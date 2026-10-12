@@ -23,6 +23,25 @@ function diaGanhoCheck(v){
   if (v.regra === 'nutil' && v.day !== '' && (v.day < 1 || v.day > 23)) return 'O dia útil deve ser de 1 a 23.';
   return dayOk(v, 'day', 'O dia');
 }
+// Em alguns meses (ver activeIn): no formulário, o Tipo 'n' (a cada X meses, campo cada) ou 'm' (meses escolhidos,
+// campo meses: "1,2,3"); ao salvar, os dois viram fixed 'y' com rep (submitForm e repDe).
+const REP_FIELDS = [
+  {k:'cada', label:'A cada quantos meses', type:'int', atalhos:[2, 3, 4, 6], showIf:v => v.fixed === 'n', more:true},
+  {k:'meses', label:'Em quais meses', type:'meses', showIf:v => v.fixed === 'm', more:true}];
+const TIPO_REP = [['n', 'A cada X meses (PLR, IPTU em parcelas…)'], ['m', 'Meses escolhidos (IPVA em jan, fev e mar…)']];
+const mesesDe = s => String(s || '').split(',').map(Number).filter(m => m >= 1 && m <= 12);
+function repCheck(v){
+  if (v.repTipo === 'n' && !(v.cada >= 2 && v.cada <= 24)) return 'Escolha de 2 a 24 meses.';
+  if (v.repTipo === 'm' && !mesesDe(v.meses).length) return 'Marque pelo menos um mês.';
+  return '';
+}
+// rep do registro a partir do formulário (undefined: anual, fixo ou avulso). Nos meses escolhidos, o início passa para o
+// primeiro mês marcado a partir dele (um APK antigo mostra o lançamento nesse mês).
+function repDe(rec, {repTipo, cada, meses}){
+  rec.rep = repTipo === 'n' ? cada : repTipo === 'm' ? mesesDe(meses) : undefined;
+  if (Array.isArray(rec.rep)) for (let m = rec.start, i = 0; i < 12; i++, m = addMonths(m, 1)) if (rec.rep.includes(+m.slice(5))){ rec.start = m; break; }
+  return rec;
+}
 const dayOk = (v, k, name) => v[k] !== '' && (v[k] < 1 || v[k] > 31) ? name + ' deve ser de 1 a 31.' : '';
 // Ganhos e gastos fixos: ao editar, a alteração pode valer só a partir de um mês. Nesse caso o registro antigo
 // é encerrado no mês anterior e nasce um novo a partir dali, de modo que os meses passados ficam como estavam.
@@ -32,14 +51,16 @@ const SCOPE_FIELDS = [
     options:[['from','Só a partir de um mês (mantém o histórico)'],['all','Em todos os meses, inclusive os passados']]},
   {k:'from', label:'Vale a partir de', type:'month', showIf:v => wasMonthly() && v.fixed === '1' && v.scope === 'from'}];
 const commitRecurring = col => (v, id, newId) => {
-  const {scope, from, ...rec} = v;
+  const {scope, from, repTipo, cada, meses, ...rec} = v;
+  repDe(rec, {repTipo, cada, meses});
+  if (rec.rep === undefined) delete rec.rep;
   if (!id) return void db[col].push(touch({id:newId, ...rec}));
   const old = db[col].find(x => x.id === id);
   if (scope === 'from' && old.fixed === true && rec.fixed === true && from > old.start && (!old.end || from <= old.end)){
     const pm = old.pm || [];
-    db[col].push(touch({...old, ...rec, id:uid(), start:from, pm:pm.filter(m => m >= from)}));
+    db[col].push(touch({...old, ...rec, id:uid(), start:from, pm:pm.filter(m => m >= from), edi:Date.now()}));
     Object.assign(touch(old), {end:addMonths(from, -1), pm:pm.filter(m => m < from)});
-  } else Object.assign(touch(old), rec);
+  } else { Object.assign(touch(old), rec); if (rec.rep === undefined) delete old.rep; }
 };
 // Campos de venda/provento: lançar nos Ganhos e em qual conta o dinheiro cai.
 const CASH_FIELDS = label => [
@@ -81,40 +102,51 @@ const FORMS = {
     {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GANHO)},
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Salário', optional:true},
     {k:'fixed', label:'Tipo', type:'select',
-      options:[['1','Fixo — repete todo mês'],['y','Anual — uma vez por ano (13º, bônus…)'],['','Avulso — só em um mês']]},
+      options:[['1','Fixo — repete todo mês'],['y','Anual — uma vez por ano (13º, bônus…)'], ...TIPO_REP, ['','Avulso — só em um mês']]},
+    ...REP_FIELDS,
     {k:'bank', label:'Conta onde cai (opcional)', type:'text', ph:'Ex.: Nubank', optional:true, sug:bankSuggestions, more:true},
     ...DIA_GANHO_FIELDS,
-    {k:'start', label:v => v.fixed === 'y' ? 'Mês em que recebe (repete todo ano)' : v.fixed ? 'A partir de' : 'Mês', type:'month', more:true},
+    {k:'start', label:v => v.fixed === 'y' ? 'Mês em que recebe (repete todo ano)' : v.fixed === 'n' ? 'Primeiro mês' : v.fixed ? 'A partir de' : 'Mês',
+      type:'month', more:true},
     {k:'end', label:'Até (opcional)', type:'month', optional:true, showIf:v => v.fixed, more:true},
     ...SCOPE_FIELDS],
     load(v){ v.scope = 'from'; v.from = curYM; },
-    summary:v => [v.bank, diaGanhoTexto(v), v.start && v.start !== curYM && cap(monthName(v.start))].filter(Boolean).join(' · '),
+    summary:v => [v.bank, diaGanhoTexto(v), repResumo(v), v.start && v.start !== curYM && cap(monthName(v.start))].filter(Boolean).join(' · '),
     onChange(k, v, isNew, touched){ if (formVale && isNew && k === 'cat' && !touched.emp) v.emp = valeEmp(v.cat); },
-    check(v){ if (!v.desc || formVale) v.desc = (CAT_GANHO[v.cat] || [0, 'Ganho'])[1]; return diaGanhoCheck(v); },
+    check(v){ if (!v.desc || formVale) v.desc = (CAT_GANHO[v.cat] || [0, 'Ganho'])[1]; return repCheck(v) || diaGanhoCheck(v); },
     commit:commitRecurring('incomes')},
-  expenses: { title:'gasto', defaults:() => catDefaults({cat:'alimentacao', fixed:'', start:state.month}), fields:() => formVale ? [
+  // Gasto novo à vista ou parcelado (parc): parcelado vira uma compra parcelada em db.installments, a mesma da aba
+  // Parceladas (ver commit), com o mês do gasto como mês da 1ª parcela.
+  expenses: { title:'gasto', defaults:() => catDefaults({cat:'alimentacao', fixed:'', start:state.month, parc:'', mode:'total'}), fields:() => formVale ? [
     {k:'value', label:'Valor', type:'money', big:true},
     {k:'pay', label:'Qual vale', type:'select', options:() => Object.entries(VALES)},
     EMP_FIELD,
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Almoço', optional:true},
     {k:'day', label:'Dia (opcional)', type:'int', optional:true, more:true},
     {k:'start', label:'Mês', type:'month', more:true}] : [
-    {k:'value', label:'Valor', type:'money', big:true},
+    {k:'value', label:v => !parcelado(v) ? 'Valor' : v.mode === 'parcela' ? 'Valor da parcela' : 'Valor total da compra', type:'money', big:true},
+    {k:'parc', label:'Pagamento', type:'select', optional:true, showIf:v => !(F && F.id) && !v.fixed, options:[['', 'À vista'], ['1', 'Parcelado']]},
+    {k:'n', label:'Número de parcelas', type:'int', showIf:parcelado},
+    {k:'mode', label:'Informar', type:'select', showIf:parcelado, options:[['total', 'Valor total da compra'], ['parcela', 'Valor de cada parcela']]},
     {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')},
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Mercado', optional:true},
     ...WHERE_FIELDS().map(f => ({...f, more:true})),
-    {k:'tags', label:'Etiquetas (opcional, separadas por vírgula)', type:'text', ph:'Ex.: viagem SP', optional:true, more:true,
+    {k:'tags', label:'Etiquetas (opcional, separadas por vírgula)', type:'text', ph:'Ex.: viagem SP', optional:true, more:true, showIf:aVista,
       sug:() => [...new Set(db.expenses.flatMap(tagsOf))]},
-    {k:'who', label:'Dividir com (nome da pessoa, opcional)', type:'text', ph:'Ex.: Ana', optional:true, more:true,
+    {k:'who', label:'Dividir com (nome da pessoa, opcional)', type:'text', ph:'Ex.: Ana', optional:true, more:true, showIf:aVista,
       sug:() => [...new Set(db.expenses.map(x => x.who).filter(Boolean))]},
     {k:'share', label:v => v.fixed ? 'Parte que a outra pessoa te paga a cada vez' : 'Parte que a outra pessoa vai te pagar', type:'money',
-      showIf:v => v.who, more:true},
-    {k:'fixed', label:'Tipo', type:'select', more:true,
-      options:[['','Só neste mês'],['1','Fixo — repete todo mês (aluguel, internet…)'],['y','Anual — uma vez por ano (IPVA, seguro…)']]},
-    {k:'sub', label:'É uma assinatura?', type:'select', optional:true, more:true, showIf:v => v.fixed === '1',
-      options:[['','Automático, pelo nome (Netflix, Spotify, academia…)'],['1','Sim, mostrar em Assinaturas'],['0','Não, é uma conta fixa']]},
-    {k:'start', label:v => v.fixed === 'y' ? 'Mês em que paga (repete todo ano)' : v.fixed ? 'A partir de' : 'Mês', type:'month', more:true},
-    {k:'day', label:'Dia da compra (opcional, usado na fatura do cartão)', type:'int', optional:true, showIf:v => !v.fixed, more:true},
+      showIf:v => aVista(v) && v.who, more:true},
+    {k:'fixed', label:'Tipo', type:'select', more:true, showIf:aVista,
+      options:[['','Só neste mês'],['1','Fixo — repete todo mês (aluguel, internet…)'],['y','Anual — uma vez por ano (IPVA, seguro…)'],
+        ...TIPO_REP]},
+    ...REP_FIELDS.map(f => ({...f, showIf:v => aVista(v) && f.showIf(v)})),
+    {k:'sub', label:'Assinatura ou conta fixa?', type:'select', optional:true, more:true, showIf:v => v.fixed === '1',
+      options:[['','Automático, pelo nome e pela categoria (Netflix, Spotify, streaming…)'],['1','Assinatura'],['0','Conta fixa']]},
+    {k:'start', label:v => parcelado(v) ? 'Mês da 1ª parcela' : v.fixed === 'y' ? 'Mês em que paga (repete todo ano)' : v.fixed === 'n' ? 'Primeiro mês'
+      : v.fixed ? 'A partir de' : 'Mês',
+      type:'month', more:true},
+    {k:'day', label:'Dia da compra (opcional, usado na fatura do cartão)', type:'int', optional:true, showIf:v => aVista(v) && !v.fixed, more:true},
     {k:'due', label:'Dia do vencimento (opcional, para lembretes)', type:'int', optional:true, showIf:v => v.fixed, more:true},
     {k:'end', label:'Até (opcional)', type:'month', optional:true, showIf:v => v.fixed, more:true},
     ...SCOPE_FIELDS],
@@ -125,19 +157,31 @@ const FORMS = {
     onChange(k, v, isNew, touched){
       if (formVale){ if (isNew && k === 'pay' && !touched.emp) v.emp = valeEmp(v.pay); return; }
       if (isNew && k === 'cat' && !touched.bank && !touched.pay) catDefaults(v); },
-    summary:v => [v.bank, PAY[v.pay], ...tagsOf(v).map(t => '#' + t), v.who && 'dividido com ' + v.who,
-      v.fixed === 'y' ? 'anual' : v.fixed ? 'fixo' : '', v.start && v.start !== curYM && cap(monthName(v.start))].filter(Boolean).join(' · '),
+    hint:v => { if (!parcelado(v)) return ''; const n = parseInt(v.n), x = parseMoney(v.value), t = v.mode === 'parcela' ? x * n : x;
+      return t > 0 && n > 0 ? `${n}x de ${fmt(t / n)} · total ${fmt(t)}` : ''; },
+    // Parcelado: o comprovante não aparece (as parceladas não guardam foto).
+    semBefore:v => parcelado(v),
+    summary:v => [parcelado(v) && 'parcelado', v.bank, PAY[v.pay], ...tagsOf(v).map(t => '#' + t), v.who && 'dividido com ' + v.who,
+      v.fixed === 'n' || v.fixed === 'm' ? repResumo(v) : v.fixed === 'y' ? 'anual' : v.fixed ? 'fixo' : '',
+      v.start && v.start !== curYM && cap(monthName(v.start))].filter(Boolean).join(' · '),
     check(v){
       // Gasto no vale: sem categoria, banco ou conta no formulário; a categoria sai do tipo do vale (num novo).
       if (formVale){ if (!F.id){ v.cat = v.pay === 'vt' ? 'transporte' : 'alimentacao'; v.fixed = false; } if (!v.desc) v.desc = VALES[v.pay];
         return dayOk(v, 'day', 'O dia'); }
       if (!v.desc) v.desc = (CAT_GASTO[v.cat] || [0, 'Gasto'])[1];
+      if (v.parc && v.n < 2) return 'Parcelado precisa de 2 parcelas ou mais.';
       if (v.who && v.share >= v.value) return 'A parte da outra pessoa precisa ser menor que o valor total.';
       if (!v.who) v.share = '';
       db.catMemo[plain(v.desc)] = v.cat; // lembra a categoria desta descrição para a importação de extratos
-      return dayOk(v, 'day', 'O dia da compra') || dayOk(v, 'due', 'O dia do vencimento');
+      return repCheck(v) || dayOk(v, 'day', 'O dia da compra') || dayOk(v, 'due', 'O dia do vencimento');
     },
-    commit:commitRecurring('expenses'),
+    commit(v, id, newId){
+      const {parc, n, mode, ...rec} = v;
+      if (!parc) return commitRecurring('expenses')(rec, id, newId);
+      // Compra parcelada: os mesmos campos do formulário das Parceladas; meses que já passaram contam como parcelas pagas.
+      db.installments.push(touch({id:newId, desc:rec.desc, cat:rec.cat, bank:rec.bank, pay:rec.pay || 'credito', mode, n,
+        total:mode === 'parcela' ? round2(rec.value * n) : rec.value, paid:Math.min(n, Math.max(0, monthDiff(curYM, rec.start))), start:rec.start, due:''}));
+    },
     before:() => formVale ? '' : photoSection()},
   // Compra parcelada, financiamento ou empréstimo (formTipo, ver openForm): o mesmo formulário, com credor, conta de
   // débito e taxa nos dois últimos. Depois de um abatimento, prazo e valores mudam só pelo botão Abater (seg).
@@ -288,7 +332,12 @@ const FORMS = {
     {k:'name', label:'Nome da meta', type:'text', ph:'Ex.: Viagem, reserva de emergência'},
     {k:'target', label:'Valor da meta', type:'money'},
     {k:'saved', label:'Quanto já tem guardado', type:'money', zero:true},
-    {k:'date', label:'Prazo (opcional)', type:'month', optional:true}]},
+    {k:'date', label:'Prazo (opcional)', type:'month', optional:true},
+    {k:'auto', label:'Guardar todo mês (opcional)', type:'money', optional:true, zero:true, more:true},
+    {k:'autoDia', label:'Em que dia do mês (1 a 28)', type:'int', optional:true, more:true}],
+    hint:v => parseMoney(v.auto) > 0
+      ? `Todo dia ${Math.min(28, Math.max(1, parseInt(v.autoDia) || 1))}, o app soma ${fmt(parseMoney(v.auto))} ao guardado, até chegar na meta.` : '',
+    check:v => v.autoDia !== '' && v.autoDia != null && !(+v.autoDia >= 1 && +v.autoDia <= 28) ? 'O dia de guardar vai de 1 a 28.' : ''},
   goalAdd: { fullTitle:'Guardar dinheiro na meta', noDelete:true, fields:[{k:'amount', label:'Valor a guardar agora', type:'money', big:true}],
     commit(v, id){ const g = db.goals.find(x => x.id === id); g.saved = round2(g.saved + v.amount); touch(g); }},
   // Aporte avulso em um investimento de renda fixa (ações e moedas usam "+ Nova compra").
@@ -350,11 +399,7 @@ const FORMS = {
     {k:'name', label:'Nome', type:'text', ph:'Ex.: Pets'},
     {k:'icon', label:'Ícone', type:'icons'},
     {k:'color', label:'Cor (aparece com a opção "Uma cor por categoria")', type:'colors', optional:true}],
-    commit(v, id){
-      const [type, key] = id.split(':'), k = key || 'c' + uid();
-      db.cats[type][k] = catLimpa(Object.assign(db.cats[type][k] || {}, {name:v.name, icon:v.icon, color:v.color}));
-      db.cfgMod = Date.now(); applyCats();
-    },
+    commit(v, id){ const [type, key] = id.split(':'); catSalvar(type, key, v); },
     after:() => openCats()},
   rates: { fullTitle:'Taxas de referência', fields:[
     {k:'auto', label:'Atualização', type:'select', optional:true,
@@ -368,6 +413,8 @@ let prevCtx = {m:'', modo:''}; // previsão aberta no formulário: mês e modo (
 let formVale = false; // o formulário que está abrindo é de vale (ver openForm e os campos de incomes/expenses)
 let formTipo = ''; // parcelas: '' (compra parcelada), 'financiamento' ou 'emprestimo' (ver openForm)
 // Parcelas: o registro aberto ainda não teve abatimento (depois de um, prazo e valores mudam só por Abater).
+// Gasto novo parcelado (campo parc do formulário de gasto) ou à vista.
+const parcelado = v => v.parc === '1' && !(F && F.id), aVista = v => !parcelado(v);
 const semAbat = () => !(F && F.id && (db.installments.find(x => x.id === F.id) || {}).seg);
 const EMP_FIELD = {k:'emp', label:'Empresa do vale', type:'select', optional:true, options:() => [['', 'Não informar'], ...VALE_EMPRESAS.map(e => [e, e])]};
 // Novo lançamento num vale: lado = 'gastos' ou 'ganhos'; k = qual vale. A empresa usada por último já vem escolhida.
@@ -408,6 +455,7 @@ function showSheet(html){
   document.getElementById('overlay').classList.add('open');
   document.body.style.overflow = 'hidden'; // a tela de trás não rola enquanto a folha está aberta
   a11y(sheet);
+  valoresCabem(sheet);
 }
 // Arrastar a alça (o topo) de uma folha para baixo fecha a folha.
 let drag = null;
@@ -437,11 +485,14 @@ function fieldHtml(f){
   if (f.type === 'icons') return `<input id="${id}" type="hidden"><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button" data-i="${k}" aria-label="${n}" title="${n}" data-onclick="pickIcon('${f.k}','${k}')">${I(k, 23)}</button>`).join('')}</div>`;
   if (f.type === 'colors') return `<input id="${id}" type="hidden"><div class="swatches colorGrid">${CAT_COLORS.map(c => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-label="Cor ${c}" data-onclick="setField('${f.k}','${c}')"></button>`).join('')}</div>`;
   if (f.type === 'month' || f.type === 'date') return `<input id="${id}" type="hidden"><button type="button" class="pickBtn" id="p_${f.k}" data-onclick="pickField('${f.k}')"></button>`;
+  if (f.type === 'meses') return `<input id="${id}" type="hidden"><div class="mesGrid" id="o_${f.k}"></div>`; // os 12 meses, para marcar
   // Valor de um gasto em vermelho e de um ganho em verde, para confirmar o que está sendo lançado.
   const cor = !['value', 'total'].includes(f.k) || !F ? '' : F.col === 'incomes' ? 'in' : ['expenses', 'installments'].includes(F.col) ? 'out' : '';
   if (f.big) return `<div class="bigVal ${cor}"><span>${esc(moeda.simbolo)}</span><input id="${id}" type="text" inputmode="numeric" placeholder="${moneyStr(0)}" autocomplete="off"></div>${somaHtml(f.k)}`;
   return `<input id="${id}" type="text" ${f.type === 'money' ? `inputmode="numeric" class="${cor}"` : f.type === 'num' ? 'inputmode="decimal"' : f.type === 'int' ? 'inputmode="numeric"' : ''} placeholder="${f.type === 'money' ? '0,00' : f.ph || ''}"${f.max ? ` maxlength="${f.max}"` : ''} autocomplete="off">` +
     (f.type === 'money' ? somaHtml(f.k) : '') +
+    (f.atalhos ? `<div class="chips">${f.atalhos.map(n => `<button type="button" data-onclick="setField('${f.k}','${n}')">${n}</button>`)
+      .join('')}</div>` : '') + // atalhos de valor (ex.: a cada 2, 3, 4 ou 6 meses)
     (f.type === 'asset' ? '<div id="assetList"></div>' : '') +
     (f.sug ? `<div class="chips sug" id="sug_${f.k}" hidden></div>` : '');
 }
@@ -470,16 +521,27 @@ function drawPicks(){
   for (const f of F.fields){
     const el = document.getElementById('f_' + f.k);
     if (f.type === 'select' && f.k !== 'cat'){
-      const box = document.getElementById('o_' + f.k), os = [...el.options].map(o => [o.value, o.text]), few = os.length <= 4;
+      // até 4 opções (e sempre o Tipo): botões lado a lado
+      const box = document.getElementById('o_' + f.k), os = [...el.options].map(o => [o.value, o.text]), few = os.length <= 4 || f.k === 'fixed';
       box.className = few ? 'optPick' : '';
       box.innerHTML = few
         ? os.map(([v, t]) => `<button type="button" class="${v === el.value ? 'on' : ''}" data-v="${esc(v)}" data-onclick="setField('${f.k}',this.dataset.v)">${esc(t)}</button>`).join('')
         : `<button type="button" class="pickBtn" data-onclick="pickField('${f.k}')"><span>${esc((os.find(o => o[0] === el.value) || ['', 'Escolher'])[1])}</span>${I('chev')}</button>`;
+    } else if (f.type === 'meses'){
+      const marcados = mesesDe(el.value);
+      document.getElementById('o_' + f.k).innerHTML = MESES.map((n, i) => `<button type="button" class="${marcados.includes(i + 1) ? 'on' : ''}"
+        aria-pressed="${marcados.includes(i + 1)}" data-onclick="mesMarca('${f.k}',${i + 1})">${n.slice(0, 3)}</button>`).join('');
     } else if (f.type === 'month' || f.type === 'date'){
       const v = el.value;
       document.getElementById('p_' + f.k).innerHTML = `<span class="${v ? '' : 'muted'}">${v ? (f.type === 'month' ? cap(monthName(v)) : fmtDate(v)) : 'Não definido'}</span>${I('calendar')}`;
     }
   }
+}
+// Grade dos meses (campo meses): marca ou desmarca um mês.
+function mesMarca(k, m){
+  if (!F) return;
+  const l = mesesDe(document.getElementById('f_' + k).value);
+  setField(k, (l.includes(m) ? l.filter(x => x !== m) : [...l, m]).sort((a, b) => a - b).join(','));
 }
 function pickField(k){
   if (!F) return;

@@ -14,8 +14,20 @@ const BANCO_SELOS = [[/nubank|^nu\b/, 'nubank'], [/itau/, 'itau'], [/bradesco/, 
   [/magalu/, 'magalu'], [/recarga ?pay/, 'recargapay'], [/ifood/, 'ifood'],
   [/\bwill\b/, 'will'], [/alelo/, 'alelo'], [/pluxee|sodexo/, 'pluxee'], [/ticket/, 'ticket'], [/^vr\b/, 'vr'],
   [/flash/, 'flash'], [/caju/, 'caju'], [/swile/, 'swile'], [/^ben\b/, 'pluxee']]; // o Ben Visa Vale virou Pluxee
+// Os logotipos (js/dados-bancos.js, ~100 KB) carregam só quando a primeira tela com banco aparece, não na abertura;
+// até chegarem, fica a sigla ou as iniciais, e a tela se redesenha quando eles chegam.
+let bancoLogosPedido = false;
+function bancoLogos(){
+  if (typeof BANCO_LOGOS !== 'undefined') return BANCO_LOGOS;
+  if (!bancoLogosPedido){ bancoLogosPedido = true; const s = document.createElement('script'); s.src = 'js/dados-bancos.js';
+    s.onload = () => telaAtualizar(true); s.onerror = () => { bancoLogosPedido = false; }; document.head.appendChild(s); }
+  return {};
+}
+const bancoDe = nome => { const t = plain(String(nome || '').trim()), b = BANCO_SELOS.find(([re]) => re.test(t)); return [t, b, b && bancoLogos()[b[1]]]; };
+// Ícone pequeno do banco antes do nome nas linhas dos lançamentos (só quando há logotipo).
+const bancoMini = nome => { const logo = bancoDe(nome)[2]; return logo ? `<img class="bancoMini" src="${logo[0]}" alt="">` : ''; };
 function bancoSelo(nome){
-  const t = plain(String(nome || '').trim()), b = BANCO_SELOS.find(([re]) => re.test(t)), logo = b && BANCO_LOGOS[b[1]];
+  const [t, b, logo] = bancoDe(nome);
   if (logo) return `<div class="ico banco logo${logo[1] ? '' : ' cheio'}" style="background:${logo[1] || 'none'}"><img src="${logo[0]}" alt=""></div>`;
   if (!b && /carteira|dinheiro|especie|cofre/.test(t)) return tile('wallet');
   const [sigla, fundo, letra] = b ? [b[1], b[2], b[3] || '#ffffff'] : [t.replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean).slice(0, 2)
@@ -80,7 +92,10 @@ document.addEventListener('click', e => {
   e.stopPropagation(); e.preventDefault(); fecharMenu();
 }, true);
 const head = (title, tab) => tituloTela(title, tab) + offlinePill();
-const empty = (icon, t) => `<div class="card empty"><span>${I(icon, 40)}</span>${t}</div>`;
+// Tela ou lista vazia: ícone, texto e, quando há, o botão do próximo passo ([rótulo, comando]).
+const empty = (icon, t, acao) => `<div class="card empty"><span>${I(icon, 40)}</span>${t}${acao ? `<button class="btn primary emptyBtn" data-onclick="${acao[1]}">${acao[0]}</button>` : ''}</div>`;
+// Parte de uma aba ainda vazia: o texto e o botão para começar.
+const vazioParte = (t, acao) => `<div class="vazioParte"><span>${t}</span><button class="btn" data-onclick="${acao[1]}">${acao[0]}</button></div>`;
 // Conta compartilhada: quem lançou o registro (by), como etiqueta na linha. Fora dela não aparece.
 const byTag = x => shared() && x.by ? `<span class="tag">${I('user', 11)} ${esc(x.by)}</span>` : '';
 const bySmall = x => shared() && x.by ? ` · por ${esc(x.by)}` : '';
@@ -90,9 +105,9 @@ const greeting = () => { const n = db.prefs.name; return n ? `${{o:'Bem-vindo', 
 function openGrpOrder(){
   const o = db.prefs.grpOrder;
   showSheet(`<h3>Ordem dos grupos</h3><div class="semTopo hint">Use as setas para escolher a ordem dos grupos na lista de lançamentos.</div>
-    ${o.map((k, i) => `<div class="item" style="cursor:default;padding:6px 0"><div class="mid"><b>${GRUPOS[k][0]}</b></div>
-      <button class="iconbtn" data-onclick="grpMove(${i},-1)" ${i ? '' : 'disabled style="opacity:.25"'} aria-label="Subir">▲</button>
-      <button class="iconbtn" data-onclick="grpMove(${i},1)" ${i < o.length - 1 ? '' : 'disabled style="opacity:.25"'} aria-label="Descer">▼</button></div>`).join('')}
+    ${o.map((k, i) => `<div class="item u-linha"><div class="mid"><b>${GRUPOS[k][0]}</b></div>
+      <button class="iconbtn u-apagado" data-onclick="grpMove(${i},-1)" ${i ? '' : 'disabled'} aria-label="Subir">▲</button>
+      <button class="iconbtn u-apagado" data-onclick="grpMove(${i},1)" ${i < o.length - 1 ? '' : 'disabled'} aria-label="Descer">▼</button></div>`).join('')}
     <div class="btns"><button class="btn" data-onclick="db.prefs.grpOrder=Object.keys(GRUPOS);db.cfgMod=Date.now();save();render();openGrpOrder()">Restaurar padrão</button><button class="btn primary" data-onclick="closeForm()">Pronto</button></div>`);
 }
 function grpMove(i, d){ const o = db.prefs.grpOrder; [o[i], o[i + d]] = [o[i + d], o[i]]; db.cfgMod = Date.now(); save(); render(); openGrpOrder(); }
@@ -129,7 +144,7 @@ function donut(parts, total, rotulo = 'Total'){
 // "Outras") com valor e percentual. lista = [[categoria, valor], ...]; rotulo = o que vai no centro (mês ou ano).
 function roscaCats(lista, rotulo, vazio){
   const cs = [...lista].sort((a, b) => b[1] - a[1]), tot = sum(cs, c => c[1]), top = cs.slice(0, 5), resto = sum(cs.slice(5), c => c[1]);
-  if (!cs.length) return `<div class="hint" style="margin:0 4px 12px">${vazio}</div>`;
+  if (!cs.length) return `<div class="hint u-vazio">${vazio}</div>`;
   const cor = (k, i) => (CAT_GASTO[k] || CAT_GASTO.outros)[2] || shade(i, top.length);
   const linhas = [...top.map(([k, v], i) => [cor(k, i), (CAT_GASTO[k] || CAT_GASTO.outros)[1], v]), ...(resto ? [['var(--muted)', 'Outras', resto]] : [])];
   return `<div class="card rosca">${donut(linhas.map(([c, , v]) => [c, v]), tot, rotulo)}
@@ -186,7 +201,7 @@ function viewResumo(){
         return `<button class="n${nivel}${rm === curYM && d === now.getDate() ? ' hoje' : ''}${state.dia === d ? ' sel' : ''}" data-onclick="state.dia=${state.dia === d ? 0 : d};render()" aria-label="Dia ${d}: ${hideVals ? MASK : fmt(v)}">${d}</button>`; }).join('')}</div>
       ${sel ? `<div class="calSel"><b>Dia ${state.dia}: ${fmt(sel.v)}</b>${sel.itens.length ? sel.itens.map(x => `<div class="leg"><span>${esc(x.desc)}</span><b>${fmt(x.value)}</b></div>`).join('') : '<div class="hint" style="margin:2px 0 0">Nenhum gasto neste dia.</div>'}</div>`
       : `<div class="escala"><span>menos</span>${[0, 1, 2, 3, 4].map(i => `<i class="n${i}"></i>`).join('')}<span>mais</span></div>
-        <div class="hint">Quanto mais forte a cor, mais gasto no dia. Toque num dia para ver o que saiu. Gasto sem dia informado entra no dia do mês em que foi cadastrado.${por[0].v ? ` Sem dia informado: ${fmt(por[0].v)}.` : ''}</div>`}</div>`; },
+        <div class="hint">Quanto mais forte a cor, mais gasto no dia. Toque num dia para ver o que saiu. Gasto sem dia informado entra no dia do mês em que foi cadastrado.${por[0].v ? ` <span>Sem dia informado: ${fmt(por[0].v)}.</span>` : ''}</div>`}</div>`; },
   alertas: () => `${bills.length ? `<div class="card"><b>${I('calendar')} Contas a vencer</b>${bills.map(({x, diff}) => `
     <div class="semCursor item"><div class="mid"><b>${esc(x.desc)}</b>
       <small class="${diff < 0 ? 'out' : diff <= 2 ? 'warn' : ''}">${diff < 0 ? `venceu há ${-diff} dia${diff < -1 ? 's' : ''}` : diff === 0 ? 'vence hoje' : `vence em ${diff} dia${diff > 1 ? 's' : ''}`} · dia ${dueDay(x, curYM)}</small></div>
@@ -214,21 +229,21 @@ function viewResumo(){
       ${months.map((m,i) => `<div class="col ${i === si ? 'sel' : ''}${m === curYM ? ' atual' : ''}" data-onclick="state.sel='${state.sel === m ? '' : m}';render()"><div class="bars">
         ${i === mi ? `<i class="anel" style="bottom:${alt(gan[i])}%"></i><span class="dica${alt(gan[i]) > 62 ? ' baixo' : ''}${i < 2 ? ' esq' : i > 9 ? ' dir' : ''}" style="bottom:${alt(gan[i])}%">${MESES[i].slice(0,3)} · ${fmtCurto(gan[i])}</span>` : ''}</div>
       <small>${[0, 3, 6, 9, 11].includes(i) || i === mi ? MESES[i].slice(0,3) : ''}</small></div>`).join('')}</div>
-    <div class="legend" style="margin-top:8px"><span><i class="dot" style="background:var(--brand)"></i>Ganhos${tyield ? ' (com rendimento)' : ''}</span><span><i class="dot" style="background:var(--out)"></i>Gastos</span></div>
+    <div class="legend" style="margin-top:8px"><span><i class="dot" style="background:var(--brand)"></i>${tyield ? 'Ganhos (com rendimento)' : 'Ganhos'}</span><span><i class="dot" style="background:var(--out)"></i>Gastos</span></div>
     ${si < 0 ? '<div class="hint">Toque em um mês para ver os valores.</div>' : `
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><b style="text-transform:capitalize">${monthName(months[si])}</b>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><b class="u-capital">${monthName(months[si])}</b>
       <div class="grid2" style="margin-top:8px;row-gap:8px">
         <div class="stat"><small>Ganhos</small><b class="in">${fmt(ins[si])}</b></div>
         <div class="stat"><small>Gastos</small><b class="out">${fmt(outs[si])}</b></div>
         <div class="stat"><small>Saldo</small><b class="${ins[si] - outs[si] < 0 ? 'out' : ''}">${fmt(ins[si] - outs[si])}</b></div>
-        <div class="stat"><small>Rendimento estimado</small><b style="color:var(--brand)">${fmt(yields[si])}</b></div>
+        <div class="stat"><small>Rendimento estimado</small><b class="u-marca">${fmt(yields[si])}</b></div>
       </div>
       <div class="btns"><button class="btn" data-onclick="goMonth('${months[si]}')">Ver gastos do mês</button></div></div>`}
-    ${tyield ? `<div class="hint">Rendimento estimado dos investimentos em ${y}: <b style="color:var(--brand)">${fmt(tyield)}</b>. Meses passados usam o valor registrado pelo app; os futuros são projeção. Não entra no saldo do ano.</div>` : ''}
+    ${tyield ? `<div class="hint">Rendimento estimado dos investimentos em ${y}: <b class="u-marca">${fmt(tyield)}</b>. Meses passados usam o valor registrado pelo app; os futuros são projeção. Não entra no saldo do ano.</div>` : ''}
   </div>`; },
   numeros: () => `<div class="grid2">
     <div class="card stat"><small>Média mensal de gastos em ${y}</small><b class="out">${fmt(tout/12)}</b></div>
-    <div class="card stat" style="cursor:pointer" data-onclick="go('invest')"><small>Investido hoje ›</small><b>${fmt(invNow)}</b></div>
+    <div class="card stat u-clicavel" data-onclick="go('invest')"><small>Investido hoje ›</small><b>${fmt(invNow)}</b></div>
   </div>`,
   // Gastos por categoria do ano: a mesma rosca do mês.
   categorias: () => `<h2>Gastos por categoria em ${y}</h2>${roscaCats(Object.entries(cats), y, 'Nenhum gasto cadastrado neste ano.')}`,
@@ -249,14 +264,14 @@ function viewResumo(){
       ${pendIn || pendOut ? `<div class="hint">Até o fim de ${monthName(curYM).split(' ')[0]} ainda entram ${fmt(pendIn)} e saem ${fmt(pendOut)} (lançamentos com dia depois de hoje).</div>` : ''}
       <div class="hint">Considera ganhos e gastos fixos, anuais, parcelas, o que já está lançado em cada mês e o que falta gastar das previsões.</div></div>`; },
   // Resumo do mês: o mesmo cartão de destaque do saldo do ano. Tocar leva aos gastos do mês.
-  mes: () => { const a = totalIn(rm), b = totalOut(rm), r = reservaPrevisoes(rm); return `<div class="hero" style="cursor:pointer" data-onclick="goMonth('${rm}')"><small>Saldo de ${monthName(rm)}</small>${bigNum(a - b - r)}${r ? `<small class="prevInc">${prevInclui(r)}</small>` : ''}
+  mes: () => { const a = totalIn(rm), b = totalOut(rm), r = reservaPrevisoes(rm); return `<div class="hero u-clicavel" data-onclick="goMonth('${rm}')"><small>Saldo de ${monthName(rm)}</small>${bigNum(a - b - r)}${r ? `<small class="prevInc">${prevInclui(r)}</small>` : ''}
     <div class="row cores"><div><small>Ganhos</small><b class="hIn">${fmt(a)}</b></div><div><small>Gastos</small><b class="hOut">${fmt(b)}</b></div><div style="margin-left:auto;align-self:flex-end"><small>Ver gastos ›</small></div></div></div>`; },
   faturas: () => `<h2>Faturas de ${monthName(rm)}</h2>${inv.length ? `<div class="card">${inv.map(([bank, v]) => `<div class="semCursor item">${bancoSelo(bank)}<div class="mid"><b>${esc(bank)}</b></div><div class="val out">${fmt(v)}</div></div>`).join('')}</div>`
-    : '<div class="hint" style="margin:0 4px 12px">Nenhuma compra no crédito neste mês.</div>'}`,
+    : '<div class="hint u-vazio">Nenhuma compra no crédito neste mês.</div>'}`,
   parcelas: () => `<h2>Compras parceladas <button data-onclick="state.gsub='parc';go('gastos')">Ver todas</button></h2>${open.length ? `<div class="card grid2">
       <div class="stat"><small>Falta pagar (${open.length})</small><b class="out">${fmt(sum(open, parcFalta))}</b></div>
       <div class="stat"><small>Parcelas deste mês</small><b>${fmt(sum(expensesOf(curYM).filter(x => x.kind === 'installment'), x => x.value))}</b></div></div>`
-    : '<div class="hint" style="margin:0 4px 12px">Nenhuma compra parcelada em aberto.</div>'}`,
+    : vazioParte('Nenhuma compra parcelada em aberto.', ['+ Compra parcelada', "openForm('installments')"])}`,
   vales: () => !temVales() ? '' : `<h2>Vales <button data-onclick="state.gsub='vale';state.month=curYM;go('gastos')">Ver gastos</button></h2>
     <div class="card">${Object.keys(VALES).filter(temVale).map(k => { const s = valeSaldo(k); return `<div class="item" data-onclick="openVale('${k}')">${ico(CAT_GANHO[k])}<div class="mid"><b>${VALES[k]}${valeEmp(k) ? ' · ' + esc(valeEmp(k)) : ''}</b>
       <small>neste mês: entrou ${fmt(sum(valeIn(curYM, k), x => x.value))}, saiu ${fmt(sum(valeOut(curYM, k), x => x.value))}</small></div><div class="val ${s < 0 ? 'out' : ''}">${fmt(s)}</div></div>`; }).join('')}
@@ -264,11 +279,11 @@ function viewResumo(){
   metas: () => `<h2>Metas <button data-onclick="go('invest')">Ver todas</button></h2>${goals.length ? `<div class="card">${goals.map(g => `
       <div class="catrow"><div class="top"><span>${esc(g.name)}</span><b>${fmt(g.saved)} de ${fmt(g.target)}</b></div>
       <div class="bar"><i style="width:${Math.min(100, g.saved / g.target * 100)}%"></i></div></div>`).join('')}</div>`
-    : '<div class="hint" style="margin:0 4px 12px">Nenhuma meta cadastrada.</div>'}`,
+    : vazioParte('Nenhuma meta cadastrada.', ['+ Criar meta', "openForm('goals')"])}`,
   invest: () => `<h2>Investimentos <button data-onclick="go('invest')">Ver todos</button></h2>${db.investments.length ? `<div class="card grid2">
       <div class="stat"><small>Total hoje</small><b>${fmt(invNow)}</b></div>
       <div class="stat"><small>Projeção em 12 meses</small><b>${fmt(sum(db.investments, projection))}</b></div></div>`
-    : '<div class="hint" style="margin:0 4px 12px">Nenhum investimento cadastrado.</div>'}`
+    : vazioParte('Nenhum investimento cadastrado.', ['+ Cadastrar investimento', "openForm('investments')"])}`
   };
   return `${greeting() ? `<div class="hello">${greeting()}</div>` : ''}
   ${tituloTela('Resumo', 'resumo', sinoBtn()).replace('<h1>', '<h1 style="margin-bottom:0">')}
@@ -276,7 +291,7 @@ function viewResumo(){
   <div class="nav periodo"><button data-onclick="resMes(-1)" aria-label="Mês anterior">‹</button><b data-onclick="pickResumo()"><span>${nomeM}</span><small>${y} ▾</small></b><button data-onclick="resMes(1)" aria-label="Próximo mês">›</button></div>
   ${archBanner(y)}${ativHtml()}${bankNotesHtml()}${blocks('resumo', B)}
   ${db.prefs.resumoEnxuto ? '<div style="text-align:center;margin:2px 0 16px"><button class="linkBtn" data-onclick="openResumoEdit()">Ver mais informações no resumo</button></div>'
-    : `<div class="btns" style="margin-bottom:12px"><button class="btn" data-onclick="openResumoEdit()">${I('sliders')}Personalizar o Resumo</button></div>`}`;
+    : `<div class="btns u-mb12"><button class="btn" data-onclick="openResumoEdit()">${I('sliders')}Personalizar o Resumo</button></div>`}`;
 }
 // Sugestões de lançamento a partir das notificações de bancos, carteiras digitais e apps de vale (opcional, só no APK;
 // ver BankListener no lado nativo, que marca n.tipo = 'vale' ou 'carteira').
@@ -288,11 +303,11 @@ function openLayoutEdit(tab = state.tab){
   settingsOpen = false; F = null;
   showSheet(`<h3>Personalizar: ${tab === 'widget' ? 'widget Resumo' : TABS[tab][1]}</h3>
     <div class="semTopo hint">Toque no círculo para mostrar ou esconder um bloco e use as setas para mudar a ordem.</div>
-    ${r.map(({b, i}, n) => `<div class="item" style="cursor:default;padding:6px 0">
+    ${r.map(({b, i}, n) => `<div class="item u-linha">
       <button class="iconbtn ${b.on ? 'in' : 'muted'}" data-onclick="layoutSet('${tab}',${i},'toggle')" aria-label="${b.on ? 'Esconder' : 'Mostrar'}">${I(b.on ? 'checked' : 'unchecked', 24)}</button>
       <div class="mid" style="${b.on ? '' : 'opacity:.5'}"><b class="quebra">${defs[b.k][0]}</b></div>
-      <button class="iconbtn" data-onclick="layoutSet('${tab}',${i},${n ? r[n - 1].i : i})" ${n ? '' : 'disabled style="opacity:.25"'} aria-label="Subir">▲</button>
-      <button class="iconbtn" data-onclick="layoutSet('${tab}',${i},${n < r.length - 1 ? r[n + 1].i : i})" ${n < r.length - 1 ? '' : 'disabled style="opacity:.25"'} aria-label="Descer">▼</button></div>`).join('')}
+      <button class="iconbtn u-apagado" data-onclick="layoutSet('${tab}',${i},${n ? r[n - 1].i : i})" ${n ? '' : 'disabled'} aria-label="Subir">▲</button>
+      <button class="iconbtn u-apagado" data-onclick="layoutSet('${tab}',${i},${n < r.length - 1 ? r[n + 1].i : i})" ${n < r.length - 1 ? '' : 'disabled'} aria-label="Descer">▼</button></div>`).join('')}
     <div class="btns"><button class="btn" data-onclick="layoutSet('${tab}',0,'reset')">Restaurar padrão</button><button class="btn primary" data-onclick="closeForm()">Pronto</button></div>`);
 }
 const openResumoEdit = () => openLayoutEdit('resumo');
@@ -313,20 +328,22 @@ function layoutSet(tab, i, op){
 function viewVales(lado){
   const m = state.month, gastos = lado === 'gastos', lista = gastos ? valeOut(m) : valeIn(m);
   const novo = k => `event.stopPropagation();novoVale('${lado}','${k}')`;
-  return `<div class="nav"><button data-onclick="state.month=addMonths(state.month,-1);renderIn()">‹</button><b data-onclick="pickMonth()">${monthName(m)} ▾</b><button data-onclick="state.month=addMonths(state.month,1);renderIn()">›</button></div>
+  return `${navMes()}
   ${Object.keys(VALES).map(k => { const c = sum(valeIn(m, k), x => x.value), g = sum(valeOut(m, k), x => x.value), s = valeSaldo(k, m); return `
-    <div class="card" style="cursor:pointer" data-onclick="openVale('${k}')"><b class="valeTit">${valeEmp(k) ? bancoSelo(valeEmp(k)) : I(CAT_GANHO[k][0])}
+    <div class="card u-clicavel" data-onclick="openVale('${k}')"><b class="valeTit">${valeEmp(k) ? bancoSelo(valeEmp(k)) : I(CAT_GANHO[k][0])}
       ${VALES[k]}${valeEmp(k) ? ' · ' + esc(valeEmp(k)) : ''}</b>
       <div class="grid3" style="margin-top:10px">
-        <div class="stat"><small>Crédito do mês</small><b class="in" style="font-size:14px">${fmt(c)}</b></div>
-        <div class="stat"><small>Gasto do mês</small><b class="out" style="font-size:14px">${fmt(g)}</b></div>
-        <div class="stat"><small>Saldo do vale</small><b class="${s < 0 ? 'out' : ''}" style="font-size:14px">${fmt(s)}</b></div></div>
+        <div class="stat"><small>Crédito do mês</small><b class="in u-fs14">${fmt(c)}</b></div>
+        <div class="stat"><small>Gasto do mês</small><b class="out u-fs14">${fmt(g)}</b></div>
+        <div class="stat"><small>Saldo do vale</small><b class="${s < 0 ? 'out' : ''} u-fs14">${fmt(s)}</b></div></div>
       <div class="btns"><button class="btn" data-onclick="${novo(k)}">${gastos ? '+ Gasto neste vale' : '+ Crédito deste vale'}</button><button class="btn">${I('doc')}Histórico</button></div></div>`; }).join('')}
   <h2>${gastos ? 'Gastos nos vales' : 'Créditos dos vales'}</h2>
   ${lista.length ? `<div class="card">${lista.map(x => gastos ? expRow(x, m) : incRow(x)).join('')}</div>`
     : empty(gastos ? 'receipt' : 'wallet', gastos ? 'Nenhum gasto nos vales em ' + monthName(m) + '.' : 'Nenhum crédito de vale em ' + monthName(m) + '.<br>Cadastre o crédito como fixo para ele entrar todo mês.')}
-  <div class="hint" style="text-align:center">Os vales ficam separados: não entram nos ganhos, nos gastos nem no saldo do mês. O saldo do vale é tudo o que entrou menos o que saiu desde o primeiro lançamento. ${gastos ? 'Um gasto vem para cá quando a forma de pagamento é um vale.' : 'Um ganho vem para cá quando a categoria é um vale.'}</div>`;
+  <div class="hint u-centro">Os vales ficam separados: não entram nos ganhos, nos gastos nem no saldo do mês. O saldo do vale é tudo o que entrou menos o que saiu desde o primeiro lançamento. ${gastos ? 'Um gasto vem para cá quando a forma de pagamento é um vale.' : 'Um ganho vem para cá quando a categoria é um vale.'}</div>`;
 }
+// Seletor do mês de Gastos, Ganhos e Vales (state.month, o mesmo nas três): setas e o mês com ▾ (pickMonth).
+const navMes = () => `<div class="nav"><button data-onclick="state.month=addMonths(state.month,-1);renderIn()">‹</button><b data-onclick="pickMonth()">${monthName(state.month)} ▾</b><button data-onclick="state.month=addMonths(state.month,1);renderIn()">›</button></div>`;
 const ganhosSeg = () => `<div class="seg">${[['todos','Ganhos'],['vale','Vales']].map(([k,t]) => `<button class="${state.isub === k ? 'on' : ''}" data-onclick="state.isub='${k}';renderIn()">${t}</button>`).join('')}</div>`;
 // Tela de um vale: saldo, totais e o histórico de tudo o que entrou e saiu nele, mês a mês (do mais novo ao mais antigo).
 function openVale(k){
@@ -351,10 +368,25 @@ function openVale(k){
     : '<div class="semTopo hint">Nenhum lançamento neste vale ainda.</div>'}
     <div class="btns foot"><button class="btn primary" data-onclick="closeForm()">Fechar</button></div>`);
 }
+// Quando repete um lançamento de "Em alguns meses" (repete, em calculos.js): "a cada 6 meses: jun e dez", "jan, fev e
+// mar" ou, num ciclo que não fecha no ano, "a cada 5 meses, desde mar/2026". No idioma do app (tf).
+const mesAbr = m => trText(MESES[m - 1].slice(0, 3));
+const listaE = l => l.length > 1 ? tf('{} e {}', l.slice(0, -1).join(', '), l[l.length - 1]) : l[0] || '';
+function repTexto(x){
+  if (Array.isArray(x.rep)) return listaE(x.rep.map(mesAbr));
+  if (12 % x.rep) return tf('a cada {} meses, desde {}', x.rep, trText(mesAbrev(x.start)));
+  const ms = [...Array(12 / x.rep)].map((_, i) => (+x.start.slice(5) - 1 + i * x.rep) % 12 + 1).sort((a, b) => a - b);
+  return tf('a cada {} meses: {}', x.rep, listaE(ms.map(mesAbr)));
+}
+// Tipo de um lançamento nas exportações (planilha, CSV, relatório): parcela, "a cada 6 meses: jun e dez", anual, fixo ou avulso.
+const tipoLanc = x => x.kind === 'installment' ? parcTag(x) : repete(x) ? repTexto(x) : x.fixed === 'y' ? 'anual' : x.fixed ? 'fixo' : 'avulso';
+// O mesmo, no resumo do formulário (Tipo 'n' ou 'm', ver REP_FIELDS); '' enquanto falta o número ou os meses.
+const repResumo = v => { const rep = v.fixed === 'n' ? +v.cada : v.fixed === 'm' ? mesesDe(v.meses) : 0;
+  return v.start && (Array.isArray(rep) ? rep.length : rep >= 2 && rep <= 24) ? repTexto({rep, start:v.start}) : ''; };
 // Uma linha da lista de ganhos.
 function incRow(x){ const c = CAT_GANHO[x.cat] || CAT_GANHO.outros; return `
     <div class="item" data-onclick="edit('incomes','${x.id}')">${ico(c)}<div class="mid"><b>${esc(x.desc)}</b>
-    <small>${esc(c[1])}${x.bank ? ' · ' + esc(x.bank) : ''}${x.emp ? `<span class="tag">${esc(x.emp)}</span>` : ''}<span class="tag">${x.fixed === 'y' ? 'anual, em ' + MESES[+x.start.slice(5) - 1] : x.fixed ? 'fixo' : monthName(x.start)}${diaGanhoTexto(x) ? ', ' + diaGanhoTexto(x) : ''}</span>${x.fixed ? `<span class="tag">desde ${x.fixed === 'y' ? x.start.slice(0,4) : monthName(x.start)}${x.end ? ' até ' + monthName(x.end) : ''}</span>` : ''}${byTag(x)}</small></div>
+    <small>${esc(c[1])}${x.bank ? ' · ' + esc(x.bank) : ''}${x.emp ? `<span class="tag">${esc(x.emp)}</span>` : ''}<span class="tag">${repete(x) ? repTexto(x) : x.fixed === 'y' ? 'anual, em ' + MESES[+x.start.slice(5) - 1] : x.fixed ? 'fixo' : monthName(x.start)}${diaGanhoTexto(x) ? ', ' + diaGanhoTexto(x) : ''}</span>${x.fixed ? `<span class="tag">desde ${x.fixed === 'y' ? x.start.slice(0,4) : monthName(x.start)}${x.end ? ' até ' + monthName(x.end) : ''}</span>` : ''}${byTag(x)}</small></div>
     <div class="val in">${fmt(x.value)}</div></div>`; }
 // Ordem das listas de Gastos e Ganhos: db.prefs.ordem = 'ant' (mais antigo primeiro) ou qualquer outro valor (mais
 // recente primeiro, o padrão). O botão alterna.
@@ -362,22 +394,26 @@ const ordemBtn = () => `<button data-onclick="setOrdem()">${db.prefs.ordem === '
 function setOrdem(){ db.prefs.ordem = db.prefs.ordem === 'ant' ? 'rec' : 'ant'; db.cfgMod = Date.now(); save(); render(); }
 function viewGanhos(){
   if (state.isub === 'vale') return `${head('Ganhos', 'ganhos')}${ganhosSeg()}${viewVales('ganhos')}`;
-  const naoVale = db.incomes.filter(x => !valeGanho(x));
+  // Os ganhos do mês escolhido (state.month, o mesmo de Gastos): fixos ativos nele, anuais que caem nele e avulsos dele.
+  const m = state.month, doMes = db.incomes.filter(x => !valeGanho(x) && activeIn(x, m));
   const row = incRow, sinal = db.prefs.ordem === 'ant' ? -1 : 1, quando = x => x.start + String(x.day || 0).padStart(2, '0');
   const ordena = l => [...l].sort((a, b) => sinal * quando(b).localeCompare(quando(a)));
-  const fixed = ordena(naoVale.filter(isMonthly)), yearly = ordena(naoVale.filter(x => x.fixed === 'y')), once = ordena(naoVale.filter(x => !x.fixed));
+  const fixed = ordena(doMes.filter(isMonthly)), yearly = ordena(doMes.filter(x => x.fixed === 'y' && !repete(x))), once = ordena(doMes.filter(x => !x.fixed));
+  const alguns = ordena(doMes.filter(repete));
   const B = {
-  total: () => `<div class="hero"><small>Ganhos em ${monthName(curYM)}</small>${bigNum(totalIn(curYM))}
-    <small>Fixos mensais: ${fmt(sum(fixed.filter(x => activeIn(x,curYM)), x => x.value))}</small></div>`,
+  total: () => `<div class="hero"><small>Ganhos em ${monthName(m)}</small>${bigNum(totalIn(m))}
+    <small>Fixos mensais: ${fmt(sum(fixed, x => x.value))}</small></div>`,
   fixos: () => `<h2>Fixos (todo mês) ${ordemBtn()}</h2>
-  ${fixed.length ? `<div class="card">${fixed.map(row).join('')}</div>` : empty('briefcase','Cadastre seu salário e outros ganhos fixos.<br>Eles entram automaticamente em todos os meses.')}`,
+  ${fixed.length ? `<div class="card">${fixed.map(row).join('')}</div>` : empty('briefcase', 'Cadastre seu salário e outros ganhos fixos.<br>Eles entram automaticamente em todos os meses.',
+    ['+ Ganho fixo', "openForm('incomes', null, {vals:{fixed:'1'}})"])}`,
+  alguns: () => alguns.length ? `<h2>Em alguns meses</h2><div class="card">${alguns.map(row).join('')}</div>` : '',
   anuais: () => `<h2>Anuais (uma vez por ano)</h2>
-  ${yearly.length ? `<div class="card">${yearly.map(row).join('')}</div>` : empty('gift','13º, férias, bônus…<br>Escolha o mês em que você recebe.')}`,
+  ${yearly.length ? `<div class="card">${yearly.map(row).join('')}</div>` : empty('gift', `Nenhum ganho anual em ${monthName(m)}.<br>13º, férias, bônus: escolha o mês em que você recebe.`)}`,
   avulsos: () => `<h2>Ganhos avulsos</h2>
-  ${once.length ? `<div class="card">${once.map(row).join('')}</div>` : empty('wallet','Nenhum ganho avulso cadastrado.')}`
+  ${once.length ? `<div class="card">${once.map(row).join('')}</div>` : empty('wallet', `Nenhum ganho avulso em ${monthName(m)}.`)}`
   };
-  return head('Ganhos', 'ganhos') + ganhosSeg() + blocks('ganhos', B)
-    + `<div class="btns" style="margin-bottom:12px"><button class="cresce btn danger" data-onclick="openApagar('ganhos')">${I('trash')}Apagar ganhos por dia, mês ou ano</button></div>`;
+  return head('Ganhos', 'ganhos') + ganhosSeg() + navMes() + blocks('ganhos', B)
+    + `<div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('ganhos')">${I('trash')}Apagar ganhos por dia, mês ou ano</button></div>`;
 }
 
 // Comparativo: gasto de cada categoria no mês m, no mês anterior e na média dos 6 meses antes de m.
@@ -394,7 +430,7 @@ function owedList(){
   for (const x of db.expenses){
     if (!x.share || !x.who) continue;
     if (!x.fixed){ if (!x.settled) out.push({x, m:x.start}); continue; }
-    for (let m = x.start; m <= curYM && (!x.end || m <= x.end); m = addMonths(m, x.fixed === 'y' ? 12 : 1)) if (!(x.sm || []).includes(m)) out.push({x, m});
+    for (let m = activeIn(x, x.start) ? x.start : proximoMes(x, x.start); m && m <= curYM; m = proximoMes(x, m)) if (!(x.sm || []).includes(m)) out.push({x, m});
   }
   return out;
 }
@@ -412,6 +448,20 @@ function settle(id, m){
 // Valor grande dos cartões (.hero .big): leva o número em data-v e o formato em data-f ('c' = fmtCurto), para a
 // animação de contagem do modo divertido (funCount) usar o valor de verdade e o mesmo formato do cartão.
 const bigNum = (v, curto) => `<div class="big" data-v="${+v || 0}"${curto ? ' data-f="c"' : ''}>${curto ? fmtCurto(v) : fmt(v)}</div>`;
+// Valores lado a lado (.hero .row, .grid2, .grid3): as colunas têm largura fixa (app.css). Se um valor não cabe na dele,
+// os valores da linha diminuem juntos, na mesma proporção, até o maior caber (no mínimo 60%). Roda depois de desenhar a
+// tela ou uma folha, ao mudar o tamanho da janela e quando a fonte de um tema termina de carregar.
+function valoresCabem(root = document){
+  for (const r of root.querySelectorAll('.hero .row, .grid2, .grid3')){
+    const bs = [...r.querySelectorAll(':scope > * > b')];
+    for (const b of bs){ if (!('fs' in b.dataset)) b.dataset.fs = b.style.fontSize; b.style.setProperty('font-size', b.dataset.fs); }
+    const k = Math.min(1, ...bs.filter(b => b.scrollWidth > 0).map(b => b.clientWidth / b.scrollWidth));
+    if (k < 1) for (const b of bs) b.style.setProperty('font-size', parseFloat(getComputedStyle(b).fontSize) * Math.max(.6, k * .98) + 'px', 'important');
+  }
+}
+let valoresT = 0;
+addEventListener('resize', () => { clearTimeout(valoresT); valoresT = setTimeout(valoresCabem, 150); });
+if (document.fonts) document.fonts.addEventListener('loadingdone', () => valoresCabem());
 const eyeBtn = () => `<button class="iconbtn" data-onclick="toggleHide()" aria-label="${hideVals ? 'Mostrar valores' : 'Esconder valores'}">${I(hideVals ? 'eyeOff' : 'eye', 24)}</button>`;
 const archBanner = y => !db.archUntil || String(y) > db.archUntil ? '' : `<div class="offline">${I('box', 14)}${arch
   ? 'Período arquivado: estes lançamentos vêm do arquivo e não podem ser editados.'

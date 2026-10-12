@@ -1709,3 +1709,51 @@ const FALAS_ASSIST = {
   ilhadascaixas:[['Direto da ilha:', 'Entre as caixas:', 'Da praia ensolarada:', 'Do ponto salvo:'],
     ['Fase vencida!', 'Frutas guardadas no cofre.', 'Nenhuma caixa ficou para trás.', 'Giro e economia em dia.']]
 };
+
+// ---------- Tom do assistente nas outras respostas ----------
+// Além da resposta comum (aberturas e fechos acima), o assistente fala no clima do tema quando confirma um lançamento
+// (ok), desfaz (desfeito), abre o formulário para conferir (edita), não entende a pergunta (erro) ou não acha nada (vazio).
+// A fala vem antes da frase do app, que não muda (números, nomes e datas ficam como estão). TONS_CAT[categoria] = {tipo:
+// [duas falas]} vale para todo tema da categoria; TONS[tema], no mesmo formato, para os temas com jeito próprio.
+const TONS_CAT = {
+  estilos:{ok:['Feito, com capricho.', 'Anotado com estilo.'], desfeito:['Voltei atrás, sem drama.', 'Desfeito num instante.'],
+    edita:['Deixei pronto para você conferir.', 'Abri para os retoques finais.'], erro:['Hmm, essa me escapou.', 'Opa, essa não peguei.'],
+    vazio:['Por aqui, nada ainda.', 'Procurei com cuidado.']},
+  corridas:{ok:['Box! Lançamento feito.', 'Volta registrada no cronômetro.'], desfeito:['Volta anulada.', 'Bandeira amarela.'],
+    edita:['Carro no box para ajustes.', 'Ajuste fino no box.'], erro:['Saí da pista nessa.', 'Rádio com chiado.'],
+    vazio:['Pista vazia por enquanto.', 'Nenhum carro nessa volta.']},
+  filmes:{ok:['Gravado! Cena no rolo.', 'Tomada perfeita.'], desfeito:['Corta! Cena descartada.', 'Voltamos a fita.'],
+    edita:['Roteiro aberto para revisão.', 'Hora da edição.'], erro:['Corta! Errei a fala.', 'Essa saiu do roteiro.'],
+    vazio:['Cenário vazio por enquanto.', 'Nenhuma cena gravada aqui.']},
+  desenhos:{ok:['Plim! Anotado.', 'Pronto, desenhado!'], desfeito:['Apaguei com a borracha.', 'Voltei a página.'],
+    edita:['Deixei o rascunho pronto.', 'É só colorir e salvar.'], erro:['Ops, borrou!', 'Hã?'],
+    vazio:['Página em branco por aqui.', 'Ainda sem desenho nenhum.']},
+  herois:{ok:['Missão registrada!', 'Mais uma para o quartel-general.'], desfeito:['Recuar!', 'Linha do tempo restaurada.'],
+    edita:['Equipamento pronto para ajustes.', 'O dossiê está aberto.'], erro:['Sinal fraco no comunicador.', 'Até heróis se confundem.'],
+    vazio:['Nenhum alerta no radar.', 'Cidade tranquila por aqui.']},
+  contos:{ok:['E assim foi escrito.', 'Mais uma página no livro.'], desfeito:['A página foi virada de volta.', 'Como um feitiço desfeito.'],
+    edita:['O livro está aberto para você.', 'Pena e tinta prontas.'], erro:['Essa história eu não conheço.', 'Perdi a página dessa.'],
+    vazio:['Esta página ainda está em branco.', 'Nenhum capítulo por aqui.']},
+  animes:{ok:['Técnica concluída!', 'Poder registrado!'], desfeito:['Golpe cancelado!', 'De volta ao episódio anterior.'],
+    edita:['Treino aberto para ajustes.', 'Prepare-se: está tudo pronto.'], erro:['Nani?!', 'Não consegui ler esse golpe.'],
+    vazio:['Nenhum inimigo à vista.', 'Arco ainda vazio.']},
+  gerais:{ok:['Tudo certo.', 'Registrado.'], desfeito:['Voltei como estava.', 'Pronto.'], edita:['Deixei preparado.', 'É só conferir.'],
+    erro:['Opa!', 'Hmm…'], vazio:['Ainda não há nada aqui.', 'Nada por enquanto.']},
+  series:{ok:['Cena salva para a próxima temporada.', 'Registrado no episódio.'], desfeito:['Cena cortada na edição.', 'Esse episódio não foi ao ar.'],
+    edita:['Roteiro aberto para ajustes.', 'Bastidores prontos.'], erro:['Perdi esse episódio.', 'Essa não estava no roteiro.'],
+    vazio:['Temporada sem episódios aqui.', 'Nada nessa temporada ainda.']},
+  jogos:{ok:['+1 no placar!', 'Item adicionado ao inventário.'], desfeito:['Voltei ao último save.', 'Jogada desfeita.'],
+    edita:['Menu de edição aberto.', 'Pausa para ajustes.'], erro:['Comando inválido.', 'Essa fase eu não conheço.'],
+    vazio:['Inventário vazio aqui.', 'Nenhum item encontrado.']}
+};
+const TONS = {
+  hacker:{ok:['> commit feito.', '> registro gravado no cofre.'], desfeito:['> rollback executado.', '> ctrl+z aplicado.'],
+    edita:['> abrindo o editor.', '> arquivo aberto para edição.'], erro:['> erro de sintaxe.', '> comando não reconhecido.'],
+    vazio:['> 0 registros encontrados.', '> diretório vazio.']},
+  boneca:{ok:['Guardadinho na caixinha!', 'Anotado com laço de fita.'], desfeito:['Desfiz o laço.', 'Voltou para a caixinha.'],
+    edita:['Deixei tudo arrumadinho para você.', 'Vestidinho pronto, é só conferir.'], erro:['Ops, a boneca ficou confusa.', 'Hihi, essa me pegou.'],
+    vazio:['A caixinha está vazia.', 'Nada na casinha ainda.']},
+  faroeste:{ok:['Anotado no livro do saloon.', 'Mais uma marca na cartucheira.'], desfeito:['Bala devolvida ao tambor.', 'De volta ao estábulo.'],
+    edita:['O xerife deixou a ficha aberta.', 'Ficha pronta, forasteiro.'], erro:['Forasteiro, essa me pegou.', 'Poeira demais nessa pergunta.'],
+    vazio:['Nem poeira nesse deserto.', 'A cidade está vazia.']}
+};

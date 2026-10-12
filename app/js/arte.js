@@ -106,15 +106,27 @@ function abertura(){
   // tempo (primeiro uso, sem internet), vai a abertura de sempre, desenhada.
   if (sk && TEMAS_IMG[sk] && !temaImgsProntas(sk)){
     const seguir = () => { try { aberturaMostrar(el); } catch(e){ logErr('abertura', e); el.remove(); } };
-    Promise.race([temaImgsCarregar(sk), new Promise(ok => setTimeout(ok, 350))]).then(seguir, seguir);
+    Promise.race([temaImgsCarregar(sk), new Promise(ok => setTimeout(ok, 700))]).then(seguir, seguir);
     return;
   }
   aberturaMostrar(el);
 }
+// A entrada dura 0,9 s e a saída 0,3 s (um toque pula). As coreografias do app.css foram desenhadas mais longas (1,5 s
+// com as imagens do tema, 1,15 s com o desenho): rodam aceleradas por igual, só com transform e opacity, que o
+// celular anima fora do processamento da página. Celular simples (até 4 GB de memória): versão leve, sem o objeto
+// do tema, sem sombras e com o nome inteiro de uma vez (data-leve, no app.css).
+const ABRE_ENTRA = 900, ABRE_SAI = 300;
+const aberturaLeve = () => (navigator.deviceMemory || 8) <= 4;
+// Acelera as animações do elemento (e das partes dele) para terminarem em ms.
+function abreRitmo(anims, ms){
+  const fim = a => a.effect.getComputedTiming().endTime, umaVez = anims.filter(a => fim(a) !== Infinity); // as que se repetem (piscar) ficam
+  const ate = Math.max(0, ...umaVez.map(fim));
+  if (ate > ms) umaVez.forEach(a => { a.playbackRate = ate / ms; });
+}
 function aberturaMostrar(el){
   const sk = db.prefs.skin || '', comMascote = sk || db.prefs.fun, nome = temNativo('iconeNome') && APP_NOMES[nativo('iconeNome')] || 'Cofrim';
-  let dura = 1750; // entrada mais demorada, para dar tempo de ver
-  if (sk && temaImgsProntas(sk)) { aberturaImg(el, sk, nome); dura = 1500; }
+  if (aberturaLeve()) el.dataset.leve = '';
+  if (sk && temaImgsProntas(sk)) aberturaImg(el, sk, nome);
   else {
     el.dataset.g = sk ? cenaDe(sk)[3] : ''; // o jeito de entrar de cada tema vem da cena dele (js/cena.js)
     document.getElementById('abreIn').innerHTML = (comMascote
@@ -122,15 +134,18 @@ function aberturaMostrar(el){
       : `<div class="abreIco">${iconeSvg(COLORS[db.prefs.color] ? db.prefs.color : 'indigo', 'b', 132)}</div>`)
       + `<b>${esc(nome)}</b>`;
   }
+  abreRitmo(el.getAnimations({subtree:true}), ABRE_ENTRA);
+  document.documentElement.classList.add('abrindo'); // a cena do tema espera parada (app.css)
   let acabou = false;
-  const fim = () => { if (acabou) return; acabou = true; el.classList.add('fim');
-    setTimeout(() => { el.remove(); abreFila.splice(0).forEach(f => f()); }, 400); };
-  setTimeout(fim, dura);
+  const fim = () => { if (acabou) return; acabou = true; el.classList.add('fim'); abreRitmo(el.getAnimations(), ABRE_SAI);
+    setTimeout(() => { el.remove(); document.documentElement.classList.remove('abrindo'); abreFila.splice(0).forEach(f => f()); }, ABRE_SAI); };
+  setTimeout(fim, ABRE_ENTRA);
   el.onclick = fim; // um toque pula
 }
 // Abertura com as imagens do tema: o cenário entra (0 a 0,4 s), o objeto do tema passa com o movimento dele (0,3 a 1 s),
 // o personagem feliz chega e reage (0,5 a 1,2 s), o nome do app aparece letra a letra (0,9 a 1,5 s) e a tela sai com a
 // transição do estilo. A coreografia de cada parte é do estilo do tema (data-e, no app.css); o personagem fica inteiro.
+// Os tempos são os do desenho: aberturaMostrar acelera tudo para caber em ABRE_ENTRA.
 function aberturaImg(el, k, nome){
   const [estilo, , [mov, , , , , amp, curva, sentido]] = TEMAS_IMG[k];
   el.dataset.e = estilo;
