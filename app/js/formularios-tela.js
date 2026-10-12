@@ -40,24 +40,25 @@ function openForm(col, item, preset = {}){
     el.oninput = el.onchange = () => {
       if (!F) return; // formulário já fechado (toque ou valor que chegou depois de fechar)
       F.vals[f.k] = el.value; F.touched[f.k] = true;
+      if (ehBanco(f)) bancoNoCampo(f.k);
       if (cfg.onChange) cfg.onChange(f.k, F.vals, !F.id, F.touched);
       syncForm(f.k);
     };
 
-    if (f.sug) sugBind(el, document.getElementById('sug_' + f.k), f.sug());
+    if (f.sug) sugBind(el, document.getElementById('sug_' + f.k), f.sug(), ehBanco(f));
   }
   // Categoria: em vez da lista suspensa, um botão por categoria (o <select> continua existindo, escondido).
   syncForm();
   if (F.asset) document.getElementById('assetList').innerHTML = assetPicked(F.asset);
 }
 // Sugestões (bancos, pessoas…) como botões logo abaixo do campo. A lista nativa do navegador (<datalist>)
-// cobria a tela inteira no Android e só fechava escolhendo um item.
-function sugBind(el, box, list){
+// cobria a tela inteira no Android e só fechava escolhendo um item. banco: cada sugestão com o logotipo do banco.
+function sugBind(el, box, list, banco){
   const draw = () => {
     const q = el.value.trim().toLowerCase();
     const hits = list.filter(s => s.toLowerCase() !== q && s.toLowerCase().includes(q)).slice(0, 8);
     box.hidden = !hits.length;
-    box.innerHTML = hits.map(s => `<button type="button">${esc(s)}</button>`).join('');
+    box.innerHTML = hits.map(s => `<button type="button">${banco ? bancoMini(s) : ''}${esc(s)}</button>`).join('');
     box.querySelectorAll('button').forEach((b, i) => b.onclick = () => { el.value = hits[i]; el.dispatchEvent(new Event('input')); box.hidden = true; });
   };
   el.addEventListener('focus', draw);
@@ -70,6 +71,7 @@ function syncForm(skip){
     document.querySelector(`#w_${f.k} label`).textContent = typeof f.label === 'function' ? f.label(F.vals) : f.label;
     const el = document.getElementById('f_' + f.k);
     if (f.k !== skip && el.value !== (F.vals[f.k] ?? '')) el.value = F.vals[f.k] ?? '';
+    if (ehBanco(f)) bancoNoCampo(f.k);
   }
   document.getElementById('fhint').textContent = F.cfg.hint ? F.cfg.hint(F.vals) : '';
   const bf = document.getElementById('w__before'), mb = document.getElementById('moreBtn');

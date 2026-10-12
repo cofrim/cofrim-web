@@ -295,6 +295,11 @@ textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,monospace;color:var(
 .ico.banco b{font-size:15px;font-weight:800;letter-spacing:-.02em;line-height:1}.ico.banco.longo b{font-size:12px}
 .isca{position:absolute!important;left:-9999px;width:1px;height:1px;opacity:0} /* campo isca contra robôs (sugestões) */
 .bancoMini{width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:4px;object-fit:cover}
+/* Campo de banco ou conta (bancoNoCampo): o logotipo do banco escolhido dentro do campo, à esquerda. */
+.campoBanco{position:relative}
+.campoBanco>img{position:absolute;left:12px;top:50%;width:24px;height:24px;margin-top:-12px;border-radius:7px;object-fit:cover;pointer-events:none}
+.campoBanco.comLogo input{padding-left:46px}
+.chips.sug .bancoMini,.pickList .bancoMini,.optPick .bancoMini,.pickBtn .bancoMini{width:18px;height:18px;vertical-align:-4px;margin-right:6px}
 .recorrBtns{margin:2px 0 10px}.recorrBtns .btn{padding:9px 10px}
 .catNova{margin-bottom:12px} /* Categorias: espaço entre "Nova categoria" e o primeiro grupo */
 .grp summary{list-style:none;display:flex;align-items:center;gap:8px;padding:13px 2px;font-weight:700;cursor:pointer}
@@ -657,10 +662,10 @@ html.abrindo #cena *{animation-play-state:paused}
 .cal .hoje{outline:2px solid var(--brand);outline-offset:1px}
 .cal .sel{outline:2px solid var(--text);outline-offset:1px}
 .calSel{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
-/* Assistente: botão flutuante redondo; quando a tela também tem o "+", fica ao lado dele, na mesma faixa de baixo (um em
-   cima do outro cobriam os valores à direita das listas). */
+/* Assistente: botão flutuante redondo; quando a tela também tem o "+", fica em cima dele, na mesma coluna (pedido do
+   dono, 12/10/2026). Se cobrir um botão da tela, vira a aba da beirada (fabDesvia). */
 .fab.chat{border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--brand);border:1.5px solid var(--line);box-shadow:var(--shadow);right:max(21px,calc(50% - 239px))}
-.fab.chat.alto{bottom:calc(89px + env(safe-area-inset-bottom));right:calc(max(18px,calc(50% - 242px)) + 70px)}
+.fab.chat.alto{bottom:calc(156px + env(safe-area-inset-bottom))}
 .fab.chat[hidden]{display:none}
 /* Com um botão da tela embaixo (fabDesvia, em assistente.js): aba estreita colada na beirada direita, na margem de fora
    dos cartões. O "+" fica no lugar dele; a do assistente, quando a tela também tem o "+", logo acima. */
@@ -670,7 +675,7 @@ html.abrindo #cena *{animation-play-state:paused}
 .fab.chat.alto.aba{bottom:calc(155px + env(safe-area-inset-bottom))}
 h1 .volta{display:flex;align-items:center;gap:4px}
 html[data-fun=on] .fab.chat{animation:none}
-@media (min-width:700px){.fab.chat{right:max(21px,calc(50% - 479px))}.fab.chat.alto{right:calc(max(18px,calc(50% - 482px)) + 70px)}}
+@media (min-width:700px){.fab.chat{right:max(21px,calc(50% - 479px))}}
 /* Puxar para atualizar: o círculo fica escondido acima da tela e desce com o dedo. */
 #ptr{position:fixed;left:50%;top:calc(8px + env(safe-area-inset-top));width:42px;height:42px;border-radius:50%;background:var(--card);color:var(--muted);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.28);transform:translate(-50%,-60px);opacity:0;z-index:60;pointer-events:none}
 #ptr.pronto{color:var(--brand)}
@@ -1034,14 +1039,15 @@ ul.causas{margin:0 0 4px;padding-left:20px;color:var(--muted);font-size:14px}
   #app{max-width:1040px;padding-bottom:40px}
   #topbar{left:216px;max-width:1040px}
   .sheet{left:216px}
-  .fab,.fab.chat{right:max(18px,calc(50% - 610px));bottom:24px}
-  .fab.chat.alto{right:calc(max(18px,calc(50% - 610px)) + 70px)}
+  .fab{right:max(18px,calc(50% - 610px));bottom:24px}
+  .fab.chat{right:max(21px,calc(50% - 607px));bottom:27px}
+  .fab.chat.alto{bottom:94px}
 }
 @media (min-width:1700px){
   #app,#topbar{max-width:1400px}
   #app.cols{column-count:3}
-  .fab,.fab.chat{right:max(18px,calc(50% - 790px))}
-  .fab.chat.alto{right:calc(max(18px,calc(50% - 790px)) + 70px)}
+  .fab{right:max(18px,calc(50% - 790px))}
+  .fab.chat{right:max(21px,calc(50% - 787px))}
 }
 /* Mouse: o que é clicável reage ao passar por cima (só onde existe "passar por cima"; no toque não fica preso). */
 @media (hover:hover) and (pointer:fine){

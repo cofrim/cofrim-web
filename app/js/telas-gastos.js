@@ -146,7 +146,7 @@ function drawSearch(){
 }
 function openHit(i){ const h = searchHits[i]; if (h.col === 'expenses' && !h.x.fixed) state.month = h.x.start; openForm(h.col, h.x); }
 const filterOpts = {};
-function pickFilter(key, label){ pickList(label, filterOpts[key], state[key], v => { state[key] = v; render(); }); }
+function pickFilter(key, label){ pickList(label, filterOpts[key], state[key], v => { state[key] = v; render(); }, false, key === 'fbank' && bancoMini); }
 function clearSearch(){ const i = document.getElementById('q'); state.q = i.value = ''; i.nextElementSibling.hidden = true; drawExpList(); i.focus(); }
 function drawExpList(){ const el = document.getElementById('expList'); if (el) el.innerHTML = expListHtml(); }
 

@@ -204,7 +204,7 @@ function openStatement(){
       return cab + impLinha(x.on, `stmtToggle(${i},this)`, x.desc, fmtDate(x.date) + onde + porque, cat, exp, Math.abs(x.amount)); }).join('')}
     ${stmt.rows.length > shown.length ? `<div class="hint">Mostrando os primeiros ${shown.length}; os demais também serão importados.</div>` : ''}
     <div class="btns foot"><button class="btn" data-onclick="closeForm()">Cancelar</button><button class="btn primary" id="stmtGo" data-onclick="commitStatement()">${stmtLabel()}</button></div>`);
-  stmt.arqs.forEach((a, k) => sugBind(document.getElementById('stmtBank' + k), document.getElementById('sug_stmt' + k), bankSuggestions()));
+  stmt.arqs.forEach((a, k) => sugBind(document.getElementById('stmtBank' + k), document.getElementById('sug_stmt' + k), bankSuggestions(), true));
 }
 function stmtToggle(i, b){
   const x = stmt.rows[i];

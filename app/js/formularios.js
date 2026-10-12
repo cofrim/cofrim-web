@@ -65,7 +65,7 @@ const commitRecurring = col => (v, id, newId) => {
 // Campos de venda/provento: lançar nos Ganhos e em qual conta o dinheiro cai.
 const CASH_FIELDS = label => [
   {k:'toIncome', label, type:'select', optional:true, options:[['1','Sim'],['','Não']]},
-  {k:'account', label:'Conta que recebe o dinheiro (opcional)', type:'select', optional:true,
+  {k:'account', label:'Conta que recebe o dinheiro (opcional)', type:'select', optional:true, banco:true,
     options:() => [['', 'Não informar'], ...db.accounts.map(a => [a.name, a.name])]}];
 function catDefaults(v){
   const last = db.expenses.filter(x => x.cat === v.cat && (x.bank || x.pay)).sort((a, b) => (b.u || 0) - (a.u || 0))[0];
@@ -193,7 +193,7 @@ const FORMS = {
       ph:formTipo === 'emprestimo' ? 'Ex.: Empréstimo pessoal' : formTipo ? 'Ex.: Financiamento do carro' : 'Ex.: Celular'},
     ...(formTipo ? [
       {k:'credor', label:'Credor (banco ou financeira, opcional)', type:'text', ph:'Ex.: Caixa', optional:true, sug:bankSuggestions},
-      {k:'conta', label:'Conta de débito', type:'select', optional:true,
+      {k:'conta', label:'Conta de débito', type:'select', optional:true, banco:true,
         options:() => [['', 'Não informar'], ...db.accounts.map(a => [a.name, a.name])]}] : []),
     {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GASTO)},
     ...(formTipo ? [] : WHERE_FIELDS()),
@@ -322,8 +322,8 @@ const FORMS = {
   transfers: { fullTitle:'Transferência entre contas', defaults:() => ({month:curYM, from:(db.accounts[0] || {}).name, to:(db.accounts[1] || {}).name}),
     // Além das contas, a lista traz nomes já usados em transferências (ex.: "Investimentos", de vendas e proventos).
     fields:() => { const o = [...new Set([...db.accounts.map(a => a.name), ...db.transfers.flatMap(t => [t.from, t.to])])].map(n => [n, n]); return [
-      {k:'from', label:'Sai de', type:'select', options:o},
-      {k:'to', label:'Entra em', type:'select', options:o},
+      {k:'from', label:'Sai de', type:'select', options:o, banco:true},
+      {k:'to', label:'Entra em', type:'select', options:o, banco:true},
       {k:'value', label:'Valor', type:'money'},
       {k:'month', label:'Mês', type:'month'},
       {k:'day', label:'Dia (opcional)', type:'int', optional:true}]; },
@@ -357,7 +357,7 @@ const FORMS = {
       {k:'b' + i, label:b + ' — dia de fechamento', type:'int', optional:true},
       {k:'d' + i, label:b + ' — dia de pagamento da fatura', type:'int', optional:true},
       {k:'l' + i, label:b + ' — limite do cartão (opcional)', type:'money', optional:true},
-      {k:'a' + i, label:b + ' — conta que paga a fatura', type:'select', optional:true,
+      {k:'a' + i, label:b + ' — conta que paga a fatura', type:'select', optional:true, banco:true,
         options:[['', 'Conta com o mesmo nome do cartão'], ...db.accounts.map(a => [a.name, a.name])]}]),
     load(v){ creditBanks().forEach((b,i) => { v['b' + i] = String(db.cardClose[b] || ''); v['d' + i] = String(db.cardDue[b] || '');
       v['a' + i] = db.cardAcc[b] || ''; v['l' + i] = db.cardLimit[b] ? moneyStr(db.cardLimit[b]) : ''; }); },
@@ -476,10 +476,25 @@ document.addEventListener('touchend', () => {
   if (d.dy > 110){ if (d.el.id === 'picker') closePicker(); else closeForm(); }
 }, {passive:true});
 
+// Campo de banco ou conta (texto com as sugestões de bancos, ou lista das contas): mostra o logotipo do banco.
+const ehBanco = f => !!f.banco || f.sug === bankSuggestions;
+// Logotipo do banco digitado ou escolhido dentro do campo de texto (só quando o app conhece o banco).
+function bancoNoCampo(k){
+  const w = document.getElementById('cb_' + k), el = document.getElementById('f_' + k);
+  if (!w || !el) return;
+  const logo = bancoDe(el.value)[2];
+  w.classList.toggle('comLogo', !!logo);
+  const img = w.querySelector('img');
+  if (!logo) return img && img.remove();
+  if (img) img.src = logo[0]; else w.insertAdjacentHTML('afterbegin', `<img src="${logo[0]}" alt="">`);
+}
 // HTML de um campo. Listas, meses e datas guardam o valor num elemento escondido e mostram um componente do app
 // (botões ou um seletor próprio), em vez das janelas do Android.
 function fieldHtml(f){
   const id = 'f_' + f.k;
+  // Campo de banco ou conta: o logotipo do banco escolhido aparece dentro do campo, à esquerda (bancoNoCampo).
+  if (ehBanco(f) && f.type === 'text') return `<div class="campoBanco" id="cb_${f.k}">${fieldHtml({...f, banco:false, sug:null})}</div>`
+    + `<div class="chips sug" id="sug_${f.k}" hidden></div>`;
   if (f.type === 'select') return `<select id="${id}" hidden>${(typeof f.options === 'function' ? f.options() : f.options).map(o => `<option value="${esc(o[0])}">${esc(o[1])}</option>`).join('')}</select>` +
     (f.k === 'cat' ? '<div class="catPick" id="catPick"></div>' : `<div id="o_${f.k}"></div>`);
   if (f.type === 'icons') return `<input id="${id}" type="hidden"><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button" data-i="${k}" aria-label="${n}" title="${n}" data-onclick="pickIcon('${f.k}','${k}')">${I(k, 23)}</button>`).join('')}</div>`;
@@ -525,8 +540,8 @@ function drawPicks(){
       const box = document.getElementById('o_' + f.k), os = [...el.options].map(o => [o.value, o.text]), few = os.length <= 4 || f.k === 'fixed';
       box.className = few ? 'optPick' : '';
       box.innerHTML = few
-        ? os.map(([v, t]) => `<button type="button" class="${v === el.value ? 'on' : ''}" data-v="${esc(v)}" data-onclick="setField('${f.k}',this.dataset.v)">${esc(t)}</button>`).join('')
-        : `<button type="button" class="pickBtn" data-onclick="pickField('${f.k}')"><span>${esc((os.find(o => o[0] === el.value) || ['', 'Escolher'])[1])}</span>${I('chev')}</button>`;
+        ? os.map(([v, t]) => `<button type="button" class="${v === el.value ? 'on' : ''}" data-v="${esc(v)}" data-onclick="setField('${f.k}',this.dataset.v)">${ehBanco(f) ? bancoMini(v) : ''}${esc(t)}</button>`).join('')
+        : `<button type="button" class="pickBtn" data-onclick="pickField('${f.k}')"><span>${ehBanco(f) ? bancoMini(el.value) : ''}${esc((os.find(o => o[0] === el.value) || ['', 'Escolher'])[1])}</span>${I('chev')}</button>`;
     } else if (f.type === 'meses'){
       const marcados = mesesDe(el.value);
       document.getElementById('o_' + f.k).innerHTML = MESES.map((n, i) => `<button type="button" class="${marcados.includes(i + 1) ? 'on' : ''}"
@@ -547,7 +562,7 @@ function pickField(k){
   if (!F) return;
   const f = F.fields.find(x => x.k === k), el = document.getElementById('f_' + k), title = typeof f.label === 'function' ? f.label(F.vals) : f.label,
   set = v => setField(k, v);
-  if (f.type === 'select') pickList(title, [...el.options].map(o => [o.value, o.text]), el.value, set);
+  if (f.type === 'select') pickList(title, [...el.options].map(o => [o.value, o.text]), el.value, set, false, ehBanco(f) && bancoMini);
   else if (f.type === 'month') pickMonthP(title, el.value, f.optional, set);
   else pickDateP(title, el.value, set);
 }

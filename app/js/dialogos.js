@@ -17,9 +17,10 @@ function closePicker(){
 }
 function picked(v){ const cb = pickCb; closePicker(); if (cb) cb(v); }
 // busca: lista longa (moedas, países) com um campo de busca no topo; abre já rolada até a opção escolhida.
-function pickList(title, options, cur, cb, busca){
+// icone(valor): HTML antes do nome de cada opção (ex.: o logotipo do banco, bancoMini).
+function pickList(title, options, cur, cb, busca, icone){
   pickCb = cb; pickOpts = options;
-  showPicker(`<h3>${esc(title)}</h3>${busca ? '<input id="pickBusca" type="search" placeholder="Buscar" autocomplete="off" data-oninput="pickFiltrar(this.value)">' : ''}<div class="pickList">${options.map(([v, t], i) => `<button type="button" class="${v === cur ? 'on' : ''}" data-onclick="picked(pickOpts[${i}][0])"><span>${esc(t)}</span>${v === cur ? I('check') : ''}</button>`).join('')}</div>
+  showPicker(`<h3>${esc(title)}</h3>${busca ? '<input id="pickBusca" type="search" placeholder="Buscar" autocomplete="off" data-oninput="pickFiltrar(this.value)">' : ''}<div class="pickList">${options.map(([v, t], i) => `<button type="button" class="${v === cur ? 'on' : ''}" data-onclick="picked(pickOpts[${i}][0])"><span>${icone ? icone(v) : ''}${esc(t)}</span>${v === cur ? I('check') : ''}</button>`).join('')}</div>
     <div class="btns foot"><button class="btn" data-onclick="closePicker()">Cancelar</button></div>`);
   if (busca){ const on = document.querySelector('#picker .pickList .on'); if (on) on.scrollIntoView({block:'center'}); }
 }

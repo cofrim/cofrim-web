@@ -20,8 +20,15 @@ let bancoLogosPedido = false;
 function bancoLogos(){
   if (typeof BANCO_LOGOS !== 'undefined') return BANCO_LOGOS;
   if (!bancoLogosPedido){ bancoLogosPedido = true; const s = document.createElement('script'); s.src = 'js/dados-bancos.js';
-    s.onload = () => telaAtualizar(true); s.onerror = () => { bancoLogosPedido = false; }; document.head.appendChild(s); }
+    s.onload = () => { telaAtualizar(true); bancoLogosNoForm(); }; s.onerror = () => { bancoLogosPedido = false; }; document.head.appendChild(s); }
   return {};
+}
+// Formulário aberto quando os logotipos chegam: o campo do banco, as sugestões e as listas de contas ganham o logotipo
+// (o "focus" redesenha as sugestões, ver sugBind).
+function bancoLogosNoForm(){
+  if (!F || !sheetOpen()) return;
+  syncForm();
+  document.querySelectorAll('#sheet input').forEach(el => { if (document.getElementById('sug_' + el.id.slice(2))) el.dispatchEvent(new Event('focus')); });
 }
 const bancoDe = nome => { const t = plain(String(nome || '').trim()), b = BANCO_SELOS.find(([re]) => re.test(t)); return [t, b, b && bancoLogos()[b[1]]]; };
 // Ícone pequeno do banco antes do nome nas linhas dos lançamentos (só quando há logotipo).
@@ -51,7 +58,9 @@ const tituloTela = (title, tab, extra = '') => `<h1><span class="tit">${title}${
 // ligadas ou alguma guardada) e, nas telas com blocos, "Reorganizar esta tela" (o que o antigo botão de personalizar
 // abria). Com só as Configurações, o toque vai direto a elas. Sugestões novas (nem lançadas nem ignoradas): um ponto no
 // botão e o número ao lado do item. O painel fecha ao tocar fora, com o voltar do Android e com Esc; Tab e Enter navegam nele.
-const reorganizar = tab => tab === 'resumo' ? 'openResumoEdit()' : LAYOUT[tab] ? `openLayoutEdit('${tab}')` : '';
+// Só onde a parte aberta tem blocos: em Gastos, o "Do mês" (Parceladas e Vales não têm); em Ganhos, fora de Vales.
+const parteComBlocos = tab => tab === 'gastos' ? state.gsub === 'mes' && !state.parcDet : tab !== 'ganhos' || state.isub !== 'vale';
+const reorganizar = tab => !parteComBlocos(tab) ? '' : tab === 'resumo' ? 'openResumoEdit()' : LAYOUT[tab] ? `openLayoutEdit('${tab}')` : '';
 // Na versão web, aparece quando o celular já mandou alguma sugestão pela sincronização.
 const sugNoMenu = () => temNativo('avisosBanco') ? ((temNativo('avisosLigado') && nativo('avisosLigado')) || sugLog().length > 0 || sugNovas() > 0)
   : db.sugs.lista.length > 0;
