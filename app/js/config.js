@@ -494,21 +494,33 @@ function catSalvar(type, k, v){
   db.cfgMod = Date.now(); applyCats();
   return k;
 }
+// Outra categoria do tipo com o mesmo nome (sem contar maiúscula e espaço nas pontas; escondidas também), além da k. Ao criar,
+// usa-se a que já existe; ao editar, o nome repetido é recusado (catRepetida).
+function catMesmoNome(type, nome, k = ''){
+  return Object.keys(CAT_OF[type]).find(c => c !== k && plainName(CAT_OF[type][c][1]) === plainName(nome));
+}
+const catRepetida = 'Já existe uma categoria com esse nome.';
 // Criar uma categoria sem sair do que se está fazendo: abre por cima (na camada dos seletores), pede nome, ícone e cor
 // e chama aoCriar(chave). Nome igual ao de uma categoria que já existe: usa essa (e a mostra, se estava escondida).
-// Usada pelos formulários (formCatNova) e pelo Importar planilha (nome: o da planilha, já escrito).
-let catNovaDe = null; // {type, aoCriar, icon, color}
-function novaCategoria(type, aoCriar, nome = ''){
-  catNovaDe = {type, aoCriar, icon:'tag', color:'#64748b'};
-  showPicker(`<h3>Nova categoria de ${type}</h3>
+// Usada pelos formulários (formCatNova) e pelo Importar planilha (nome: o da planilha, já escrito). Com edita (chave de
+// uma categoria), a mesma janela edita essa categoria, já com o nome, o ícone e a cor dela (segurar a categoria no
+// formulário, catSegurar).
+let catNovaDe = null; // {type, aoCriar, icon, color, edita}
+function novaCategoria(type, aoCriar, nome = '', edita = ''){
+  const c = edita && CAT_OF[type][edita];
+  catNovaDe = {type, aoCriar, icon:c ? c[0] : 'tag', color:c ? c[2] : '#64748b', edita};
+  if (c) nome = c[1];
+  showPicker(`<h3>${c ? 'Editar categoria' : 'Nova categoria de ' + type}</h3>
     <label for="cnNome">Nome</label><input id="cnNome" type="text" maxlength="40" placeholder="Ex.: Pets" autocomplete="off" value="${esc(nome)}">
-    <label>Ícone</label><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button" class="${k === 'tag' ? 'on' : ''}"
-      data-i="${k}" aria-label="${n}" title="${n}" data-onclick="catNovaEscolhe(this,'icon')">${I(k, 23)}</button>`).join('')}</div>
-    <label>Cor</label><div class="swatches colorGrid">${CAT_COLORS.map(c => `<button type="button" class="sw" data-c="${c}" style="background:${c}"
-      aria-label="Cor ${c}" data-onclick="catNovaEscolhe(this,'color')"></button>`).join('')}</div>
+    <label>Ícone</label><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button"
+      class="${k === catNovaDe.icon ? 'on' : ''}" data-i="${k}" aria-label="${n}" title="${n}"
+      data-onclick="catNovaEscolhe(this,'icon')">${I(k, 23)}</button>`).join('')}</div>
+    <label>Cor</label><div class="swatches colorGrid">${CAT_COLORS.map(cor => `<button type="button"
+      class="sw${cor === catNovaDe.color ? ' on' : ''}" data-c="${cor}" style="background:${cor}" aria-label="Cor ${cor}"
+      data-onclick="catNovaEscolhe(this,'color')"></button>`).join('')}</div>
     <div class="err" id="cnErr"></div>
     <div class="btns foot"><button class="btn" data-onclick="closePicker()">Cancelar</button>
-      <button class="btn primary" data-onclick="catNovaCriar()">Criar</button></div>`);
+      <button class="btn primary" data-onclick="catNovaCriar()">${c ? 'Salvar' : 'Criar'}</button></div>`);
 }
 function catNovaEscolhe(b, campo){
   catNovaDe[campo] = campo === 'icon' ? b.dataset.i : b.dataset.c;
@@ -517,8 +529,10 @@ function catNovaEscolhe(b, campo){
 function catNovaCriar(){
   const nome = document.getElementById('cnNome').value.trim().slice(0, 40);
   if (!nome) return void (document.getElementById('cnErr').textContent = 'Escreva o nome da categoria.');
-  const {type, aoCriar, icon, color} = catNovaDe, C = CAT_OF[type];
-  let k = Object.keys(C).find(c => plainName(C[c][1]) === plainName(nome));
+  const {type, aoCriar, icon, color, edita} = catNovaDe, C = CAT_OF[type];
+  if (edita && catMesmoNome(type, nome, edita)) return void (document.getElementById('cnErr').textContent = catRepetida);
+  if (edita){ catSalvar(type, edita, {name:nome, icon, color}); save(); closePicker(); catNovaDe = null; return aoCriar(edita); }
+  let k = catMesmoNome(type, nome);
   if (k && C[k][3]){ db.cats[type][k] = Object.assign(db.cats[type][k] || {}, {hidden:false}); db.cfgMod = Date.now(); applyCats(); }
   if (!k) k = catSalvar(type, '', {name:nome, icon, color});
   save(); closePicker(); catNovaDe = null;
@@ -531,7 +545,8 @@ function editCat(type, k){
     vals:c ? {name:c[1], icon:c[0], color:c[2]} : {icon:'tag', color:'#64748b'}});
 }
 // Exclui uma categoria criada pelo usuário. Os lançamentos dela vão para a de fábrica de mesmo nome, ou para "Outros".
-async function deleteCat(type, k){
+// depois(alvo): o que fazer em seguida (a tela de categorias, ou o formulário que estava aberto: catSegurar).
+async function deleteCat(type, k, depois = openCats){
   const nome = plainName(CAT_OF[type][k][1]);
   const alvo = Object.keys(BASE_CATS[type]).find(b => plainName((db.cats[type][b] || {}).name || BASE_CATS[type][b][1]) === nome) || 'outros';
   const nomeAlvo = (db.cats[type][alvo] || {}).name || BASE_CATS[type][alvo][1];
@@ -546,7 +561,7 @@ async function deleteCat(type, k){
   }
   delete db.cats[type][k];
   db.tomb['cat:' + type + ':' + k] = Date.now(); // a exclusão vale nos outros aparelhos (ver mergeDb)
-  db.cfgMod = Date.now(); applyCats(); save(); render(); openCats();
+  db.cfgMod = Date.now(); applyCats(); save(); render(); depois(alvo);
   toast('Categoria excluída.', {dest:{k:'cfg', s:'dados'}});
 }
 function toggleCat(type, k){

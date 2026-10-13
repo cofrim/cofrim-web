@@ -399,6 +399,7 @@ const FORMS = {
     {k:'name', label:'Nome', type:'text', ph:'Ex.: Pets'},
     {k:'icon', label:'Ícone', type:'icons'},
     {k:'color', label:'Cor (aparece com a opção "Uma cor por categoria")', type:'colors', optional:true}],
+    check(v){ const [type, key] = F.id.split(':'); if (catMesmoNome(type, v.name, key)) return catRepetida; },
     commit(v, id){ const [type, key] = id.split(':'); catSalvar(type, key, v); },
     after:() => openCats()},
   rates: { fullTitle:'Taxas de referência', fields:[

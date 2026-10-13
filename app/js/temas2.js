@@ -98,7 +98,31 @@ Object.assign(TEMAS_NOVOS, {
   reinodoscanos:['Reino dos canos', false, '#b91c1c', '#15803d', '#dc2626', '#15803d', 0, 70],
   velocidademaxima:['Velocidade máxima', false, '#1d4ed8', '#a16207', '#1d4ed8', '#a16207', 220, 75],
   lendadoheroi:['Lenda do herói', false, '#15803d', '#a16207', '#15803d', '#a16207', 120, 50],
-  ilhadascaixas:['Ilha das caixas', false, '#c2410c', '#0369a1', '#c2410c', '#0369a1', 25, 75]
+  ilhadascaixas:['Ilha das caixas', false, '#c2410c', '#0369a1', '#c2410c', '#0369a1', 25, 75],
+  // Temas novos da 2.70: 19 pinturas famosas redesenhadas no estilo do app e um tema novo em Filmes, Séries e Jogos (também
+  // só com o personagem em imagem)
+  girassois:['Girassóis', false, '#a16207', '#0f766e', '#a16207', '#a16207', 45, 80],
+  modernismo:['Modernismo brasileiro', false, '#15803d', '#c2410c', '#15803d', '#c2410c', 130, 60],
+  criacao:['Criação', false, '#c2410c', '#0369a1', '#9f1239', '#a16207', 15, 45],
+  venus:['Nascimento de Vênus', false, '#0f766e', '#db2777', '#0f766e', '#be185d', 180, 50],
+  ultimaceia:['Última ceia', false, '#92400e', '#1d4ed8', '#92400e', '#1e3a8a', 30, 45],
+  grito:['O grito', true, '#fb923c', '#93c5fd', '#9a3412', '#1e3a8a', 20, 70],
+  perola:['Brinco de pérola', true, '#facc15', '#93c5fd', '#1e3a8a', '#1f2937', 220, 50],
+  monalisa:['Mona Lisa', false, '#3f6212', '#92400e', '#3f6212', '#713f12', 80, 35],
+  medusa:['Medusa', true, '#a3e635', '#fbbf24', '#14532d', '#713f12', 100, 45],
+  atenas:['Escola de Atenas', false, '#1d4ed8', '#b45309', '#1e40af', '#b45309', 220, 50],
+  filhodohomem:['Surrealismo', false, '#15803d', '#1e3a8a', '#15803d', '#1e3a8a', 200, 45],
+  nenufares:['Nenúfares', false, '#0f766e', '#db2777', '#0f766e', '#be185d', 170, 45],
+  relogios:['Tempo surreal', false, '#a16207', '#0369a1', '#a16207', '#0369a1', 40, 60],
+  nascersol:['Nascer do sol', true, '#fb923c', '#93c5fd', '#1e3a8a', '#9a3412', 215, 40],
+  liberdade:['Liberdade', false, '#1e3a8a', '#b91c1c', '#1e3a8a', '#b91c1c', 225, 55],
+  babel:['Torre de Babel', false, '#b45309', '#0369a1', '#b45309', '#0369a1', 30, 55],
+  saojorge:['São Jorge', true, '#f87171', '#86efac', '#7f1d1d', '#14532d', 0, 45],
+  kanagawa:['Grande onda', false, '#1e3a8a', '#0e7490', '#1e3a8a', '#0e7490', 220, 60],
+  egito:['Egito', false, '#a16207', '#0e7490', '#a16207', '#0e7490', 45, 70],
+  brilho:['Vampiro que brilha', true, '#f87171', '#e5e7eb', '#7f1d1d', '#334155', 0, 30],
+  lobo:['Lobo adolescente', true, '#fbbf24', '#f87171', '#1f2937', '#7f1d1d', 40, 40],
+  mira:['Mira certeira', true, '#fbbf24', '#4ade80', '#78350f', '#1e3a8a', 40, 45]
 });
 // Categorias: as novas entram na lista e algumas antigas mudam de lugar (Vikings é série; Espartano é jogo).
 {
@@ -120,6 +144,12 @@ Object.assign(TEMAS_NOVOS, {
     ['jogos', 'Jogos',
       ['espartano', 'foradalei', 'aneldourado', 'samurai', 'entregador', 'cidadegrande', 'ciber', 'cacavampiros', 'fazenda', 'cemiterio', 'subsolo',
       'tatico', 'arena', 'reinodoscanos', 'velocidademaxima', 'lendadoheroi', 'ilhadascaixas']]);
+  // 2.70: Pinturas, logo depois de Estilos, com a Noite estrelada (que sai de Estilos); um tema novo em Filmes, Séries e Jogos.
+  tira('noite');
+  TEMA_CATS.splice(1, 0, ['pinturas', 'Pinturas',
+    ['noite', 'girassois', 'modernismo', 'criacao', 'venus', 'ultimaceia', 'grito', 'perola', 'monalisa', 'medusa', 'atenas', 'filhodohomem',
+    'nenufares', 'relogios', 'nascersol', 'liberdade', 'babel', 'saojorge', 'kanagawa', 'egito']]);
+  cat('filmes')[2].push('brilho'); cat('series')[2].push('lobo'); cat('jogos')[2].push('mira');
 }
 
 // ---------- Mascotes ----------
@@ -542,7 +572,13 @@ Object.assign(FALAS_CAT, {
     ok:['Episódio calmo por aqui, {nome}.', 'Sem gancho dramático nas contas.', 'Antes dos créditos, anote os gastos.', 'Trama equilibrada este mês.',
       'Tudo sob controle até o próximo capítulo.'],
     triste:['Gancho dramático: faltam {v}.', 'Reviravolta nas contas, {nome}.', 'Esse episódio pede corte de gastos.',
-      'Faltam {v}. A próxima temporada será melhor.', 'Clima tenso no orçamento.']}
+      'Faltam {v}. A próxima temporada será melhor.', 'Clima tenso no orçamento.']},
+  pinturas:{feliz:['Obra-prima: {v} de sobra este mês!', 'Quadro lindo, {nome}: mês no azul.', 'Moldura dourada: {v} guardados.',
+    'As cores fecharam com sobra.', 'Digno de museu: {v}.'],
+    ok:['Tela em andamento, {nome}.', 'Tinta fresca, contas em ordem.', 'Já anotou os gastos no caderno de esboços?',
+      'Mês equilibrado como uma boa composição.', 'Seguimos pintando com calma.'],
+    triste:['Borrão na tela: faltam {v}.', 'O quadro escureceu, {nome}.', 'Hora de raspar a tinta e recomeçar.',
+      'Faltam {v}, mas dá para retocar.', 'Vamos ver onde a tinta escorreu?']}
 });
 Object.assign(FALAS_TEMA, {
   cerejeira:['Florada cheia: {v} sobrando.', 'Pétalas caindo devagar, contas em dia.', 'A florada passou: faltam {v}.'],
@@ -633,7 +669,29 @@ Object.assign(FALAS_TEMA, {
   reinodoscanos:['Moeda dourada: {v} no cofre!', 'Fase tranquila, sem tropeços.', 'Caiu no buraco: faltam {v}.'],
   velocidademaxima:['Anéis dourados: {v} coletados!', 'Ritmo firme, pista livre.', 'Bateu no espinho: faltam {v}.'],
   lendadoheroi:['Baú aberto: {v} de tesouro!', 'Caminho seguro pela floresta.', 'Corações baixos: faltam {v}.'],
-  ilhadascaixas:['Caixa quebrada: {v} de frutas!', 'Ilha tranquila hoje.', 'Caixa de surpresa ruim: faltam {v}.']
+  ilhadascaixas:['Caixa quebrada: {v} de frutas!', 'Ilha tranquila hoje.', 'Caixa de surpresa ruim: faltam {v}.'],
+  girassois:['Doze girassóis e {v} no vaso!', 'Vaso no sol, contas calmas.', 'Pétalas murchas: faltam {v}.'],
+  modernismo:['Cacto florido e {v} no bolso!', 'Chapéu de palha e calma no sertão.', 'Sol forte demais: faltam {v}.'],
+  criacao:['Toque divino: {v} a mais!', 'Nuvens calmas no teto da capela.', 'Os dedos não se tocaram: faltam {v}.'],
+  venus:['Pérola na concha: {v} guardados!', 'Brisa do mar, contas serenas.', 'Maré vazante na concha: faltam {v}.'],
+  ultimaceia:['Mesa farta e {v} guardados!', 'Pão repartido, contas em paz.', 'Migalhas na mesa: faltam {v}.'],
+  grito:['Grito de alegria: {v}!', 'Ponte calma, céu laranja.', 'Aaah! Faltam {v}.'],
+  perola:['Brinco brilhando: {v} guardados!', 'Olhar por cima do ombro, tudo em ordem.', 'A pérola perdeu o brilho: faltam {v}.'],
+  monalisa:['Sorriso discreto: {v} guardados.', 'Mãos cruzadas, contas calmas.', 'O sorriso sumiu: faltam {v}.'],
+  medusa:['Cobrinhas felizes com {v} no cofre!', 'Escudo polido, olhar tranquilo.', 'Virou pedra: faltam {v}.'],
+  atenas:['Sabedoria rende: {v} guardados!', 'Debate calmo entre colunas.', 'Pergunta difícil: faltam {v}.'],
+  filhodohomem:['Uma maçã e {v} sobrando!', 'Céu de nuvens, terno alinhado.', 'O chapéu voou: faltam {v}.'],
+  nenufares:['Lago florido: {v} boiando!', 'Folha boiando, água parada.', 'Água turva: faltam {v}.'],
+  relogios:['Tempo bem gasto, {v} bem guardados!', 'Ponteiros moles, contas firmes.', 'O tempo escorreu: faltam {v}.'],
+  nascersol:['Remada certa até {v}!', 'Porto calmo na névoa.', 'Remo partido: faltam {v}.'],
+  liberdade:['Bandeira no alto e {v} a salvo!', 'Barricada calma hoje.', 'Fumaça no caminho: faltam {v}.'],
+  babel:['Mais um andar erguido com {v}!', 'Obra parada, tudo em ordem.', 'Desabou um andar: faltam {v}.'],
+  saojorge:['Dragão vencido e {v} salvos!', 'Lança em descanso, cavalo calmo.', 'Fogo de dragão: faltam {v}.'],
+  kanagawa:['Onda gigante de economia: {v}!', 'Mar calmo, monte ao fundo.', 'A onda quebrou: faltam {v}.'],
+  egito:['O faraó deixou {v} de tesouro!', 'Sol no Nilo, gatinho cochilando.', 'O vento do deserto levou {v}.'],
+  brilho:['Brilhando ao sol com {v} guardados!', 'Chuva fina entre os pinheiros.', 'Sem brilho hoje: faltam {v}.'],
+  lobo:['Uivo de vitória: {v}!', 'Lua escondida, tudo tranquilo.', 'Lua cheia na fatura: faltam {v}.'],
+  mira:['Rodada vencida, {v} no caixa!', 'Base segura, equipe em posição.', 'Rodada difícil: faltam {v}.']
 });
 // ---------- Mais falas próprias de cada tema ----------
 // Antes, cada tema novo tinha uma fala própria por humor e o resto vinha da categoria (FALAS_CAT), que muitas vezes não
@@ -953,7 +1011,51 @@ const FALAS_MAIS = {
   lendadoheroi:[['Masmorra vencida: {v}.', 'Coragem lendária, {nome}!'], ['Descansando perto da fogueira.', 'Mapa do reino em dia.'],
     ['Armadilha na masmorra: {v} a menos.', 'Erga o escudo, {nome}.']],
   ilhadascaixas:[['Todas as caixas abertas: {v}.', 'Giro perfeito, {nome}!'], ['Passeio pela praia da ilha.', 'Contando as frutas do caminho.'],
-    ['Caiu da ponte: {v} a menos.', 'Recomeça do ponto salvo, {nome}.']]
+    ['Caiu da ponte: {v} a menos.', 'Recomeça do ponto salvo, {nome}.']],
+  girassois:[['Florada amarela: {v} guardados.', 'Virado para o sol, {nome}!'], ['Regando o vaso devagar.', 'Sementes contadas uma a uma.'],
+    ['Dia nublado no vaso: faltam {v}.', 'Mais um pouco de sol, {nome}.']],
+  modernismo:[['Cores fortes, conta forte: {v}.', 'Arte brasileira na carteira, {nome}!'], ['Sombra de cacto, tarde quente.', 'Pintando o mês com calma.'],
+    ['Espinho no orçamento: faltam {v}.', 'Ajeita o chapéu e segue, {nome}.']],
+  criacao:[['Afresco completo: {v} guardados.', 'Asas batendo de alegria, {nome}!'], ['Andaime firme, pincel na mão.', 'Um anjinho de olho nas contas.'],
+    ['Tinta escorreu do teto: faltam {v}.', 'Estica o braço mais um pouco, {nome}.']],
+  venus:[['Nascida da espuma, com {v} na concha.', 'Concha brilhando, {nome}!'], ['Flutuando devagar até a praia.', 'Rosas no vento, nada fora do lugar.'],
+    ['Onda forte levou {v}.', 'Fecha a concha e respira, {nome}.']],
+  ultimaceia:[['Forno quente: {v} guardados.', 'Casquinha dourada, {nome}!'], ['Toalha branca bem esticada.', 'Treze lugares, contas conferidas.'],
+    ['Pão dormido: faltam {v}.', 'Divide o que tem, {nome}.']],
+  grito:[['Mãos no rosto de surpresa: {v} guardados!', 'Nem precisei gritar, {nome}!'], ['Pôr do sol ondulado na ponte.', 'Respirando fundo, tudo calmo.'],
+    ['Céu em espiral: faltam {v}.', 'Calma, sem pânico, {nome}.']],
+  perola:[['Luz da janela sobre {v} guardados.', 'Turbante azul em festa, {nome}!'], ['Fundo escuro, rosto sereno.', 'Posando sem pressa.'],
+    ['Sombra no retrato: faltam {v}.', 'Ajeita o turbante, {nome}.']],
+  monalisa:[['Enigma resolvido: sobraram {v}!', 'Olhar que segue o saldo, {nome}.'], ['Paisagem nebulosa ao fundo.', 'Véu leve, mês leve.'],
+    ['Verniz rachado: faltam {v}.', 'Um meio sorriso ainda, {nome}.']],
+  medusa:[['Olhar que congela gastos: {v}.', 'Sssucesso, {nome}!'], ['Cobrinhas cochilando.', 'Escudo na parede, tudo quieto.'],
+    ['Cobrinhas assustadas: faltam {v}.', 'Não olhe para a fatura, {nome}.']],
+  atenas:[['Argumento vencedor: {v}.', 'Coruja orgulhosa, {nome}!'], ['Lendo o pergaminho das contas.', 'Toga limpa, mente clara.'],
+    ['Lógica furada: faltam {v}.', 'Pensa mais um pouco, {nome}.']],
+  filhodohomem:[['Surpresa no céu: {v} guardados.', 'Maçã reluzente, {nome}!'], ['Nuvens paradas no ar.', 'Chapéu-coco bem ajeitado.'],
+    ['Mundo de ponta-cabeça: faltam {v}.', 'Segura o chapéu, {nome}.']],
+  nenufares:[['Reflexo dourado: {v} guardados.', 'Abriu em flor, {nome}!'], ['Libélula passando devagar.', 'Ponte do jardim, contas calmas.'],
+    ['A folha afundou: faltam {v}.', 'Boia mais um pouco, {nome}.']],
+  relogios:[['Hora certa de guardar: {v}.', 'Tique-taque feliz, {nome}!'], ['Deserto quieto, relógio no galho.', 'Minutos derretendo devagar.'],
+    ['Relógio derretido: faltam {v}.', 'Ainda dá tempo, {nome}.']],
+  nascersol:[['Sol nascendo: {v} guardados.', 'Barquinho veloz, {nome}!'], ['Névoa azul sobre a água.', 'Remando sem pressa.'],
+    ['Barco furado: faltam {v}.', 'Rema até a margem, {nome}.']],
+  liberdade:[['Vitória do povo: {v} guardados!', 'Livre das dívidas, {nome}!'], ['Barrete firme na cabeça.', 'Marchando no ritmo certo.'],
+    ['A barricada caiu: faltam {v}.', 'Ergue a bandeira de novo, {nome}.']],
+  babel:[['Torre até as nuvens: {v} guardados!', 'Tijolo bem assentado, {nome}!'], ['Capacete no lugar, obra segura.', 'Subindo um tijolo por vez.'],
+    ['Faltou cimento: faltam {v}.', 'Reforça a base, {nome}.']],
+  saojorge:[['Armadura brilhando: {v} guardados.', 'Cavaleiro valente, {nome}!'], ['Ronda tranquila no castelo.', 'Escudo polido, contas também.'],
+    ['O dragão atacou a carteira: faltam {v}.', 'Firme na sela, {nome}.']],
+  kanagawa:[['Crista de espuma: {v} guardados.', 'Surfando no azul, {nome}!'], ['Barcos remando juntos.', 'Monte nevado bem quieto.'],
+    ['Ressaca no saldo: faltam {v}.', 'Espera a próxima onda, {nome}.']],
+  egito:[['Pirâmide de moedas: {v}!', 'Colar dourado brilhando, {nome}!'], ['Esfinge de olho nas contas.', 'Barco no Nilo, sem pressa.'],
+    ['Areia no cofre: faltam {v}.', 'Miau... segura os gastos, {nome}.']],
+  brilho:[['Pele cintilante: {v} guardados.', 'Cintilando de alegria, {nome}!'], ['Céu nublado, como sempre.', 'Jaqueta cinza e contas quietas.'],
+    ['Presas na carteira: faltam {v}.', 'Fica na sombra e respira, {nome}.']],
+  lobo:[['Faro para economia: {v} guardados.', 'Alcateia orgulhosa, {nome}!'], ['Treino no campo do colégio.', 'Moletom vermelho e calma.'],
+    ['Olhos âmbar de susto: faltam {v}.', 'Controla o lobo, {nome}.']],
+  mira:[['Mira na economia: {v} guardados.', 'Jogada limpa, {nome}!'], ['Headset ligado, tudo calmo.', 'Vigiando o beco da vila.'],
+    ['Emboscada na carteira: faltam {v}.', 'Recua e reagrupa, {nome}.']]
 };
 // Quarta e quinta falas próprias de cada tema, por humor (mesmo formato de FALAS_MAIS). Com elas, todo tema especial tem
 // pelo menos cinco falas por humor, e nenhuma fala se repete entre temas.
@@ -1259,7 +1361,51 @@ const FALAS_MAIS2 = {
   lendadoheroi:[['Relíquia encontrada: {v} guardados.', 'A lenda cresce, {nome}.'], ['Cavalgando pelos campos.', 'Mochila arrumada, contas conferidas.'],
     ['Monstro no caminho: faltam {v}.', 'Respire e tente de novo, {nome}.']],
   ilhadascaixas:[['Joia da fase: {v} guardados.', 'Pulo de mestre, {nome}!'], ['Descanso na rede da praia.', 'Mapa da ilha conferido.'],
-    ['Caixa explosiva: faltam {v}.', 'Cuidado com o próximo pulo, {nome}.']]
+    ['Caixa explosiva: faltam {v}.', 'Cuidado com o próximo pulo, {nome}.']],
+  girassois:[['Pincelada dourada: sobraram {v}.', 'Jarra cheia de luz, {nome}!'], ['Tinta amarela ainda secando.', 'Girando atrás do sol, sem pressa.'],
+    ['Caíram pétalas: faltam {v}.', 'Amanhã o sol volta, {nome}.']],
+  modernismo:[['Semana de arte: {v} guardados.', 'Tela nova e saldo verde, {nome}!'], ['Paisagem tropical em ordem.', 'Folhas largas, contas leves.'],
+    ['Terra seca no vaso: faltam {v}.', 'Chuva vem aí, {nome}.']],
+  criacao:[['Céu pintado, sobraram {v}.', 'Criou um mês lindo, {nome}!'], ['Túnica rosa e nuvens leves.', 'Esboço pronto, cores depois.'],
+    ['Rachadura no afresco: faltam {v}.', 'Até o teto tem conserto, {nome}.']],
+  venus:[['Chegada triunfal à praia: {v}.', 'Brilho de pérola, {nome}!'], ['Espuma branca, mar tranquilo.', 'Contando conchas na areia.'],
+    ['A pérola rolou: faltam {v}.', 'O mar devolve, {nome}.']],
+  ultimaceia:[['Banquete pago e {v} no bolso.', 'Massa no ponto, {nome}!'], ['Cálice cheio, mesa posta.', 'Jantar tranquilo na parede.'],
+    ['A massa não cresceu: faltam {v}.', 'Amanhã tem fornada nova, {nome}.']],
+  grito:[['O eco trouxe {v} de volta!', 'Susto bom, {nome}!'], ['Fiorde quieto lá embaixo.', 'Sem sustos na ponte hoje.'],
+    ['Grito ecoando: faltam {v}.', 'Tira as mãos do rosto, {nome}.']],
+  perola:[['Pérola rara: {v} no cofre.', 'Retrato perfeito, {nome}!'], ['Ateliê silencioso em Delft.', 'Um brilho discreto no canto.'],
+    ['Brinco caído: faltam {v}.', 'A luz volta à janela, {nome}.']],
+  monalisa:[['Fila no museu para ver {v}!', 'Obra-prima do mês, {nome}!'], ['Esfumado suave nas contas.', 'Posando há séculos, sem pressa.'],
+    ['Moldura torta: faltam {v}.', 'Paciência de retrato, {nome}.']],
+  medusa:[['Tesouro do templo: {v} guardados.', 'Sorriso de serpente, {nome}!'], ['Penteando as cobrinhas.', 'Ruínas calmas ao luar.'],
+    ['Estátua de pedra no saldo: faltam {v}.', 'Desfaz essa pedra, {nome}.']],
+  atenas:[['Lição aprendida, {v} poupados.', 'Sábio como uma coruja, {nome}!'], ['Escadaria cheia de ideias.', 'Pergunta boa, resposta calma.'],
+    ['A conta não fecha na lousa: faltam {v}.', 'Volta ao primeiro princípio, {nome}.']],
+  filhodohomem:[['Sonho de saldo: {v}!', 'Que ideia estranha e boa, {nome}!'], ['Mar calmo atrás do muro.', 'Tudo normal, ou quase.'],
+    ['Nuvem de chuva no terno: faltam {v}.', 'Acorda desse sonho, {nome}.']],
+  nenufares:[['Pinceladas de luz valendo {v}.', 'Jardim em festa, {nome}!'], ['Céu refletido no lago.', 'Pétalas abertas ao meio-dia.'],
+    ['Lago secando: faltam {v}.', 'A chuva enche o lago, {nome}.']],
+  relogios:[['Ampulheta cheia: {v} guardados.', 'Tempo a seu favor, {nome}!'], ['Areia caindo grão a grão.', 'Sombra longa no deserto.'],
+    ['Ponteiro atrasado: faltam {v}.', 'Acerta o relógio, {nome}.']],
+  nascersol:[['Primeira luz do dia: {v}!', 'Impressão ótima, {nome}!'], ['Reflexo laranja no porto.', 'Pinceladas soltas na manhã.'],
+    ['Neblina no saldo: faltam {v}.', 'O sol sobe de novo, {nome}.']],
+  liberdade:[['Três cores e {v} no cofre!', 'Avante, {nome}!'], ['Céu de fumaça clareando.', 'Povo unido, contas unidas.'],
+    ['Bandeira rasgada: faltam {v}.', 'A luta continua, {nome}.']],
+  babel:[['Planta aprovada, {v} de reserva.', 'Mestre de obras, {nome}!'], ['Andaimes firmes ao vento.', 'Todos falando a mesma língua.'],
+    ['Ninguém se entende na obra: faltam {v}.', 'Um andar de cada vez, {nome}.']],
+  saojorge:[['Princesa salva e {v} no cofre!', 'Lança certeira, {nome}!'], ['Cavalo branco descansando.', 'Toca do dragão em silêncio.'],
+    ['Escudo amassado: faltam {v}.', 'Volta à batalha, {nome}.']],
+  kanagawa:[['Maré cheia de {v}.', 'Onda perfeita, {nome}!'], ['Gotas de espuma no ar.', 'Xilogravura bem impressa.'],
+    ['O barco virou: faltam {v}.', 'Rema contra a onda, {nome}.']],
+  egito:[['Hieróglifo da sorte: {v} guardados.', 'Ronronando de alegria, {nome}!'], ['Dunas douradas ao entardecer.', 'Papiro das contas em dia.'],
+    ['Tumba vazia: faltam {v}.', 'Sete vidas, {nome}: tenta de novo.']],
+  brilho:[['Raio de sol raro: {v}!', 'Cem anos poupando, {nome}!'], ['Musgo verde na floresta.', 'Correndo rápido entre as árvores.'],
+    ['Nevoeiro na conta: faltam {v}.', 'A chuva passa, {nome}.']],
+  lobo:[['Gol no último minuto: {v}!', 'Uiva alto, {nome}!'], ['Cidadezinha dormindo.', 'Farejando gastos estranhos.'],
+    ['Noite de lua cheia: faltam {v}.', 'A alcateia ajuda, {nome}.']],
+  mira:[['Placar virado: {v}!', 'Melhor da rodada, {nome}!'], ['Guardando para a próxima rodada.', 'Colete ajustado, mapa conferido.'],
+    ['Sem dinheiro para o equipamento: faltam {v}.', 'A próxima rodada é nossa, {nome}.']]
 };
 // Cenas dos temas deste arquivo (juntadas a CENAS em js/cena.js): [horizonte, astro, partículas, entrada].
 const CENAS_NOVAS = {
@@ -1319,7 +1465,18 @@ const CENAS_NOVAS = {
   boinas:['trilho', 'lua', 'fumaca', 'calma'],
   monstroclassico:['castelo', 'lua', 'raios', 'forca'], reinodoscanos:['campo', 'sol', 'moedas', 'cai'],
   velocidademaxima:['serras', 'sol', 'poeira', 'vel'], lendadoheroi:['pinheiros', 'sol', 'vagalumes', 'magia'],
-  ilhadascaixas:['ilha', 'sol', 'folhas', 'cai']
+  ilhadascaixas:['ilha', 'sol', 'folhas', 'cai'],
+  girassois:['campo', 'sol', 'petalas', 'calma'], modernismo:['vila', 'sol', 'folhas', 'calma'],
+  criacao:['nenhum', 'estrela', 'estrelas', 'magia'], venus:['ondas', 'sol', 'petalas', 'magia'],
+  ultimaceia:['ruinas', 'nenhum', 'poeira', 'calma'], grito:['ponte', 'nenhum', 'nuvens', 'forca'],
+  perola:['nenhum', 'nenhum', 'bolhas', 'calma'], monalisa:['serras', 'nenhum', 'poeira', 'calma'],
+  medusa:['ruinas', 'lua', 'brasas', 'forca'], atenas:['ruinas', 'sol', 'penas', 'calma'],
+  filhodohomem:['ondas', 'nenhum', 'nuvens', 'zoom'], nenufares:['ponte', 'sol', 'petalas', 'calma'],
+  relogios:['dunas', 'eclipse', 'poeira', 'gira'], nascersol:['ondas', 'sol', 'bolhas', 'calma'],
+  liberdade:['cidade', 'nenhum', 'fumaca', 'forca'], babel:['mesas', 'sol', 'nuvens', 'forca'],
+  saojorge:['castelo', 'sol', 'brasas', 'forca'], kanagawa:['ondas', 'sol', 'gotas', 'vel'],
+  egito:['dunas', 'sol', 'poeira', 'calma'], brilho:['pinheiros', 'lua', 'chuva', 'magia'],
+  lobo:['pinheiros', 'lua', 'folhas', 'forca'], mira:['vila', 'sol', 'poeira', 'tec']
 };
 
 // ---------- Falas do assistente por tema ----------
@@ -1336,7 +1493,8 @@ const FALAS_ASSIST_CAT = {
   contos:[['Era uma vez:', 'Abri o livro de contas:'], ['E viveram com as contas em dia.', 'Fim deste capítulo.']],
   animes:[['Episódio de hoje:', 'Arco das finanças:'], ['Continua no próximo episódio!', 'O poder da poupança aumentou!']],
   series:[['Anteriormente, nas suas contas:', 'Novo episódio:'], ['Fim da temporada? Ainda não.', 'Continua no próximo episódio.']],
-  jogos:[['Missão concluída:', 'Inventário conferido:'], ['Progresso salvo.', 'Próxima fase liberada!']]
+  jogos:[['Missão concluída:', 'Inventário conferido:'], ['Progresso salvo.', 'Próxima fase liberada!']],
+  pinturas:[['Do ateliê:', 'Pincel na mão:'], ['Quadro pronto.', 'Até a próxima exposição.']]
 };
 const FALAS_ASSIST = {
   hacker:[['> consulta concluída.', '> acesso liberado ao cofre.', '> varredura de gastos ok.', '> descriptografando o saldo.'],
@@ -1707,7 +1865,52 @@ const FALAS_ASSIST = {
   lendadoheroi:[['Da floresta encantada:', 'Pela lenda antiga:', 'Do templo escondido:', 'Com a espada em mãos:'],
     ['Missão cumprida.', 'Tesouro guardado no baú.', 'O reino agradece.', 'Mais uma página da lenda.']],
   ilhadascaixas:[['Direto da ilha:', 'Entre as caixas:', 'Da praia ensolarada:', 'Do ponto salvo:'],
-    ['Fase vencida!', 'Frutas guardadas no cofre.', 'Nenhuma caixa ficou para trás.', 'Giro e economia em dia.']]
+    ['Fase vencida!', 'Frutas guardadas no cofre.', 'Nenhuma caixa ficou para trás.', 'Giro e economia em dia.']],
+  // Temas novos da 2.70
+  girassois:[['Direto do vaso de girassóis:', 'Entre pétalas amarelas:', 'Com pinceladas grossas:', 'Virado para o sol:'],
+    ['Quadro pendurado.', 'Sementes guardadas no cofre.', 'O vaso agradece a rega.', 'Amarelo e saldo em dia.']],
+  modernismo:[['Do ateliê tropical:', 'À sombra do cacto:', 'Com cores do Brasil:', 'De chapéu de palha:'],
+    ['Tela assinada.', 'Arte e contas no lugar.', 'O cacto aprova.', 'Cores vivas, saldo vivo.']],
+  criacao:[['Do teto da capela:', 'Entre nuvens pintadas:', 'Com um toque de dedo:', 'Do alto do andaime:'],
+    ['Afresco concluído.', 'Os anjos guardam o saldo.', 'Um toque e tudo em ordem.', 'Capela iluminada.']],
+  venus:[['Da concha no mar:', 'Sobre as ondas:', 'Com a brisa do mar:', 'Entre rosas no vento:'],
+    ['Pérola guardada.', 'A maré está a favor.', 'Chegamos à praia.', 'Concha fechada, saldo seguro.']],
+  ultimaceia:[['Da mesa comprida:', 'Com o pão quentinho:', 'Na parede do refeitório:', 'Com o pão repartido:'],
+    ['Mesa servida.', 'Nenhuma migalha perdida.', 'Pão e saldo bem divididos.', 'Fornada concluída.']],
+  grito:[['Da ponte ao entardecer:', 'Com as mãos no rosto:', 'Sob o céu ondulado:', 'Sem gritar desta vez:'],
+    ['Susto passou.', 'Céu laranja, saldo tranquilo.', 'Nada de pânico.', 'Eco silenciado.']],
+  perola:[['Do ateliê com janela:', 'Com o brinco de pérola:', 'Olhando por cima do ombro:', 'De turbante azul:'],
+    ['Retrato pronto.', 'A pérola segue brilhando.', 'Luz suave nas contas.', 'Pose mantida, saldo também.']],
+  monalisa:[['Do museu mais visitado:', 'Com um sorriso discreto:', 'Atrás do vidro:', 'De véu e mãos cruzadas:'],
+    ['Enigma guardado.', 'Sorriso mantido.', 'A moldura segura o saldo.', 'Obra conferida.']],
+  medusa:[['Do escudo redondo:', 'Entre cobrinhas:', 'Com olhar de pedra:', 'Do templo de mármore:'],
+    ['Gastos petrificados.', 'As cobrinhas aprovam.', 'Escudo erguido.', 'Sssaldo em dia.']],
+  atenas:[['Da escola entre colunas:', 'Depois de muito pensar:', 'Do alto da escadaria:', 'Com o pergaminho aberto:'],
+    ['Questão resolvida.', 'A coruja anotou.', 'Sabedoria e saldo juntos.', 'Aula encerrada.']],
+  filhodohomem:[['Por trás da maçã:', 'Sob o chapéu-coco:', 'Num céu que não faz sentido:', 'Do sonho mais estranho:'],
+    ['O saldo faz sentido.', 'Chapéu no lugar.', 'A maçã segue firme.', 'Sonho anotado.']],
+  nenufares:[['Do lago do jardim:', 'Sobre a folha boiando:', 'Com reflexos na água:', 'Da ponte japonesa:'],
+    ['Lago sereno.', 'Flor aberta, saldo também.', 'A libélula aprova.', 'Água limpa nas contas.']],
+  relogios:[['Do deserto sem horas:', 'Com o relógio derretendo:', 'No tempo certo:', 'Entre ponteiros moles:'],
+    ['Tempo guardado.', 'Relógio acertado.', 'Nenhum minuto perdido.', 'Tique-taque, saldo em dia.']],
+  nascersol:[['Do porto ao amanhecer:', 'Remando na névoa:', 'Com o sol nascendo:', 'De dentro do barquinho:'],
+    ['Barco ancorado.', 'Manhã clara nas contas.', 'Remos guardados.', 'O dia começou bem.']],
+  liberdade:[['Do alto da barricada:', 'Com a bandeira erguida:', 'Em nome da liberdade:', 'Atravessando a fumaça:'],
+    ['Liberdade nas contas.', 'Bandeira hasteada.', 'O povo agradece.', 'Marcha concluída.']],
+  babel:[['Do topo da torre:', 'Entre tijolos e andaimes:', 'Com o capacete no lugar:', 'Da obra sem fim:'],
+    ['Andar concluído.', 'A torre continua de pé.', 'Tijolos contados.', 'Obra no prazo.']],
+  saojorge:[['Do alto do cavalo:', 'Com a lança em riste:', 'Diante do dragão:', 'Da muralha do castelo:'],
+    ['Dragão sob controle.', 'Armadura guardada.', 'O reino está a salvo.', 'Missão de cavaleiro cumprida.']],
+  kanagawa:[['Da crista da onda:', 'Com o monte ao fundo:', 'Entre barcos e espuma:', 'Do mar agitado:'],
+    ['Onda domada.', 'Mar tranquilo de novo.', 'Espuma e saldo em ordem.', 'Barcos no porto.']],
+  egito:[['Da beira do Nilo:', 'Aos pés da pirâmide:', 'Com o colar dourado:', 'Decifrando o papiro:'],
+    ['Tesouro selado.', 'O faraó aprova.', 'Miau, saldo em ordem.', 'Areia longe do cofre.']],
+  brilho:[['Da floresta chuvosa:', 'Brilhando um pouquinho:', 'Entre pinheiros molhados:', 'Num raro dia de sol:'],
+    ['Brilho guardado.', 'A chuva não apaga o saldo.', 'Eternamente em dia.', 'Voltando para a névoa.']],
+  lobo:[['Da cidadezinha na floresta:', 'De orelhas em pé:', 'Farejando as contas:', 'Depois do treino:'],
+    ['Auuu! Tudo certo.', 'A alcateia aprova.', 'Lobo sob controle.', 'Até a próxima lua.']],
+  mira:[['Da vila no deserto:', 'Com o headset ligado:', 'Na mira:', 'Do ponto de encontro:'],
+    ['Rodada encerrada.', 'Equipe a salvo.', 'Alvo: o saldo certo.', 'Rádio desligado, missão feita.']]
 };
 
 // ---------- Tom do assistente nas outras respostas ----------
@@ -1744,7 +1947,10 @@ const TONS_CAT = {
     vazio:['Temporada sem episódios aqui.', 'Nada nessa temporada ainda.']},
   jogos:{ok:['+1 no placar!', 'Item adicionado ao inventário.'], desfeito:['Voltei ao último save.', 'Jogada desfeita.'],
     edita:['Menu de edição aberto.', 'Pausa para ajustes.'], erro:['Comando inválido.', 'Essa fase eu não conheço.'],
-    vazio:['Inventário vazio aqui.', 'Nenhum item encontrado.']}
+    vazio:['Inventário vazio aqui.', 'Nenhum item encontrado.']},
+  pinturas:{ok:['Pincelada registrada.', 'Assinado no canto da tela.'], desfeito:['Raspei a tinta.', 'Tela de volta ao esboço.'],
+    edita:['Cavalete pronto para retoques.', 'Paleta aberta, é só conferir.'], erro:['Borrei essa pergunta.', 'Essa cor eu não conheço.'],
+    vazio:['Tela em branco por aqui.', 'Nenhum quadro nesta parede.']}
 };
 const TONS = {
   hacker:{ok:['> commit feito.', '> registro gravado no cofre.'], desfeito:['> rollback executado.', '> ctrl+z aplicado.'],

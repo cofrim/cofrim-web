@@ -101,6 +101,7 @@ function drawCatPick(){
     (cut ? `<button type="button" class="more" data-onclick="F.allCats=true;drawCatPick()">Mais categorias…</button>` : '') +
     (M === CAT_INV ? '' : `<button type="button" class="more" data-onclick="novaCategoria('${M === CAT_GANHO ? 'ganho' : 'gasto'}',formCatNova)">`
       + `${I('plus', 17)}Nova categoria</button>`);
+  catSeguraNo(cp, M === CAT_INV ? '' : M === CAT_GANHO ? 'ganho' : 'gasto');
 }
 // Categoria criada pelo "+ Nova categoria" (novaCategoria): refaz a lista do campo e a escolhe; o resto do formulário fica.
 function formCatNova(k){
@@ -110,6 +111,36 @@ function formCatNova(k){
   for (const [v, t] of typeof f.options === 'function' ? f.options() : f.options) el.add(new Option(t, v));
   pickCat(k);
 }
+// Segurar uma categoria (meio segundo; no PC, o botão direito) abre Editar e Excluir por cima do formulário, sem perder
+// o que já foi preenchido. O toque que segue o segurar não escolhe a categoria.
+let catSegurou = 0;
+function catSeguraNo(cp, type){
+  let t = 0, x0 = 0, y0 = 0;
+  const solta = () => clearTimeout(t), botao = e => type && e.target.closest('[data-v]');
+  const segura = b => { solta(); if (Date.now() - catSegurou > 800) catSegurar(type, b.dataset.v); catSegurou = Date.now(); };
+  cp.onpointerdown = e => { const b = botao(e); solta(); if (b){ x0 = e.clientX; y0 = e.clientY; t = setTimeout(() => segura(b), 500); } };
+  cp.onpointermove = e => { if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) > 10) solta(); };
+  cp.onpointerup = cp.onpointercancel = cp.onpointerleave = solta;
+  cp.oncontextmenu = e => { const b = botao(e); if (b){ e.preventDefault(); segura(b); } };
+  cp.onclick = e => { if (Date.now() - catSegurou < 700) e.stopPropagation(); };
+}
+function catSegurar(type, k){
+  const c = CAT_OF[type][k];
+  if (!F || !c) return;
+  const base = BASE_CATS[type][k], aviso = 'Categoria que já vem no app: dá para editar, mas não para excluir. Para tirá-la da lista, '
+    + 'esconda em Configurações › Dados e ajustes › Categorias.';
+  showPicker(`<h3>${I(c[0], 22)} ${esc(c[1])}</h3>${base ? `<div class="hint">${aviso}</div>` : ''}
+    <div class="btns foot"><button class="btn" data-onclick="closePicker()">Cancelar</button>
+      ${base ? '' : `<button class="btn del" data-onclick="catSeguraExclui('${type}','${esc(k)}')">${I('trash', 17)}Excluir</button>`}
+      <button class="btn primary" data-onclick="novaCategoria('${type}',formCatRefaz,'','${esc(k)}')">Editar</button></div>`);
+}
+function catSeguraExclui(type, k){
+  closePicker();
+  const era = F && F.vals.cat;
+  deleteCat(type, k, alvo => F && formCatNova(era === k ? alvo : era));
+}
+// Depois de editar uma categoria: refaz as opções do formulário aberto e deixa escolhida a que já estava.
+function formCatRefaz(){ if (F) formCatNova(F.vals.cat); }
 function pickCat(v){ if (!F) return; const el = document.getElementById('f_cat'); el.value = v; el.onchange(); }
 function pickIcon(k, v){ const el = document.getElementById('f_' + k); el.value = v; el.oninput(); }
 // O que mudou entre duas versões de um lançamento, em texto ("valor R$ 10,00 → R$ 12,00"). '' se nada relevante mudou.

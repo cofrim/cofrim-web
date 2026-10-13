@@ -384,7 +384,7 @@ h1{flex-wrap:wrap;gap:4px 8px}
 h1 span{display:flex;gap:2px}
 /* Escolha de categoria e de ícone por botões */
 .catPick{display:flex;flex-wrap:wrap;gap:7px}
-.catPick button{display:flex;align-items:center;gap:6px;padding:9px 12px;border-radius:99px;background:var(--bg);border:1.5px solid var(--line);font-size:13.5px;font-weight:600;transition:background-color .15s,border-color .15s}
+.catPick button{display:flex;align-items:center;gap:6px;padding:9px 12px;border-radius:99px;background:var(--bg);border:1.5px solid var(--line);font-size:13.5px;font-weight:600;transition:background-color .15s,border-color .15s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .catPick button .ic{color:var(--brand)}
 .catPick button.more{border-style:dashed;color:var(--brand)}
 .catPick button.on{background:color-mix(in srgb,var(--brand) 22%,var(--bg));border-color:var(--brand)}

@@ -217,7 +217,7 @@ const TOUR = [
   ['people', 'Sua conta e a conta compartilhada',
     'Tudo sincroniza com a sua conta Google, com uma cópia por dia. Em Configurações > Conta compartilhada, dá para dividir os dados com outra pessoa.'],
   ['gear', 'Do seu jeito',
-    'Mais de 160 temas especiais, cada um com personagem, cenário animado e estilo de interface próprios, além de cores, moeda e país, '
+    'Mais de 180 temas especiais, cada um com personagem, cenário animado e estilo de interface próprios, além de cores, moeda e país, '
     + 'abas do menu, bloqueio com senha, widgets na tela inicial (com ou sem os valores) e o modo divertido, com mais de 100 conquistas. Tudo em Configurações.']];
 let tourAt = null; // página aberta do tutorial: {i, daConfig}, para o deslizar (tourLado)
 function openTour(i, daConfig){
