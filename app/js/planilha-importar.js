@@ -44,10 +44,7 @@ function planValor(c){
   s = s.replace(/r\$|\s| /gi, '');
   if (/^-/.test(s) || /-$/.test(s)){ neg = !neg; s = s.replace(/^-|-$/g, ''); }
   if (!/^\d[\d.,]*$/.test(s)) return null;
-  if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
-  else if (/\.\d{1,2}$/.test(s)) s = s.replace(/,/g, '');
-  else s = s.replace(/[.,]/g, '');
-  const n = parseFloat(s);
+  const n = numEscrito(s);
   return isFinite(n) ? (neg ? -n : n) : null;
 }
 // Data de uma célula: {data:'AAAA-MM-DD'} completa, {d, m} sem ano (a data "d/m" da célula ou "05/03") ou {d} (só o dia).
@@ -66,7 +63,7 @@ function planData(c, papel){
   if (/^\d{1,2}$/.test(s) && papel === 'dia') return {d:+s};
   return null;
 }
-const planDataOk = iso => /^\d{4}-\d\d-\d\d$/.test(iso) && iso >= '1990-01-01' && iso <= '2100-12-31' && !isNaN(Date.parse(iso));
+const planDataOk = iso => /^\d{4}-\d\d-\d\d$/.test(iso) && iso >= '1990-01-01' && iso <= '2100-12-31' && dataExiste(iso);
 
 // Papéis das colunas pelo nome do cabeçalho (sem acento). A ordem importa: o primeiro que casa vale.
 const PL_PAPEIS = [

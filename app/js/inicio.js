@@ -26,6 +26,7 @@ function onAtalho(){
 function iniciar(){
   seguro('lembretes', lembMigrar); // interruptor dos lembretes deste aparelho: decidido na primeira abertura (antes da sincronização)
   seguro('virada do mês', rollover);
+  locaisCifrar().catch(e => logErr('cifrar o que fica no aparelho', e));
   seguro('modo divertido', funVisit);
   // idioma para o lado nativo (widgets, avisos) e as partes fixas da página (login, bloqueio)
   seguro('idioma', () => { trAvisaNativo(); if (lang() !== 'pt'){ document.documentElement.lang = LOCALES[lang()]; trAll(); } });
@@ -54,6 +55,10 @@ document.addEventListener('visibilitychange', () => {
   // Conversa do assistente: recomeça cada vez que o app é aberto (voltar depois de mais de meio minuto fora conta como abrir).
   if (saiuEm && Date.now() - saiuEm > 30e3){ chatLog.length = 0; chatEntries.length = 0; }
   if (saiuEm && Date.now() - saiuEm >= 30 * 60e3) webVerificar(); // 30 min fora conta como abrir: procura atualização (no APK, o lado nativo procura)
+  atualizarHoje();
+});
+// Volta ao app ou virada do dia com ele aberto: data de hoje, mês atual e o que depende deles.
+function atualizarHoje(){
   now = new Date();
   curYM = ymOf(now.getFullYear(), now.getMonth());
   funVisit();
@@ -63,12 +68,17 @@ document.addEventListener('visibilitychange', () => {
   updateRates();
   refreshQuotes();
   if (!needGate()){ syncNow(); prevAvisos(); } // previsões: o dia final pode ter passado com o app fechado
-});
+}
 // Conta compartilhada com o app aberto: confere a cada minuto o que as outras pessoas lançaram (sem isso, só ao abrir e
 // ao alterar algo). Com o app fechado, quem confere é o lado nativo (ShareReceiver).
 // Na conta pessoal de quem tem conta compartilhada, só espia a planilha (espiarComp), sem misturar os dados.
-if (!window.TESTE) setInterval(() => { if (document.hidden || navigator.onLine === false || needGate()) return; if (shared()) syncNow(); else espiarComp(); },
-  60e3);
+// Também confere se virou o dia com a tela à vista (aba da web aberta à meia-noite): sem isso, now e curYM ficavam no dia
+// de antes e um lançamento feito na virada do mês ia para o mês velho.
+if (!window.TESTE) setInterval(() => {
+  if (document.hidden) return;
+  if (new Date().toDateString() !== now.toDateString()) return atualizarHoje();
+  if (navigator.onLine === false || needGate()) return; if (shared()) syncNow(); else espiarComp();
+}, 60e3);
 widgetFundoEnviar(); // fundo do tema para os widgets, se ainda não foi entregue
 avisosConfigEnviar(); // sugestões pelas notificações: a lista de apps permitidos e os bloqueados, para o lado nativo
 sugDaConta(); sugEspelhar(); // sugestões na conta, para a versão web (e o que ela fez com elas)

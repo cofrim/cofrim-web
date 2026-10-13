@@ -48,7 +48,21 @@ const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 const moneyStr = v => v == null || v === '' ? ''
   : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:moeda.casas, maximumFractionDigits:moeda.casas});
 const sum = (a, f) => a.reduce((t,x) => t + f(x), 0);
-function round2(v){ return Math.round(v*100)/100; } // função (e não const): o fixDb a usa ao abrir o app, antes desta linha
+// Número escrito com milhar e decimais de qualquer dos dois jeitos ("1.234,56", "1,234.56", "1234,5", "1.500"): o
+// separador decimal é o que vem antes de 1 ou 2 dígitos no fim; sem ele, pontos e vírgulas são de milhar.
+function numEscrito(s){
+  s = String(s);
+  if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/\.\d{1,2}$/.test(s)) s = s.replace(/,/g, '');
+  else s = s.replace(/[.,]/g, '');
+  return parseFloat(s);
+}
+// Data AAAA-MM-DD que existe no calendário (31/02 não existe).
+const dataExiste = iso => { const [y, m, d] = String(iso).split('-').map(Number), t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d; };
+// Arredonda um valor de dinheiro: centavos (2 casas), ou 3 casas nas moedas que têm (dinar do Kuwait, do Bahrein…).
+// Função (e não const): o fixDb a usa ao abrir o app, antes desta linha.
+function round2(v){ const f = moeda && moeda.casas > 2 ? 1000 : 100; return Math.round(v*f)/f; }
 const sheetOpen = () => document.getElementById('sheet').classList.contains('open');
 // Regras avisam a tela sem conhecê-la (padrão observador): depois de mudar dados sozinhas (cotação nova, arquivo de
 // anos antigos, conta trocada…), chamam telaAtualizar(); a tela se inscreve com aoAtualizar(fn) (ver assistente.js).

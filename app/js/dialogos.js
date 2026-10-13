@@ -8,11 +8,12 @@ const pickerOpen = () => document.getElementById('picker').classList.contains('o
 function showPicker(html){
   const p = document.getElementById('picker');
   p.innerHTML = html; p.scrollTop = 0;
-  p.classList.add('open'); document.getElementById('pickBg').classList.add('open');
+  p.classList.add('open'); document.getElementById('pickBg').classList.add('open'); camadaVisivel(p, true);
   a11y(p);
 }
 function closePicker(){
   document.getElementById('picker').classList.remove('open'); document.getElementById('pickBg').classList.remove('open');
+  camadaVisivel(document.getElementById('picker'), false);
   pickCb = null;
 }
 function picked(v){ const cb = pickCb; closePicker(); if (cb) cb(v); }
@@ -49,17 +50,24 @@ function pickDateP(title, cur, cb, ym){
 
 // ---------- Confirmações e avisos do app (no lugar das caixas do Android) ----------
 // ask() devolve uma promessa: true se confirmou. tell() só avisa.
-let dlgRes = null;
+// dlgFoco: o que tinha o foco antes da janela abrir (teclado e leitor de tela voltam para lá ao fechar).
+let dlgRes = null, dlgFoco = null;
 function ask(msg, ok = 'Confirmar', danger = false, only = false){
   return new Promise(res => {
     if (dlgRes) dlgRes(false);
+    else dlgFoco = document.activeElement;
     dlgRes = res;
     document.getElementById('dlgMsg').textContent = msg;
     document.getElementById('dlgBtns').innerHTML = (only ? '' : '<button class="btn" data-onclick="dlgClose(false)">Cancelar</button>') + `<button class="btn ${danger ? 'del' : 'primary'}" data-onclick="dlgClose(true)">${esc(ok)}</button>`;
     document.getElementById('dlg').hidden = false;
+    document.querySelector('#dlgBtns button:last-child').focus();
   });
 }
 const tell = msg => ask(msg, 'OK', false, true);
-function dlgClose(v){ document.getElementById('dlg').hidden = true; const r = dlgRes; dlgRes = null; if (r) r(v); }
+function dlgClose(v){
+  document.getElementById('dlg').hidden = true; const r = dlgRes, f = dlgFoco; dlgRes = null; dlgFoco = null;
+  if (f && f.focus && document.contains(f)) f.focus({preventScroll:true});
+  if (r) r(v);
+}
 // Avisos vindos do lado nativo ("Arquivo salvo", falha da câmera…) aparecem no aviso de rodapé do app.
 function onToast(text){ toast(text); }

@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <!-- Content Security Policy: o que a página pode carregar e com quem pode falar. 'unsafe-inline' porque o app usa
      data-onclick="" e style="" nas telas (e, no APK atualizado, tudo vem embutido num arquivo só). connect-src: Google
-     (Drive, Planilhas, login), GitHub (atualização), cotações, taxas do Banco Central, notícias e feriados de outros países. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; connect-src 'self' https://date.nager.at https://www.googleapis.com https://sheets.googleapis.com https://oauth2.googleapis.com https://raw.githubusercontent.com https://economia.awesomeapi.com.br https://brapi.dev https://api.bcb.gov.br https://news.google.com https://www.bing.com https://exame.com https://api.web3forms.com">
+     (Drive, Planilhas, login), GitHub (atualização), cotações, taxas do Banco Central, notícias, feriados de outros países e o local aproximado dos aparelhos (ipapi.co). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; connect-src 'self' https://date.nager.at https://ipapi.co https://www.googleapis.com https://sheets.googleapis.com https://oauth2.googleapis.com https://raw.githubusercontent.com https://economia.awesomeapi.com.br https://brapi.dev https://api.bcb.gov.br https://news.google.com https://www.bing.com https://exame.com https://api.web3forms.com">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <script src="js/largura.js"></script>
 <meta name="theme-color" content="#0f172a">
@@ -32,11 +32,11 @@
 <button class="fab chat" id="fabChat" data-onclick="go('chat')" aria-label="Assistente"></button>
 <nav class="tabs"><span class="marca" aria-hidden="true"><img src="icon.svg" alt="">Cofrim</span><div id="tabs"></div></nav>
 <div class="overlay" id="overlay" data-onclick="closeForm()"></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-hidden="true" inert></div>
 <div class="overlay" id="pickBg" data-onclick="closePicker()"></div>
-<div class="sheet" id="picker" role="dialog" aria-modal="true"></div>
-<div id="dlg" hidden><div class="box"><div id="dlgMsg"></div><div class="btns" id="dlgBtns"></div></div></div>
-<div id="snack" hidden></div>
+<div class="sheet" id="picker" role="dialog" aria-modal="true" aria-hidden="true" inert></div>
+<div id="dlg" hidden role="alertdialog" aria-modal="true" aria-labelledby="dlgMsg"><div class="box"><div id="dlgMsg"></div><div class="btns" id="dlgBtns"></div></div></div>
+<div id="snack" hidden role="status"></div>
 <!-- Modo demonstração: faixa fixa no topo (ver demoFaixa em js/entrada.js). -->
 <div id="demo" hidden role="status"></div>
 <!-- Sem internet / internet de volta (ver netMostrar em js/sincronizacao.js): discreto, não bloqueia os toques. -->
@@ -44,7 +44,7 @@
 <!-- Carregando: faixa no topo durante qualquer espera de rede e cartão com texto nas ações demoradas (ver cargaDraw). -->
 <div id="carga" hidden aria-hidden="true"><i></i></div>
 <div id="cargaCx" hidden role="status"><span></span><b></b></div>
-<div id="saveWarn" hidden data-onclick="avisoErro('gravar')" role="button">Não consegui salvar as últimas alterações neste aparelho. Toque aqui para ver o que fazer.</div>
+<div id="saveWarn" hidden data-onclick="avisoErro('gravar')" role="button" tabindex="0">Não consegui salvar as últimas alterações neste aparelho. Toque aqui para ver o que fazer.</div>
 <div id="lockAsk" hidden><div class="box">
   <button class="iconbtn x" data-onclick="answerLock(false)" aria-label="Não habilitar biometria" id="lockX"></button>
   <div class="big" id="lockIcon"></div>
@@ -113,6 +113,7 @@
 <script src="js/conta-compartilhada.js"></script>
 <script src="js/nuvem.js"></script>
 <script src="js/copias.js"></script>
+<script src="js/aparelhos.js"></script>
 <script src="js/arquivo-antigo.js"></script>
 <script src="js/entrada.js"></script>
 <script src="js/arte.js"></script>

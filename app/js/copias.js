@@ -27,7 +27,7 @@ async function syncNow(interactive){
       } // "Baixar os dados da conta"
     if (!forcar && !remote && !mesma && incompleto(null, db)) throw {status:-7};
     if (remote){
-      const cf = conflitos(db, remote, sync.at), merged = mergeDb(db, remote);
+      const aqui = semExcluidosVelhos(db, remote, sync.at), cf = conflitos(aqui, remote, sync.at), merged = mergeDb(aqui, remote);
       if (!forcar && incompleto(remote, merged)) throw {status:-7};
       if (sid) Object.assign(merged, {prefs:db.prefs, sugs:db.sugs}); // nome, aparência e sugestões são de cada pessoa
       if (canonS(merged) !== canonS(db)){
@@ -57,6 +57,7 @@ async function syncNow(interactive){
     await dailyBackup().catch(() => {}); // a cópia diária não pode derrubar a sincronização
     await syncPhotos().catch(() => {});  // comprovantes pendentes: se falhar, ficam na fila para a próxima vez
     await sheetSync().catch(() => {});   // planilha do Google ligada ao app (se houver)
+    aparelhosAtualizar().catch(e => logErr('aparelhos', e)); // a linha deste aparelho na lista da conta (js/aparelhos.js)
   } catch(e){
     // Conta compartilhada encerrada pela outra pessoa (aviso na planilha) ou planilha apagada: este aparelho volta sozinho
     // para a conta individual, ficando com uma cópia dos lançamentos.
@@ -145,6 +146,14 @@ function sairNativo(){
   if (!(temNativo('sair'))) return Promise.resolve(true);
   return new Promise(res => { window.onSair = ok => { window.onSair = null; res(ok !== false); }; nativo('sair'); });
 }
+// O que este aparelho guarda da conta fora do banco: a cópia de antes da junção, o arquivo de anos antigos, os conflitos,
+// a atividade da conta compartilhada, os avisos do sino, as sugestões do banco, o rascunho e o histórico da nuvem. Sai
+// junto com os dados ao sair da conta ou apagar tudo: quem entrar depois não pode ver nem "desfazer a junção" com eles.
+function apagarDaConta(){
+  for (const k of [BEFORE_KEY, ARCH_KEY, FILE_OK, CONFLITO_KEY, ATIV_KEY, VISTO_KEY, CENTRAL_KEY, SUG_KEY, DRAFT, NUVEM_LOG_KEY])
+    try { localStorage.removeItem(k); } catch(e){}
+  arch = null; archTried = false; conflitosMem = null;
+}
 // Sair da conta (para trocar de conta): envia o que falta, apaga os dados deste aparelho e volta ao login.
 // Os dados precisam sair do aparelho; senão, ao entrar com outra conta, eles seriam misturados aos dela.
 async function logout(){
@@ -153,13 +162,19 @@ async function logout(){
   if (canSync()){
     await syncNow();
     if (sync.err && !await ask(`Não foi possível sincronizar agora (${sync.err})\n\nSe sair mesmo assim, as alterações ainda não enviadas serão perdidas. Sair?`, 'Sair mesmo assim', true)) return;
+    await aparelhoEsquecer().catch(e => logErr('aparelhos', e)); // sai da lista de aparelhos da conta
     // O próximo login volta a perguntar qual conta usar. Sem a senha ou a biometria (bloqueio ligado), nada muda.
     if (!await sairNativo()) return;
   }
+  sairDaqui();
+}
+// Apaga os dados deste aparelho e volta ao login (logout, ou outro aparelho que pediu: aparelhoSaiuDeLonge).
+function sairDaqui(){
   clearTimeout(syncTimer);
   db.expenses.filter(x => x.photo).forEach(x => photoDelete(x.id)); // as fotos continuam na conta; aqui saem junto com os dados
   // Tema, cores, abas e o resto das preferências voltam ao padrão (fica só o idioma): a tela de login e quem entrar depois
   // não herdam o jeito de quem saiu. As preferências de cada conta voltam com ela, da conta Google.
+  apagarDaConta();
   db = fixDb({rates:db.rates, prefs:db.prefs.lang ? {lang:db.prefs.lang} : {}});
   ensurePrefs(); applyCats(); applyTheme();
   chatLog.length = 0;
@@ -194,7 +209,8 @@ async function wipeAll(semPerguntar){
   }
   clearTimeout(syncTimer); clearTimeout(retryTimer);
   db.expenses.filter(x => x.photo).forEach(x => photoDelete(x.id));
-  for (const k of [KEY, ERR_KEY, BEFORE_KEY, FUN_KEY, HIDE_KEY, VER_KEY, DRAFT]) try { localStorage.removeItem(k); } catch(e){}
+  for (const k of [KEY, ERR_KEY, FUN_KEY, HIDE_KEY, VER_KEY]) try { localStorage.removeItem(k); } catch(e){}
+  apagarDaConta();
   if (!fileStore()) idbWrite('').catch(() => {});
   if (temNativo('dadosApagar')) nativo('dadosApagar');
   db = fixDb({});

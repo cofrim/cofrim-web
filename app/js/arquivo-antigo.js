@@ -35,7 +35,7 @@ async function archiveUntil(Y, semPerguntar){
     const t = Date.now();
     for (const c of ARCH_COLS){ const ids = new Set(pick[c].map(r => r.id)); db[c] = db[c].filter(r => !ids.has(r.id)); ids.forEach(id => db.tomb[id] = t); }
     db.archUntil = novo.until; db.cfgMod = t;
-    arch = novo; try { localStorage.setItem(ARCH_KEY, JSON.stringify(novo)); } catch(e){}
+    arch = novo; if (!CIFRA_ATIVA) try { localStorage.setItem(ARCH_KEY, JSON.stringify(novo)); } catch(e){} // web: só na memória e na conta
     save(); closeForm(); render();
     await syncNow();
     toast(`${n} lançamentos arquivados.`, {dest:{k:'cfg', s:'dados'}});
@@ -79,5 +79,6 @@ function syncSection(){
   return `<label>Conta Google</label>${email ? `<div class="semTopo hint">Conectado como <b>${esc(email)}</b></div>` : ''}<div class="hint" style="margin-top:${email ? 4 : 0}px">${status}</div>
     <div class="btns"><button class="btn" data-onclick="syncNow(true)">${I('refresh')}Sincronizar agora</button><button class="btn" data-onclick="openBackups()">${I('history')}Versões salvas</button></div>
     ${pausaHtml()}${beforeHtml()}${conflitoLista().length ? `<div class="btns"><button class="btn" data-onclick="openConflitos()">${I('alert')}Editados em dois aparelhos (${conflitoLista().length})</button></div>` : ''}
+    ${aparelhosHtml()}
     <div class="btns"><button class="cresce btn danger" data-onclick="logout()">Sair ou trocar de conta</button></div>`;
 }

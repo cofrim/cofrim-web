@@ -437,6 +437,7 @@ function drawTopbar(){
   document.getElementById('topbar').innerHTML = `<b>${TABS[state.tab][1]}</b>` + (mes
     ? `<span><button data-onclick="state.month=addMonths(state.month,-1);renderIn()" aria-label="Mês anterior">‹</button><em data-onclick="pickMonth()">${cap(monthName(state.month))}</em><button data-onclick="state.month=addMonths(state.month,1);renderIn()" aria-label="Próximo mês">›</button></span>`
     : state.tab === 'resumo' ? `<span><button data-onclick="resMes(-1)" aria-label="Mês anterior">‹</button><em data-onclick="pickResumo()">${cap(monthName(resumoMes()))}</em><button data-onclick="resMes(1)" aria-label="Próximo mês">›</button></span>` : '');
+  a11y(document.getElementById('topbar')); // o mês (toque abre o seletor) também pelo teclado
 }
 // Leitor de tela e teclado: o que é clicável e não é botão passa a se anunciar como botão; setas ganham nome.
 function a11y(root){

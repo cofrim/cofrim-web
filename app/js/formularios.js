@@ -446,13 +446,15 @@ function edit(col, id){
 }
 function openRates(){ openForm('rates', db.rates); }
 let sheetKey = ''; // título da folha aberta: redesenhar a mesma folha mantém a rolagem; abrir outra volta ao topo
+// Folha ou seletor fechado sai do leitor de tela e do Tab (inert); ao abrir, volta.
+function camadaVisivel(el, aberta){ el.inert = !aberta; if (aberta) el.removeAttribute('aria-hidden'); else el.setAttribute('aria-hidden', 'true'); }
 function showSheet(html){
   const sheet = document.getElementById('sheet'), key = html.slice(0, html.indexOf('</h3>')), same = sheet.classList.contains('open') && key === sheetKey;
   const top = sheet.scrollTop;
   sheet.innerHTML = html;
   sheet.scrollTop = same ? top : 0;
   sheetKey = key;
-  sheet.classList.add('open');
+  sheet.classList.add('open'); camadaVisivel(sheet, true);
   document.getElementById('overlay').classList.add('open');
   document.body.style.overflow = 'hidden'; // a tela de trás não rola enquanto a folha está aberta
   a11y(sheet);

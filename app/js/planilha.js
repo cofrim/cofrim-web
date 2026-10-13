@@ -61,7 +61,7 @@ function sheetMonth(v){
 // Campos de um lançamento a partir de uma linha da planilha (c = células sem o ID e sem a marca). null = linha vazia.
 function sheetRead(c, col){
   const T = SHEET_TABS[col], [mes, dia, desc, cat, valor, banco] = c, p = T.pay ? 1 : 0, pay = T.pay ? c[6] : '', tipo = c[6 + p], ate = c[7 + p];
-  const value = typeof valor === 'number' ? valor : parseMoney(valor);
+  const value = typeof valor === 'number' ? valor : numEscrito(String(valor).replace(/[^\d,.-]/g, '')); // texto: "1.500" é mil e quinhentos
   if (!String(desc).trim() && !(value > 0)) return null;
   const cats = T.cats(), t = plain(String(cat).trim());
   const key = Object.keys(cats).find(k => plain(cats[k][1]) === t) || (cats[t] ? t : col === 'expenses' && desc ? guessCat(String(desc)) : 'outros');

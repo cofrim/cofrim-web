@@ -196,7 +196,10 @@ function tr(root){
     if (!p || p.closest('script,style,textarea,.notr')) continue;
     trNo(n);
   }
-  root.querySelectorAll('[placeholder],[aria-label],[title]').forEach(e => ['placeholder', 'aria-label', 'title'].forEach(a => {
+  // o próprio root também (botão refeito por outerHTML, como o sino da central, chega aqui sozinho)
+  const comAtrib = root.nodeType === 1 ? [...(root.matches('[placeholder],[aria-label],[title],[alt]') ? [root] : []),
+    ...root.querySelectorAll('[placeholder],[aria-label],[title],[alt]')] : [];
+  comAtrib.forEach(e => ['placeholder', 'aria-label', 'title', 'alt'].forEach(a => {
     const v = e.getAttribute(a); if (v){ const t = trText(v); if (t !== v) e.setAttribute(a, t); }
   }));
 }
@@ -206,9 +209,9 @@ function trNo(n){
   if (v !== n.nodeValue) n.nodeValue = v;
   trFeito.set(n, v);
 }
-// Tela inteira (troca de idioma e partes fixas do index.html: login, bloqueio, avisos).
-function trAll(){ for (const id of ['app', 'tabs', 'topbar', 'sheet', 'picker', 'dlg', 'snack', 'gate', 'lockAsk', 'saveWarn']) tr(document.getElementById(id));
-  }
+// Tela inteira (troca de idioma e partes fixas do index.html: login, bloqueio, avisos, botões flutuantes, faixas de
+// demonstração, rede e carga). O que a pessoa digitou e o que está em .notr ficam como estão (tr e trText).
+function trAll(){ tr(document.body); }
 // Tudo o que for desenhado depois passa pela troca de trechos (telas, folhas, avisos, rótulos refeitos ao digitar).
 const trObs = new MutationObserver(ms => {
   if (lang() === 'pt') return;
@@ -231,7 +234,8 @@ function setLang(l){
   document.documentElement.lang = LOCALES[l];
   if (voltar) return temNativo('recarregar') ? nativo('recarregar') : location.reload();
   // no APK, o lado nativo recarrega (a página pode ter vindo de uma atualização)
-  trCarregar(() => { render(); openSettings(); trAll(); later('avisos', () => shown(() => { scheduleReminders(); updateWidget(); })); });
+  // a faixa da demonstração é refeita (em português) para trAll traduzir de novo, também de um idioma para outro
+  trCarregar(() => { render(); openSettings(); demoFaixa(); trAll(); later('avisos', () => shown(() => { scheduleReminders(); updateWidget(); })); });
 }
 // Com os dados já lidos (APK, ou navegador sem cifra) e o app em inglês ou espanhol, as traduções entram aqui mesmo, antes
 // dos próximos arquivos do index.html: a abertura segue na mesma ordem, já no idioma certo. Senão, trCarregar (inicio.js).

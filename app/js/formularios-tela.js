@@ -128,7 +128,7 @@ function catSegurar(type, k){
   const c = CAT_OF[type][k];
   if (!F || !c) return;
   const base = BASE_CATS[type][k], aviso = 'Categoria que já vem no app: dá para editar, mas não para excluir. Para tirá-la da lista, '
-    + 'esconda em Configurações › Dados e ajustes › Categorias.';
+    + 'esconda em Configurações › Categorias.';
   showPicker(`<h3>${I(c[0], 22)} ${esc(c[1])}</h3>${base ? `<div class="hint">${aviso}</div>` : ''}
     <div class="btns foot"><button class="btn" data-onclick="closePicker()">Cancelar</button>
       ${base ? '' : `<button class="btn del" data-onclick="catSeguraExclui('${type}','${esc(k)}')">${I('trash', 17)}Excluir</button>`}
@@ -170,7 +170,7 @@ function closeForm(){
   welcomeOn = false;
   closePicker();
   try { localStorage.removeItem(DRAFT); } catch(e){}
-  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open'); camadaVisivel(document.getElementById('sheet'), false);
   document.getElementById('overlay').classList.remove('open');
   document.body.style.overflow = '';
   F = null;

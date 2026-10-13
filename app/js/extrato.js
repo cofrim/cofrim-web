@@ -43,12 +43,12 @@ const GUESS = [['alimentacao', /mercado|supermerc|padaria|restaur|ifood|lanch|pi
 const guessCat = d => { const t = plain(d), g = GUESS.find(([, re]) => re.test(t));
   if (db.catMemo[t] && CAT_GASTO[db.catMemo[t]]) return db.catMemo[t];
   return g && !(g[0] === 'alimentacao' && /mercado ?(livre|pago)/.test(t)) ? g[0] : /mercado ?livre/.test(t) ? 'compras' : 'outros'; };
-const parseNum = s => { s = String(s).replace(/[R$\s"]/g, ''); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); return parseFloat(s); };
+const parseNum = s => numEscrito(String(s).replace(/[R$\s"]/g, ''));
 function parseDate(s){
-  let m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  m = String(s).trim().match(/^(\d{4})-?(\d{2})-?(\d{2})/);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+  let m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})/), d = '';
+  if (m) d = `${m[3]}-${m[2]}-${m[1]}`;
+  else if ((m = String(s).trim().match(/^(\d{4})-?(\d{2})-?(\d{2})/))) d = `${m[1]}-${m[2]}-${m[3]}`;
+  return d && dataExiste(d) ? d : '';
 }
 // Devolve [{date:'AAAA-MM-DD', desc, amount}] (amount negativo = saída) ou null se o formato não foi reconhecido.
 function parseStatement(text){

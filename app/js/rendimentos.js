@@ -27,6 +27,9 @@ function yieldOf(ym){
 // Virada de mês: o que o app atualiza sozinho. Roda ao abrir, ao voltar para a tela e após sincronizar.
 // - Parcelas: as parcelas dos meses que já passaram contam como pagas (o botão fica para correções).
 // - Renda fixa: o valor recebe o rendimento do mês e o aporte mensal, mês a mês.
+// Não marca os registros como editados (touch): um aparelho que ficou dias sem sincronizar roda isto ao abrir, antes
+// de juntar com a nuvem, e a cópia velha dele passaria a ser "a mais nova", desfazendo o que foi feito nos outros. As
+// contas daqui saem das mesmas informações (autoYM, accYM) e são refeitas depois de cada junção.
 function rollover(){
   let changed = false;
   const hadLog = {...db.yieldLog};
@@ -35,7 +38,7 @@ function rollover(){
     if (p.autoYM >= curYM) continue;
     const expected = Math.max(0, Math.min(p.n, monthDiff(curYM, p.start)));
     if (expected > p.paid) p.paid = expected;
-    p.autoYM = curYM; touch(p); changed = true;
+    p.autoYM = curYM; changed = true;
   }
   for (const v of db.investments){
     if (v.ticker) continue; // ações e moedas seguem a cotação
@@ -47,7 +50,7 @@ function rollover(){
       v.value = v.value * (1 + i) + (v.monthly || 0);
     }
     v.value = round2(v.value);
-    v.accYM = curYM; touch(v); changed = true;
+    v.accYM = curYM; changed = true;
   }
   if (changed) save();
   return changed;

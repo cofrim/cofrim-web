@@ -96,7 +96,7 @@ const showUndo = (text, fn, o) => showAcao(text, 'Desfazer', fn, o);
 function showAcao(text, botao, fn, o = {}){
   const s = document.getElementById('snack'), foi = centralRegistra(text, o);
   undoFn = foi && botao === 'Desfazer' ? () => { centralAdd('Desfeito: ' + text, 'info'); fn(); } : fn;
-  s.innerHTML = `${text} <button data-onclick="const f=undoFn;hideSnack();f()">${botao}</button>`;
+  s.innerHTML = `${esc(text)} <button data-onclick="const f=undoFn;hideSnack();f()">${botao}</button>`; // text pode trazer dado digitado
   s.hidden = false;
   clearTimeout(snackTimer);
   snackTimer = setTimeout(hideSnack, 6000);

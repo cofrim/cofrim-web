@@ -74,7 +74,7 @@ let theme = {h:245, s:80, dark:false}; // preenchido por applyTheme
 const shade = (i, n) => hslHex(theme.h, theme.s * .9, theme.dark ? 76 - i * 44 / Math.max(n, 1) : 34 + i * 44 / Math.max(n, 1));
 const MODES = {auto:'Automático', light:'Claro', dark:'Escuro'};
 // Blocos disponíveis na aba Resumo: [nome, aparece por padrão]. O conteúdo de cada um está em viewResumo.
-const RESUMO = {mascote:['Porquinho (modo divertido)', 1, 1], atalhos:['Atalhos para adicionar', 1, 1],
+const RESUMO = {mascote:['Personagem (modo divertido)', 1, 1], atalhos:['Atalhos para adicionar', 1, 1],
   destaque:['Gastos do mês e do ano', 1, 1], rosca:['Gastos por categoria no mês', 1, 1], dias:['Calendário de gastos do mês', 1, 1],
   alertas:['Contas a vencer e avisos de orçamento', 1], saldo:['Saldo do ano', 1], grafico:['Gráfico de ganhos e gastos', 1],
   numeros:['Média de gastos e total investido', 1], previsao:['Previsão dos próximos meses', 1],
@@ -168,6 +168,23 @@ const blocks = (tab, B) => layoutOf(tab).filter(b => b.on && B[b.k]).map(b => {
   try { const h = B[b.k](); return h ? `<i class="ancora" id="b-${tab}-${b.k}"></i>${h}` : ''; }
   catch(e){ logErr(`bloco ${tab}.${b.k}`, e); return `<div class="card hint u-mb12">Não foi possível mostrar esta parte da tela. O erro ficou registrado em Configurações › Diagnóstico.</div>`; }
 }).join('') + '<i class="ancora"></i>'; // marca o fim do último bloco (explorarBloco para nela)
+// Efeitos das animações neste aparelho (não sincroniza: cada celular tem o seu): 'auto' (o app decide), 'completo' ou
+// 'leve'. Leves: a cena continua, mais vazia (menos partículas, um objeto do tema), e sai o que o celular redesenha a
+// cada quadro (desfoque da barra de baixo, textura e filtro do cenário, personagem e cartões do modo divertido se
+// mexendo); html[data-efeitos=leve], no app.css. Automático (o padrão): leves num celular simples (até 4 GB de memória
+// ou até 4 núcleos); num celular melhor em que a cena perdeu quadros em duas aberturas seguidas (ruins, contadas por
+// cenaMedir em js/cena.js), o app pergunta se pode deixá-las leves.
+// Na demonstração nada é gravado no aparelho (dados.js): a escolha fica na memória (leveDemo) até sair dela.
+const LEVE_KEY = 'financas-leve';
+let leveDemo = null;
+function leveCfg(){
+  let c = demoOn ? leveDemo : null;
+  if (!c) try { c = JSON.parse(localStorage.getItem(LEVE_KEY)); } catch(e){}
+  return {modo:c && ['auto', 'completo', 'leve'].includes(c.modo) ? c.modo : 'auto', ruins:c && c.ruins > 0 ? +c.ruins : 0};
+}
+function leveGuardar(c){ if (demoOn) leveDemo = c; try { localStorage.setItem(LEVE_KEY, JSON.stringify(c)); } catch(e){} }
+const celularSimples = () => (navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4;
+function efeitosLeves(){ const c = leveCfg(); return c.modo === 'leve' || (c.modo === 'auto' && celularSimples()); }
 function applyTheme(){
   const p = db.prefs; // tema especial: define as cores e se é claro ou escuro
   if (!moeda || moeda.cod !== (p.moeda || 'BRL')) definirMoeda(p.moeda || 'BRL'); // a moeda dos valores (util.js)
@@ -181,6 +198,7 @@ function applyTheme(){
   const st = document.documentElement.style;
   document.documentElement.dataset.mode = dark ? 'dark' : 'light';
   document.documentElement.dataset.anim = p.anim ? 'on' : 'off';
+  document.documentElement.dataset.efeitos = efeitosLeves() ? 'leve' : ''; // ver leveCfg
   document.documentElement.dataset.fun = p.fun ? 'on' : 'off';
   document.documentElement.dataset.skin = skin ? p.skin : '';
   document.documentElement.dataset.temaEscuro = skEscuro ? 'sim' : ''; // tema claro no modo escuro: cenário mais escuro (app.css)

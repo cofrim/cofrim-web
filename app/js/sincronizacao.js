@@ -398,6 +398,15 @@ function mergeDb(a, b){
   return out;
 }
 // Texto para comparar dois estados sem depender da ordem das chaves.
+// Aparelho que ficou mais de 90 dias sem sincronizar: as marcas de exclusão (tomb) dessa época já foram descartadas
+// (mergeDb guarda 90 dias), então um lançamento que só existe aqui e não mudou desde a última sincronização foi excluído
+// (ou arquivado) em outro aparelho: ele não volta. O que foi criado ou mudado aqui depois da última sincronização fica.
+function semExcluidosVelhos(a, b, desde){
+  if (!desde || desde > Date.now() - 90*864e5) return a;
+  const out = {...a};
+  for (const c of COLS){ const la = new Set(b[c].map(r => r.id)); out[c] = a[c].filter(r => la.has(r.id) || (r.u || 0) > desde); }
+  return out;
+}
 const SYNCED = [...COLS, 'tomb', 'prefs', 'budgets', 'cardClose', 'cardDue', 'cardAcc', 'cardLimit', 'archUntil', 'cats', 'catMemo', 'yieldLog',
   'netLog', 'membros', 'sugs'];
 const canon = d => JSON.stringify(SYNCED.map(k => d[k]),
@@ -416,7 +425,12 @@ function incoming(a, m){
   return n;
 }
 const BEFORE_KEY = 'financas-antes';
-function keepBefore(motivo){ try { localStorage.setItem(BEFORE_KEY, JSON.stringify({at:Date.now(), db:JSON.stringify(db), motivo:motivo || ''})); } catch(e){} }
+// Na versão web (CIFRA_ATIVA), a cópia vai cifrada como o banco (só a hora e o motivo ficam à vista, para o botão).
+function keepBefore(motivo){
+  const o = {at:Date.now(), motivo:motivo || ''}, txt = JSON.stringify(db);
+  const guarda = d => { try { localStorage.setItem(BEFORE_KEY, JSON.stringify({...o, db:d})); } catch(e){} };
+  if (CIFRA_ATIVA) gravarCifrado(txt, guarda); else guarda(txt);
+}
 function beforeInfo(){ try { return JSON.parse(localStorage.getItem(BEFORE_KEY)); } catch(e){ return null; } }
 async function restoreBefore(){
   if (demoBloqueia()) return;
@@ -425,7 +439,7 @@ async function restoreBefore(){
   const quando = new Date(o.at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'});
   if (!await ask(o.motivo === 'importar' ? `Voltar este aparelho ao estado de ${quando}, antes da importação do arquivo?\nO que veio do arquivo será desfeito em todos os aparelhos.`
     : `Voltar este aparelho ao estado de ${quando}, antes da última junção com a conta?\nO que veio de outros aparelhos nessa junção será desfeito em todos eles.`, 'Voltar', true)) return;
-  applySnapshot(fixDb(JSON.parse(o.db)));
+  applySnapshot(fixDb(JSON.parse(ehCifrado(o.db) ? await decifrarTexto(o.db) : o.db)));
   try { localStorage.removeItem(BEFORE_KEY); } catch(e){}
   syncNow();
 }
@@ -462,8 +476,27 @@ function conflitos(a, b, desde){
   }
   return out;
 }
-function conflitoLista(){ try { return JSON.parse(localStorage.getItem(CONFLITO_KEY)) || []; } catch(e){ return []; } }
-const conflitoGuardar = l => { try { localStorage.setItem(CONFLITO_KEY, JSON.stringify(l.slice(-20))); } catch(e){} };
+// Na versão web, a lista fica cifrada no localStorage e decifrada aqui (conflitosMem), lida na abertura (conflitosDecifrar).
+let conflitosMem = null;
+function conflitoLista(){
+  if (conflitosMem) return conflitosMem.slice();
+  let t = null; try { t = localStorage.getItem(CONFLITO_KEY); } catch(e){}
+  try { return t && !ehCifrado(t) ? JSON.parse(t) || [] : []; } catch(e){ return []; }
+}
+const conflitoGuardar = l => { l = l.slice(-20);
+  const guarda = t => { try { localStorage.setItem(CONFLITO_KEY, t); } catch(e){} };
+  if (CIFRA_ATIVA){ conflitosMem = l; gravarCifrado(JSON.stringify(l), guarda); } else guarda(JSON.stringify(l)); };
+// Abertura da versão web: decifra a lista de conflitos e a cópia de antes da junção guardadas em texto por versões
+// antigas passam a ficar cifradas; o arquivo de anos antigos deixa de ficar no aparelho (vem da conta quando precisa).
+async function locaisCifrar(){
+  if (!CIFRA_ATIVA) return;
+  let t = null; try { t = localStorage.getItem(CONFLITO_KEY); } catch(e){}
+  if (t && ehCifrado(t)) try { conflitosMem = JSON.parse(await decifrarTexto(t)); } catch(e){ conflitosMem = []; }
+  else if (t) conflitoGuardar(conflitoLista());
+  const o = beforeInfo();
+  if (o && o.db && !ehCifrado(o.db)) gravarCifrado(o.db, d => { try { localStorage.setItem(BEFORE_KEY, JSON.stringify({...o, db:d})); } catch(e){} });
+  try { localStorage.removeItem(ARCH_KEY); } catch(e){}
+}
 function conflitoAvisar(novos){
   conflitoGuardar([...conflitoLista().filter(x => !novos.some(n => n.id === x.id)), ...novos]);
   showAcao(novos.length === 1 ? '1 lançamento foi editado em dois aparelhos. Mantivemos a edição mais recente.'

@@ -805,9 +805,17 @@ html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #
 .cenaFundo{position:absolute;left:0;right:0;top:0;overflow:hidden}
 .cfTira{display:flex;height:100%;width:max-content;will-change:transform;animation:cfDesliza var(--d) linear infinite}
 .cfTira.dir{animation-direction:reverse}
-.cfTira img{height:100%;width:var(--w);flex:none;display:block}
-.cfTira img.esp{transform:scaleX(-1)}
-@keyframes cfDesliza{to{transform:translate3d(calc(var(--w) * -2),0,0)}}
+/* Cada cópia num <i> que corta 3 px de cada lado da imagem e encosta 1 px por cima da seguinte: sem a linha fina na
+   emenda (borda da imagem misturada com o fundo em densidade de tela não inteira, ou 2–3 px de borda no próprio cenário). */
+.cfTira i{flex:none;width:var(--w);height:100%;overflow:hidden;margin-right:-1px}
+.cfTira i.esp{transform:scaleX(-1)}
+.cfTira img{height:100%;width:calc(var(--w) + 6px);margin-left:-3px;display:block}
+@keyframes cfDesliza{to{transform:translate3d(calc((var(--w) - 1px) * -2),0,0)}}
+/* Cenário centrado (temas com o assunto no meio e os lados vazios, modo "centro" no temas.json): uma imagem só, que não
+   desliza; balança ±1,5% e respira de 1 a 1,06 sem nunca mostrar a borda (no zoom 1 ela fica parada no meio). */
+.cfCentro{position:absolute;inset:0;will-change:transform;animation:cfRespira var(--d) ease-in-out infinite alternate}
+.cfCentro img{width:100%;height:100%;object-fit:cover;display:block}
+@keyframes cfRespira{0%{transform:translate3d(-1.5%,0,0) scale(1.06)}50%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(1.5%,0,0) scale(1.06)}}
 .cenaObj{position:absolute;inset:0 0 auto 0;height:340px;overflow:hidden}
 .cenaObj i{position:absolute;display:block;will-change:transform}
 .cenaObj img{width:100%;height:100%;object-fit:contain;display:block}
@@ -889,10 +897,6 @@ html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #
 .graf .chart .col{border-radius:12px;padding:6px 0 4px;gap:6px}
 .graf .chart .bars{gap:3px}
 .graf .chart .bars>i{width:44%;max-width:14px;border-radius:7px 7px 2px 2px;min-height:3px}
-.graf .chart .bars .gas{background:linear-gradient(180deg,var(--out),color-mix(in srgb,var(--out) 55%,var(--card)))}
-.graf .chart .bars .gan{background:linear-gradient(180deg,var(--in),color-mix(in srgb,var(--in) 55%,var(--card)))}
-.graf .chart .bars .rend{background:var(--brand)}
-.graf .chart .col.fut .bars{opacity:.4}
 .graf .chart .col.atual small{color:var(--text);font-weight:700}
 .graf .chart .col.atual::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--brand);margin-top:-3px}
 .graf .chart .col.sel{background:color-mix(in srgb,var(--brand) 14%,transparent)}
@@ -919,20 +923,6 @@ html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #
 .hero b.hIn{color:#4ade80}
 .hero b.hOut{color:#f87171}
 .hero .big{color:#fff}
-/* 1.60: ganhos e gastos do ano em gráfico de linha */
-.graf .chart.linha{height:190px;gap:0;align-items:stretch}
-.graf .chart.linha svg{position:absolute;left:0;top:0;width:100%;height:calc(100% - 24px);overflow:visible;pointer-events:none}
-.graf .chart.linha .grid{top:0;bottom:24px}
-.graf .chart.linha .col{padding:0;gap:0;border-radius:10px}
-.graf .chart.linha .bars{display:block;position:relative;flex:1;width:100%}
-.graf .chart.linha .bars>i.pt{position:absolute;left:50%;width:10px;height:10px;max-width:none;min-height:0;border-radius:50%;transform:translate(-50%,50%);border:2px solid var(--card);box-sizing:border-box}
-.graf .chart.linha .pt.gan{background:var(--in)}
-.graf .chart.linha .pt.gas{background:var(--out)}
-.graf .chart.linha .col.fut .bars{opacity:.55}
-.graf .chart.linha .col.sel .pt{width:13px;height:13px}
-.graf .chart.linha small{height:24px;line-height:24px}
-.graf .chart.linha .col.atual::after{display:none}
-.graf .chart.linha .col.atual small{color:var(--brand)}
 /* 1.61: ganhos e gastos do ano em curvas suaves (linha cheia + pontilhada, anel e etiqueta no mês em destaque) */
 .grafTit{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
 .grafTit span{font-weight:600;letter-spacing:0}
@@ -1436,3 +1426,19 @@ html[data-troca=seriado] #app.enter::after{bottom:0;transform-origin:bottom}
 /* Assinaturas e contas fixas (openSubs): "por ano" embaixo do valor de cada item. */
 .porAno{display:block;font-weight:500;color:var(--muted);text-align:right}
 .subsParte+.subsParte{margin-top:16px}
+/* Efeitos leves (efeitosLeves, em js/aparencia.js: celular simples, quadros perdidos ou escolhido em Configurações ›
+   Aparência › Animações). A cena continua, com menos partículas e um objeto só (js/cena.js); sai o que o celular
+   redesenha a cada quadro: o desfoque atrás da barra de baixo, a textura e o filtro do cenário (no modo escuro, um véu
+   preto parado faz o papel do filtro), o personagem respirando, os cartões do modo divertido e as trocas de tela com
+   filtro ou recorte, que viram um esmaecer curto. */
+html[data-efeitos=leve] .tabs{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--card) 96%,transparent)}
+html[data-efeitos=leve] #cena::after{display:none}
+html[data-efeitos=leve][data-tema-escuro=sim] #cena{filter:none}
+html[data-efeitos=leve][data-tema-escuro=sim] #cena::after{display:block;background:#000;opacity:.55}
+html[data-efeitos=leve] :is(.pig,.pig *,.hero){animation:none!important}
+@media (prefers-reduced-motion:no-preference){html[data-efeitos=leve][data-anim=on] #app.enter{animation:trLeve .18s ease-out!important}}
+html[data-efeitos=leve] #app.enter::before,html[data-efeitos=leve] #app.enter::after{display:none!important}
+@keyframes trLeve{from{opacity:0}}
+/* Aparelhos ligados à conta (Configurações › Conta e sincronização, js/aparelhos.js). */
+.aparelho small{display:block;color:var(--muted);margin-top:2px}
+.aparelho small.in,.aparelho small.warn{font-weight:600}

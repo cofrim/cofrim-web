@@ -113,10 +113,9 @@ function abertura(){
 }
 // A entrada dura 0,9 s e a saída 0,3 s (um toque pula). As coreografias do app.css foram desenhadas mais longas (1,5 s
 // com as imagens do tema, 1,15 s com o desenho): rodam aceleradas por igual, só com transform e opacity, que o
-// celular anima fora do processamento da página. Celular simples (até 4 GB de memória): versão leve, sem o objeto
-// do tema, sem sombras e com o nome inteiro de uma vez (data-leve, no app.css).
+// celular anima fora do processamento da página. Com os efeitos leves (efeitosLeves, em js/aparencia.js): versão leve,
+// sem o objeto do tema, sem sombras e com o nome inteiro de uma vez (data-leve, no app.css).
 const ABRE_ENTRA = 900, ABRE_SAI = 300;
-const aberturaLeve = () => (navigator.deviceMemory || 8) <= 4;
 // Acelera as animações do elemento (e das partes dele) para terminarem em ms.
 function abreRitmo(anims, ms){
   const fim = a => a.effect.getComputedTiming().endTime, umaVez = anims.filter(a => fim(a) !== Infinity); // as que se repetem (piscar) ficam
@@ -125,7 +124,7 @@ function abreRitmo(anims, ms){
 }
 function aberturaMostrar(el){
   const sk = db.prefs.skin || '', comMascote = sk || db.prefs.fun, nome = temNativo('iconeNome') && APP_NOMES[nativo('iconeNome')] || 'Cofrim';
-  if (aberturaLeve()) el.dataset.leve = '';
+  if (efeitosLeves()) el.dataset.leve = '';
   if (sk && temaImgsProntas(sk)) aberturaImg(el, sk, nome);
   else {
     el.dataset.g = sk ? cenaDe(sk)[3] : ''; // o jeito de entrar de cada tema vem da cena dele (js/cena.js)

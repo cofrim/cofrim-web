@@ -43,7 +43,7 @@ function ensureArchive(){
   if (!archTried && canSync() && sync.on){
     archTried = true;
     driveList("name='arquivo.json'").then(f => f[0] ? driveGet(f[0].id) : null)
-      .then(a => { if (a){ arch = a; try { localStorage.setItem(ARCH_KEY, JSON.stringify(a)); } catch(e){} } })
+      .then(a => { if (a){ arch = a; if (!CIFRA_ATIVA) try { localStorage.setItem(ARCH_KEY, JSON.stringify(a)); } catch(e){} } }) // web: só na memória
       .catch(() => {}).finally(() => telaAtualizar());
   }
   return false;

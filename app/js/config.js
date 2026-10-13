@@ -69,9 +69,10 @@ function openSettings(sec){
     ${temNativo('girar') ? `<label>Girar a tela com o celular</label>
     <div class="semTopo btns">${[[true,'Sim'],[false,'Não, sempre em pé']].map(([v,t]) => `<button class="btn ${!!nativo('girarLigado') === v ? 'primary' : ''}" data-onclick="nativo('girar', ${v});openSettings()">${t}</button>`).join('')}</div>` : ''}
     <label>Animações</label>
-    <div class="semTopo btns">${[[true,'Ligadas'],[false,'Desligadas']].map(([v,t]) => `<button class="btn ${p.anim === v ? 'primary' : ''}" data-onclick="setPref('anim',${v})">${t}</button>`).join('')}</div>
-    <label>Cor dos ícones das categorias</label>
-    <div class="semTopo btns">${[[false,'Do tema'],[true,'Uma cor por categoria']].map(([v,t]) => `<button class="btn ${!!p.catColor === v ? 'primary' : ''}" data-onclick="setPref('catColor',${v})">${t}</button>`).join('')}</div>
+    <div class="semTopo btns">${[['auto','Automáticas'],['completo','Completas'],['leve','Leves'],['off','Desligadas']].map(([v,t]) => `<button class="btn
+      ${(p.anim ? leveCfg().modo : 'off') === v ? 'primary' : ''}" data-onclick="setEfeitos('${v}')">${t}</button>`).join('')}</div>
+    <div class="hint">Leves: o cenário continua, com menos coisas se mexendo, para ficar fluido num celular mais simples. Vale só para este aparelho.</div>
+    ${p.anim && leveCfg().modo === 'auto' && efeitosLeves() ? '<div class="hint"><b>Neste celular, as animações estão leves.</b></div>' : ''}
     <label>Modo divertido</label>
     <div class="semTopo btns">${[[true, I('sparkle') + 'Ligado'],[false,'Desligado']].map(([v,t]) => `<button class="btn ${p.fun === v ? 'primary' : ''}" data-onclick="setPref('fun',${v})">${t}</button>`).join('')}</div>
     <div class="hint">Mascote, conquistas e recados bem-humorados.</div>
@@ -85,6 +86,12 @@ function openSettings(sec){
     ${WEB_APP ? '<div class="hint">No iPhone, adicione de novo à Tela de Início para trocar o ícone.</div>' : ''}
     ${TEMA_CATS.map(([c, nome, ks]) => `<details class="grp" ${ks.includes(p.skin) || (!p.skin && c === 'estilos') ? 'open' : ''}><summary>${nome}<small>${ks.length}</small>${I('chev')}</summary>
       <div class="icoGrid t3">${ks.map(k => `<button class="${p.skin === k ? 'on' : ''}" data-onclick="setSkin('${k}')"><span class="temaM" style="background:linear-gradient(135deg,${SKINS[k][4]},${SKINS[k][5]})">${mascoteEm(k, 'ok', 0, 0, 46)}${temaMiniatura(k)}</span><small>${SKINS[k][0]}</small></button>`).join('')}</div></details>`).join('')}`],
+  ['categorias', 'tag', 'Categorias', 'Criar, renomear, esconder e cores', `
+    <div class="semTopo btns"><button class="btn" data-onclick="openCats()">${I('tag')}Criar, renomear ou esconder categorias</button></div>
+    <div class="hint">Na hora de lançar também dá: "+ Nova categoria" no fim da lista e, segurando uma categoria, Editar e Excluir.</div>
+    <label>Cor dos ícones</label>
+    <div class="semTopo btns">${[[false,'Do tema'],[true,'Uma cor por categoria']].map(([v,t]) => `<button class="btn ${!!p.catColor === v ? 'primary' : ''}" data-onclick="setPref('catColor',${v})">${t}</button>`).join('')}</div>
+    `],
   ['menu', 'sliders', 'Menu de baixo', 'Ordem das abas', `
     <div class="semTopo hint">O Resumo fica sempre no menu.</div>
     <div>${p.tabs.map((t,i) => { if (t === 'chat' || (WEB_APP && t === 'noticias')) return ''; const off = p.tabsOff.includes(t);
@@ -187,11 +194,9 @@ function openSettings(sec){
       <button class="btn" data-onclick="sugRetratoVer()">${I('eye', 20)}Ver o que vai</button></div>
     <div class="hint">O retrato mostra o que estava na tela em texto, com valores, datas, nomes e descrições trocados por •••. Num problema, vai junto
       também o Diagnóstico do app (versão, aparelho e erros, sem os seus dados), para achar a causa mais rápido.</div>`],
-  ['dados', 'box', 'Dados e ajustes', 'Categorias, backup e lixeira', `
+  ['dados', 'box', 'Dados e ajustes', 'Backup, lixeira e planilha', `
     <label>Investimentos</label>
     <div class="semTopo btns"><button class="btn" data-onclick="openRates()">${I('trend')}Taxas de referência (CDI, Selic, IPCA)</button></div>
-    <label>Categorias</label>
-    <div class="semTopo btns"><button class="btn" data-onclick="openCats()">${I('tag')}Criar, renomear ou esconder categorias</button></div>
     ${archHtml()}
     <label>Lixeira</label>
     <div class="semTopo btns"><button class="btn" data-onclick="openTrash()">${I('trash')}Lançamentos excluídos (${db.trash.length})</button></div>
@@ -401,6 +406,7 @@ function diagTextoBruto(){
     `Sincronização: ${canSync() ? (sync.on ? 'ligada' : 'desligada') : 'indisponível'} · última: ${sync.at ? new Date(sync.at).toLocaleString('pt-BR') : 'nunca'} · erro: ${sync.err || 'nenhum'}`,
     `Fotos na fila: ${sync.up.length} para enviar, ${sync.del.length} para apagar`,
     `Preferências: tema ${db.prefs.mode}/${db.prefs.color}, animações ${db.prefs.anim ? 'sim' : 'não'}, modo divertido ${db.prefs.fun ? 'sim' : 'não'}, abas escondidas ${db.prefs.tabsOff.join(',') || 'nenhuma'}`,
+    `Animações neste aparelho: ${leveCfg().modo}, efeitos leves ${efeitosLeves() ? 'sim' : 'não'} · memória ${navigator.deviceMemory || '?'} GB · ${navigator.hardwareConcurrency || '?'} núcleos · aberturas ruins ${leveCfg().ruins}`,
     `Último fechamento por erro: ${(() => { const e = temNativo('ultimoErro') ? String(nativo('ultimoErro')) : ''; return e ? new Date(+e.split('|')[0]).toLocaleString('pt-BR') + ' — ' + e.slice(e.indexOf('|') + 1, 1500) : 'nenhum registrado'; })()}`,
     `Conferências da conta compartilhada com o app fechado: ${(() => { const h = temNativo('compartHist') ? String(nativo('compartHist')) : ''; return h ? '\n' + h.split('\n').map(l => { const i = l.indexOf('|'); return '  ' + new Date(+l.slice(0, i)).toLocaleString('pt-BR') + ' — ' + l.slice(i + 1); }).join('\n') : 'nenhuma registrada'; })()}`,
     '', `Erros registrados (${errs.length}):`,
@@ -484,7 +490,7 @@ function openCats(){
     ${ordem.map((g, i) => `<details class="grp" ${catsOpen.has(g) ? 'open' : ''} data-ontoggle="catsOpen[this.open ? 'add' : 'delete'](this.dataset.g)" data-g="${g}"><summary>${g}<small>${groups[g].length}</small>${I('chev')}</summary>${groups[g].map(([k, c]) => row('gasto', k, c)).join('')}</details>`).join('')}
     <label>Ganhos</label>${novo('ganho')}
     <details class="grp" ${catsOpen.has('Ganhos') ? 'open' : ''} data-ontoggle="catsOpen[this.open ? 'add' : 'delete']('Ganhos')"><summary>Categorias de ganho<small>${Object.keys(CAT_GANHO).length}</small>${I('chev')}</summary>${Object.entries(CAT_GANHO).map(([k, c]) => row('ganho', k, c)).join('')}</details>
-    <div class="btns foot"><button class="btn primary" data-onclick="openSettings('dados')">Voltar</button></div>`);
+    <div class="btns foot"><button class="btn primary" data-onclick="openSettings('categorias')">Voltar</button></div>`);
 }
 // Grava uma categoria (nova com k = '', ou já existente) e refaz as listas; devolve a chave. Usada pela tela de
 // categorias (formulário catEdit) e pela criação rápida (novaCategoria).
@@ -562,7 +568,7 @@ async function deleteCat(type, k, depois = openCats){
   delete db.cats[type][k];
   db.tomb['cat:' + type + ':' + k] = Date.now(); // a exclusão vale nos outros aparelhos (ver mergeDb)
   db.cfgMod = Date.now(); applyCats(); save(); render(); depois(alvo);
-  toast('Categoria excluída.', {dest:{k:'cfg', s:'dados'}});
+  toast('Categoria excluída.', {dest:{k:'cfg', s:'categorias'}});
 }
 function toggleCat(type, k){
   db.cats[type][k] = Object.assign(db.cats[type][k] || {}, {hidden:!CAT_OF[type][k][3]});
@@ -582,6 +588,13 @@ const porNome = (a, b) => a[1].localeCompare(b[1], 'pt-BR');
 function escolherMoeda(){ pickList('Moeda', MOEDAS.map(c => [c, moedaNome(c)]).sort(porNome), db.prefs.moeda || 'BRL', c => setPref('moeda', c), true); }
 function escolherPais(){ pickList('País', PAISES.map(c => [c, paisNome(c)]).sort(porNome), db.prefs.pais || 'BR', c => setPref('pais', c), true); }
 function setPref(k, v){ db.prefs[k] = v; db.cfgMod = Date.now(); save(); applyTheme(); render(); openSettings(); }
+// Animações (Configurações › Aparência): desligadas valem para a conta (db.prefs.anim); automáticas, completas ou leves
+// são deste aparelho (leveCfg). Escolher de novo zera a conta das aberturas ruins.
+function setEfeitos(modo){
+  if (modo !== 'off') leveGuardar({modo, ruins:0});
+  if (db.prefs.anim !== (modo !== 'off')) return setPref('anim', modo !== 'off');
+  applyTheme(); render(); openSettings();
+}
 function moveTab(i, d){ const t = db.prefs.tabs; [t[i], t[i+d]] = [t[i+d], t[i]]; db.cfgMod = Date.now(); save(); render(); openSettings(); }
 // Um tipo de lembrete (preferência da conta). Ligar um tipo com o interruptor do aparelho desligado liga os dois juntos.
 function setNotify(on){ setNotifyTipo('notify', on); }

@@ -101,7 +101,7 @@ function demoCentral(){
 function demoSair(){
   if (!demoOn) return;
   const real = JSON.parse(demoReal);
-  demoReal = null; demoOn = false; prevAvisosDemo = {}; centralDemo = []; demoNotas = []; // a central da demonstração some junto
+  demoReal = null; demoOn = false; prevAvisosDemo = {}; centralDemo = []; demoNotas = []; leveDemo = null; // a central da demonstração some junto
   loadDb(real);
   chatLog.length = 0; state.tab = 'resumo'; state.month = curYM; state.year = +curYM.slice(0, 4);
   closeForm(); demoFaixa(); render(); scrollTo(0, 0);

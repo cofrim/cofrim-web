@@ -122,7 +122,8 @@ Object.assign(TEMAS_NOVOS, {
   egito:['Egito', false, '#a16207', '#0e7490', '#a16207', '#0e7490', 45, 70],
   brilho:['Vampiro que brilha', true, '#f87171', '#e5e7eb', '#7f1d1d', '#334155', 0, 30],
   lobo:['Lobo adolescente', true, '#fbbf24', '#f87171', '#1f2937', '#7f1d1d', 40, 40],
-  mira:['Mira certeira', true, '#fbbf24', '#4ade80', '#78350f', '#1e3a8a', 40, 45]
+  mira:['Mira certeira', true, '#fbbf24', '#4ade80', '#78350f', '#1e3a8a', 40, 45],
+  residencia:['Residência médica', false, '#0e7490', '#be185d', '#0e7490', '#1e3a8a', 190, 55]
 });
 // Categorias: as novas entram na lista e algumas antigas mudam de lugar (Vikings é série; Espartano é jogo).
 {
@@ -148,8 +149,10 @@ Object.assign(TEMAS_NOVOS, {
   tira('noite');
   TEMA_CATS.splice(1, 0, ['pinturas', 'Pinturas',
     ['noite', 'girassois', 'modernismo', 'criacao', 'venus', 'ultimaceia', 'grito', 'perola', 'monalisa', 'medusa', 'atenas', 'filhodohomem',
-    'nenufares', 'relogios', 'nascersol', 'liberdade', 'babel', 'saojorge', 'kanagawa', 'egito']]);
+    'nenufares', 'relogios', 'nascersol', 'liberdade', 'babel', 'saojorge', 'kanagawa']]);
   cat('filmes')[2].push('brilho'); cat('series')[2].push('lobo'); cat('jogos')[2].push('mira');
+  // 2.80: o Egito não é pintura (vai para o fim de Temas gerais); Residência médica no fim de Séries.
+  cat('gerais')[2].push('egito'); cat('series')[2].push('residencia');
 }
 
 // ---------- Mascotes ----------
@@ -691,7 +694,8 @@ Object.assign(FALAS_TEMA, {
   egito:['O faraó deixou {v} de tesouro!', 'Sol no Nilo, gatinho cochilando.', 'O vento do deserto levou {v}.'],
   brilho:['Brilhando ao sol com {v} guardados!', 'Chuva fina entre os pinheiros.', 'Sem brilho hoje: faltam {v}.'],
   lobo:['Uivo de vitória: {v}!', 'Lua escondida, tudo tranquilo.', 'Lua cheia na fatura: faltam {v}.'],
-  mira:['Rodada vencida, {v} no caixa!', 'Base segura, equipe em posição.', 'Rodada difícil: faltam {v}.']
+  mira:['Rodada vencida, {v} no caixa!', 'Base segura, equipe em posição.', 'Rodada difícil: faltam {v}.'],
+  residencia:['Cirurgia de sucesso: {v} no azul!', 'Plantão tranquilo, café quente.', 'Código azul na conta: faltam {v}.']
 });
 // ---------- Mais falas próprias de cada tema ----------
 // Antes, cada tema novo tinha uma fala própria por humor e o resto vinha da categoria (FALAS_CAT), que muitas vezes não
@@ -1055,7 +1059,9 @@ const FALAS_MAIS = {
   lobo:[['Faro para economia: {v} guardados.', 'Alcateia orgulhosa, {nome}!'], ['Treino no campo do colégio.', 'Moletom vermelho e calma.'],
     ['Olhos âmbar de susto: faltam {v}.', 'Controla o lobo, {nome}.']],
   mira:[['Mira na economia: {v} guardados.', 'Jogada limpa, {nome}!'], ['Headset ligado, tudo calmo.', 'Vigiando o beco da vila.'],
-    ['Emboscada na carteira: faltam {v}.', 'Recua e reagrupa, {nome}.']]
+    ['Emboscada na carteira: faltam {v}.', 'Recua e reagrupa, {nome}.']],
+  residencia:[['Alta do mês: {v} guardados.', 'Residente do ano, {nome}!'], ['Prontuário em dia, chuva lá fora.', 'Touca florida e mãos firmes.'],
+    ['Emergência no caixa: faltam {v}.', 'Respira fundo, {nome}: o plantão passa.']]
 };
 // Quarta e quinta falas próprias de cada tema, por humor (mesmo formato de FALAS_MAIS). Com elas, todo tema especial tem
 // pelo menos cinco falas por humor, e nenhuma fala se repete entre temas.
@@ -1405,7 +1411,9 @@ const FALAS_MAIS2 = {
   lobo:[['Gol no último minuto: {v}!', 'Uiva alto, {nome}!'], ['Cidadezinha dormindo.', 'Farejando gastos estranhos.'],
     ['Noite de lua cheia: faltam {v}.', 'A alcateia ajuda, {nome}.']],
   mira:[['Placar virado: {v}!', 'Melhor da rodada, {nome}!'], ['Guardando para a próxima rodada.', 'Colete ajustado, mapa conferido.'],
-    ['Sem dinheiro para o equipamento: faltam {v}.', 'A próxima rodada é nossa, {nome}.']]
+    ['Sem dinheiro para o equipamento: faltam {v}.', 'A próxima rodada é nossa, {nome}.']],
+  residencia:[['Bisturi preciso: {v} de sobra!', 'Aplausos no centro cirúrgico, {nome}!'], ['Balsa cruzando a baía.', 'Estetoscópio no pescoço e calma.'],
+    ['Madrugada longa: faltam {v}.', 'Até o melhor cirurgião erra, {nome}.']]
 };
 // Cenas dos temas deste arquivo (juntadas a CENAS em js/cena.js): [horizonte, astro, partículas, entrada].
 const CENAS_NOVAS = {
@@ -1476,7 +1484,8 @@ const CENAS_NOVAS = {
   liberdade:['cidade', 'nenhum', 'fumaca', 'forca'], babel:['mesas', 'sol', 'nuvens', 'forca'],
   saojorge:['castelo', 'sol', 'brasas', 'forca'], kanagawa:['ondas', 'sol', 'gotas', 'vel'],
   egito:['dunas', 'sol', 'poeira', 'calma'], brilho:['pinheiros', 'lua', 'chuva', 'magia'],
-  lobo:['pinheiros', 'lua', 'folhas', 'forca'], mira:['vila', 'sol', 'poeira', 'tec']
+  lobo:['pinheiros', 'lua', 'folhas', 'forca'], mira:['vila', 'sol', 'poeira', 'tec'],
+  residencia:['cidade', 'nenhum', 'chuva', 'calma']
 };
 
 // ---------- Falas do assistente por tema ----------
@@ -1910,7 +1919,9 @@ const FALAS_ASSIST = {
   lobo:[['Da cidadezinha na floresta:', 'De orelhas em pé:', 'Farejando as contas:', 'Depois do treino:'],
     ['Auuu! Tudo certo.', 'A alcateia aprova.', 'Lobo sob controle.', 'Até a próxima lua.']],
   mira:[['Da vila no deserto:', 'Com o headset ligado:', 'Na mira:', 'Do ponto de encontro:'],
-    ['Rodada encerrada.', 'Equipe a salvo.', 'Alvo: o saldo certo.', 'Rádio desligado, missão feita.']]
+    ['Rodada encerrada.', 'Equipe a salvo.', 'Alvo: o saldo certo.', 'Rádio desligado, missão feita.']],
+  residencia:[['Do plantão:', 'Entre uma cirurgia e outra:', 'Com o crachá no peito:', 'Do corredor do hospital:'],
+    ['Prontuário fechado.', 'Paciente estável, saldo também.', 'Café de madrugada e contas em dia.', 'Até o próximo plantão.']]
 };
 
 // ---------- Tom do assistente nas outras respostas ----------

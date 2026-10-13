@@ -153,11 +153,12 @@ function atoHtml(k){
   return `<div class="cenaAto at-${mov}">${[...Array(n)].map((_, i) => { const atraso = `animation-delay:-${(i * dur / n + cenaRnd(k, 'at', i) * 2).toFixed(1)}s`, dy = n > 1 && alt < 150 ? Math.round((cenaRnd(k, 'ay', i) - .5) * 30) : 0;
     return `<i style="top:${y + dy}px;${anda ? `animation-duration:${dur}s;${atraso}` : `left:${Math.round(n > 1 ? 6 + (i + cenaRnd(k, 'ax', i) * .6) * 80 / n : 12 + cenaRnd(k, 'ax', 0) * 52)}%`}"><svg viewBox="0 0 40 40" style="width:${tam}px;height:${tam}px${anda ? '' : `;animation-duration:${dur}s;${atraso}`}">${fig}</svg></i>`; }).join('')}</div>`;
 }
-// Partículas do tema, que ficam se movendo por cima do cenário (nas duas cenas, a desenhada e a em imagem).
+// Partículas do tema, que ficam se movendo por cima do cenário (nas duas cenas, a desenhada e a em imagem). Com os
+// efeitos leves (efeitosLeves), só um terço delas.
 function cenaPartHtml(k){
   const s = SKINS[k], P = CENA_PART[cenaDe(k)[2]] || CENA_PART.estrelas, cor = i => [s[2], s[3], s[1] ? '#fff' : s[4]][i % 3];
   const dur = r => (P[1] === 'chove' ? 1.1 + r * 1.4 : P[1] === 'pisca' ? 1.8 + r * 3.2 : 9 + r * 14).toFixed(1);
-  return `<div class="cenaPart mov-${P[1]}">${[...Array(P[2])].map((_, i) => { const r = j => cenaRnd(k, i, j), t = Math.round(P[3] + r(0) * (P[4] - P[3]));
+  return `<div class="cenaPart mov-${P[1]}">${[...Array(efeitosLeves() ? Math.ceil(P[2] / 3) : P[2])].map((_, i) => { const r = j => cenaRnd(k, i, j), t = Math.round(P[3] + r(0) * (P[4] - P[3]));
     return `<svg viewBox="0 0 20 20" fill="currentColor" style="left:${(r(1) * 100).toFixed(1)}%;top:${(r(2) * 100).toFixed(1)}%;width:${t}px;height:${t}px;`
       + `color:${cor(i)};opacity:${(.35 + r(3) * .5).toFixed(2)};animation-duration:${dur(r(4))}s;animation-delay:-${(r(5) * 20).toFixed(1)}s;`
       + `--dx:${Math.round(r(6) * 80 - 40)}px">${P[0]}</svg>`; }).join('')}</div>`;
@@ -178,20 +179,25 @@ function cenaHtml(k){
 }
 // ---------- Cena em imagem (js/temas-baixar.js) ----------
 // Com as imagens do tema no aparelho, a cena troca o desenho pelas camadas em imagem: o cenário deslizando devagar em
-// loop (cópias lado a lado, a normal e a espelhada alternadas, para a borda de uma sempre encostar na igual da outra),
+// loop (cópias lado a lado, a normal e a espelhada alternadas, para a borda de uma sempre encostar na igual da outra;
+// nos temas com o assunto no meio, uma imagem só, centrada, que só balança: cfCentro),
 // as mesmas partículas e o objeto do tema com o movimento dele (TEMAS_IMG: movimento, duração, pausa, escala, altura,
 // amplitude, curva, sentido, quantidade). Horizonte, astro e o ato em SVG saem (já estão no cenário).
 // Só se movem transform e opacity; com as animações desligadas ou o sistema pedindo menos movimento, tudo fica parado
-// e sem objeto.
+// e sem objeto; com os efeitos leves, um objeto só. Cópias do cenário: as que cobrem a tela mais as duas que o loop
+// desliza (no celular, 4; cada uma a mais é uma imagem grande a mais na memória do vídeo).
 const CENA_ALT = 340; // altura do cenário em px (a imagem é 1800 x 750: cada cópia tem 2,4 vezes isso de largura)
 const cenaQuieta = () => !db.prefs.anim || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cenaCopias = () => 2 + Math.ceil(Math.max(screen.width, screen.height, innerWidth) / (CENA_ALT * 2.4));
 function cenaImgHtml(k){
-  const [, , obj, [deslize, sentido]] = TEMAS_IMG[k];
-  const fundo = temaImg(k, 'fundo'), tiras = [0, 1, 2, 3, 4, 5].map(i => `<img src="${fundo}" alt=""${i % 2 ? ' class="esp"' : ''}>`).join('');
-  const n = cenaQuieta() ? 0 : obj[8];
+  const [, , obj, [deslize, sentido, centro]] = TEMAS_IMG[k];
+  const fundo = temaImg(k, 'fundo');
+  const tiras = [...Array(cenaCopias())].map((_, i) => `<i${i % 2 ? ' class="esp"' : ''}><img src="${fundo}" alt=""></i>`).join('');
+  const n = cenaQuieta() ? 0 : efeitosLeves() ? Math.min(1, obj[8]) : obj[8];
   return `<div class="cenaImg"><div class="cenaFundo" style="height:${CENA_ALT}px">`
-    + `<div class="cfTira${sentido > 0 ? ' dir' : ''}" style="--d:${deslize}s;--w:${CENA_ALT * 2.4}px">${tiras}</div></div>
-    ${cenaPartHtml(k)}
+    + (centro ? `<div class="cfCentro" style="--d:${deslize}s"><img src="${fundo}" alt=""></div></div>`
+      : `<div class="cfTira${sentido > 0 ? ' dir' : ''}" style="--d:${deslize}s;--w:${CENA_ALT * 2.4}px">${tiras}</div></div>`)
+    + `${cenaPartHtml(k)}
     <div class="cenaObj">${[...Array(n)].map(() => `<i><img src="${temaImg(k, 'objeto')}" alt=""></i>`).join('')}</div>
     <div class="cenaVeu img"></div></div>`;
 }
@@ -298,7 +304,8 @@ function cenaAplicar(){
   // Tema com imagens: a cena desenhada fica de reserva até elas estarem no aparelho (pedidas aqui, na primeira vez).
   const img = k && temaImgsProntas(k);
   if (k && TEMAS_IMG[k] && !img && !window.TESTE) temaImgsCarregar(k);
-  const chave = k ? k + (img ? ':img:' + (cenaQuieta() ? 'q' : 'a') : '') : p.fundo !== false ? 'padrao:' + fundoCorDe(p) + ':' + fundoIntDe(p) : '';
+  const chave = (k ? k + (img ? ':img:' + (cenaQuieta() ? 'q' : 'a') : '') : p.fundo !== false ? 'padrao:' + fundoCorDe(p) + ':' + fundoIntDe(p) : '')
+    + (k && efeitosLeves() ? ':leve' : '');
   if (el.dataset.k !== chave){ el.dataset.k = chave;
     el.innerHTML = img ? cenaImgHtml(k) : k && SKINS[k] ? cenaHtml(k) : chave ? fundoPadraoHtml(fundoCorDe(p), fundoIntDe(p)) : '';
     if (img) cenaObjAnimar(el, k); }
@@ -312,6 +319,37 @@ cenaAplicar(); // o tema já foi aplicado antes de este arquivo carregar
 document.addEventListener('visibilitychange', () => { const el = document.getElementById('cena'); if (!el) return;
   el.classList.toggle('parada', document.hidden);
   el.querySelectorAll('.cenaObj i').forEach(i => i.getAnimations().forEach(a => document.hidden ? a.pause() : a.play())); });
+
+// ---------- Efeitos leves no automático ----------
+// Com os efeitos no automático (leveCfg, em js/aparencia.js), mede a fluidez da cena 8 s depois da abertura (a
+// sincronização e o primeiro redesenho já passaram): 3 s de quadros. Se mais de 12% deles levaram mais de 34 ms (dois
+// quadros perdidos a 60 Hz), a abertura conta como ruim; uma boa zera a conta. Na segunda ruim seguida, o app pergunta
+// se pode deixar as animações leves: sim liga os efeitos leves neste aparelho; não fixa as completas (não pergunta
+// mais). Medida em que o app saiu da tela (ou travou mais de 1 s) não vale.
+const cenaRuim = q => q.length > 20 && q.filter(x => x > 34).length / q.length > .12;
+function cenaMedir(){
+  const c = leveCfg(), el = document.getElementById('cena');
+  if (window.TESTE || c.modo !== 'auto' || efeitosLeves() || cenaQuieta() || !el || !el.innerHTML) return;
+  const q = []; let t0 = 0, ult = 0;
+  const quadro = t => {
+    if (document.hidden) return;
+    if (t0) q.push(t - ult); else t0 = t;
+    ult = t;
+    if (t - t0 < 3000) return void requestAnimationFrame(quadro);
+    if (q.some(x => x > 1000)) return;
+    const ruins = cenaRuim(q) ? c.ruins + 1 : 0;
+    leveGuardar({...c, ruins});
+    if (ruins >= 2) leveOferecer();
+  };
+  requestAnimationFrame(quadro);
+}
+async function leveOferecer(){
+  const sim = await ask('As animações estão travando neste celular. Deixar as animações leves? O cenário continua, com menos coisas se mexendo. '
+    + 'Dá para mudar depois em Configurações › Aparência › Animações.', 'Deixar leves');
+  leveGuardar({modo:sim ? 'leve' : 'completo', ruins:0});
+  applyTheme();
+}
+aposAbertura(() => setTimeout(cenaMedir, 8000));
 
 // ---------- Comemoração e novo gasto ----------
 // Chuva de comemoração com as formas e as cores do tema (sem tema especial, o confete de sempre).
