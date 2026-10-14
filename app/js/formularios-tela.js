@@ -70,7 +70,7 @@ function sugBind(el, box, list, banco){
 }
 function syncForm(skip){
   for (const f of F.fields){
-    document.getElementById('w_' + f.k).hidden = (!!f.showIf && !f.showIf(F.vals)) || (!!f.more && !F.more);
+    document.getElementById('w_' + f.k).hidden = (!!f.showIf && !f.showIf(F.vals)) || (!!f.more && !F.more) || f.type === 'cor';
     document.querySelector(`#w_${f.k} label`).textContent = typeof f.label === 'function' ? f.label(F.vals) : f.label;
     const el = document.getElementById('f_' + f.k);
     if (f.k !== skip && el.value !== (F.vals[f.k] ?? '')) el.value = F.vals[f.k] ?? '';
@@ -90,8 +90,13 @@ function syncForm(skip){
   const listas = JSON.stringify(F.fields.filter(f => !TEXTO.includes(f.type)).map(f => F.vals[f.k] ?? ''));
   if (!(campo && TEXTO.includes(campo.type) && listas === F.listas)){ drawPicks(); drawCatPick(); }
   F.listas = listas;
-  document.querySelectorAll('.iconGrid button').forEach(b => b.classList.toggle('on', b.dataset.i === F.vals.icon));
-  document.querySelectorAll('.colorGrid button').forEach(b => b.classList.toggle('on', b.dataset.c === F.vals.color));
+  const ic = F.fields.find(f => f.type === 'icone');
+  if (ic) document.getElementById('o_' + ic.k).innerHTML = iconeBtn(F.vals.icon || 'tag', F.vals.color || '#64748b', 'formIcone()');
+}
+// Ícone e cor de uma categoria no formulário (campos icon e color): a janela de escolher, por cima do formulário.
+function formIcone(){
+  if (F) escolherIcone(F.vals.icon || 'tag', F.vals.color || '#64748b',
+    (icon, color) => { closePicker(); setField('icon', icon); setField('color', color); }, closePicker);
 }
 // Categoria: em vez da lista suspensa, botões (o <select> continua existindo, escondido, com as opções do campo).
 // Nos ganhos, gastos, parceladas e previsões (campo com grupos: 'gasto' ou 'ganho'), a escolha é por grupo (drawCatGrupos).
@@ -105,41 +110,50 @@ function drawCatPick(){
   cp.innerHTML = [...document.getElementById('f_cat').options].map(({value:v, text:t}) => `<button type="button" class="${v === F.vals.cat ? 'on' : ''}" `
     + `data-v="${esc(v)}" data-onclick="pickCat(this.dataset.v)">${I((M[v] || ['tag'])[0], 17)}${esc(t)}</button>`).join('');
 }
-// Escolha por grupo: a categoria escolhida em "Grupo › Categoria" (tocar abre o grupo dela), as opções gerais das
-// previsões (PREV_GERAIS), as recentes, a busca e a grade dos grupos (tocar abre a janela do grupo, catGrupoAbre; segurar
-// edita o grupo). Segurar uma categoria (escolhida, recente ou da busca) abre Editar e Excluir (catSegurar). O campo de
-// busca é feito uma vez só, para não perder o foco ao redesenhar o resto.
+// Escolha por grupo: no topo a busca, com os resultados logo abaixo dela; depois a grade dos grupos, os três mais usados
+// ou todos (tocar abre a janela do grupo, catGrupoAbre; segurar edita o grupo); embaixo, a categoria escolhida em
+// "Grupo › Categoria" (tocar abre o grupo dela) e as opções gerais das previsões (PREV_GERAIS). Segurar uma categoria (escolhida ou da busca) abre Editar e
+// Excluir (catSegurar). O título do campo dá lugar aos títulos Grupo e Categoria. O campo de busca é feito uma vez só,
+// para não perder o foco ao redesenhar o resto.
 function drawCatGrupos(cp, type){
   const C = CAT_OF[type], cur = F.vals.cat, pode = catPodem(), G = GRUPOS_CAT[type];
   F.catOk = !!(C[cur] && !C[cur][3]);
   if (!cp.dataset.grupos){
     cp.dataset.grupos = type; cp.classList.add('catGrupos');
-    cp.innerHTML = `<div id="catTopo"></div><div class="search catBusca">${I('search')}<input id="catBusca" type="search" `
-      + `placeholder="Buscar categoria" autocomplete="off" data-oninput="catBuscar(this.value)"></div><div id="catGrade"></div>`;
+    cp.parentNode.querySelector('label').hidden = true;
+    cp.innerHTML = `<div class="search catBusca">${I('search')}<input id="catBusca" type="search" placeholder="Buscar categoria" autocomplete="off" `
+      + `data-oninput="catBuscar(this.value)"></div><div id="catAchou"></div><label>Grupo</label><div id="catGrade"></div>`
+      + `<label>Categoria</label><div id="catTopo"></div>`;
     seguraNo(cp, b => b.dataset.g ? grupoEditor(type, b.dataset.g, formCatRefaz) : catSegurar(type, b.dataset.v));
   }
   const chip = k => `<button type="button" class="${k === cur ? 'on' : ''}" data-v="${esc(k)}" data-onclick="catBuscaEscolhe(this.dataset.v)">`
     + `${I((C[k] || PREV_GERAIS[k])[0], 17)}${C[k] ? catNomeHtml(type, k) : esc(PREV_GERAIS[k][1])}</button>`;
-  const gerais = Object.keys(PREV_GERAIS).filter(k => pode.has(k)), rec = catRecentes(type, pode);
-  const g = C[cur] && grupoDe(type, cur), gc = g && grupoInfo(type, g);
+  const gerais = Object.keys(PREV_GERAIS).filter(k => pode.has(k)), g = C[cur] && grupoDe(type, cur), gc = g && grupoInfo(type, g);
+  // Só os três grupos mais usados; "Mostrar mais grupos" abre todos, com o Novo grupo, e "Mostrar menos grupos" volta
+  // (pedidos do dono, 14/10). Com até três grupos, todos à mostra. O grupo da escolhida leva um selo verde com o ✓; se
+  // ele não está entre os três, entra no lugar do primeiro da esquerda, só neste lançamento.
+  const todos = Object.keys(G), poucos = todos.length > 3 && !F.todosGrupos;
+  const top = todos.filter(k => gruposMaisUsados(type).slice(0, 3).includes(k));
+  if (g && !top.includes(g)) top[0] = g;
+  const ver = poucos ? top : todos;
+  const grupos = ver.map(k => `<button type="button" class="${k === g ? 'on' : ''}" data-g="${esc(k)}" data-onclick="catGrupoAbre(this.dataset.g)">`
+    + `<span class="grpIco" style="background:${G[k][2]}">${I(G[k][0], 20)}${k === g ? `<i class="grpOk">${I('check', 12)}</i>` : ''}</span>`
+    + `<small>${esc(G[k][1])}</small></button>`);
+  const novo = poucos ? '' : `<button type="button" class="novo" data-onclick="formGrupoNovo()"><span class="grpIco">${I('plus', 20)}</span><small>Novo grupo</small></button>`;
+  const mais = todos.length <= 3 ? '' : `<div class="catPick grpMais"><button type="button" class="more" data-onclick="F.todosGrupos=${poucos};drawCatPick()">`
+    + `${I(poucos ? 'plus' : 'close', 16)}${poucos ? 'Mostrar mais grupos' : 'Mostrar menos grupos'}</button></div>`;
+  document.getElementById('catGrade').innerHTML = `<div class="grpGrade">${grupos.join('')}${novo}</div>${mais}`;
   document.getElementById('catTopo').innerHTML = (gc ? `<button type="button" class="catSel" data-v="${esc(cur)}" data-g-abre="${esc(g)}" `
       + `data-onclick="catGrupoAbre(this.dataset.gAbre)"><span class="grpIco" style="background:${gc[2]}">${I(C[cur][0], 17)}</span>`
       + `<span>${catNomeHtml(type, cur)}</span><small>Trocar</small></button>`
-    : PREV_GERAIS[cur] ? `<div class="catSel">${I(PREV_GERAIS[cur][0], 17)}<span>${esc(PREV_GERAIS[cur][1])}</span></div>` : '')
-    + (gerais.length ? `<div class="catPick">${gerais.map(chip).join('')}</div>` : '')
-    + (rec.length ? `<div class="catRot">Recentes</div><div class="catPick">${rec.map(chip).join('')}</div>` : '');
+    : PREV_GERAIS[cur] ? `<div class="catSel">${I(PREV_GERAIS[cur][0], 17)}<span>${esc(PREV_GERAIS[cur][1])}</span></div>`
+    : F.fields.find(x => x.k === 'cat').vazio ? '<div class="hint semTopo">Nenhuma escolhida: o lançamento vai para Outros.</div>' : '')
+    + (gerais.length ? `<div class="catPick">${gerais.map(chip).join('')}</div>` : '');
   const q = nomeComparar(F.catBusca || '').split(/\s+/).filter(Boolean);
-  if (q.length){
-    const achou = Object.keys(C).filter(k => pode.has(k) && (!C[k][3] || k === cur) && q.every(p => catBuscaTexto(type, k).includes(p)));
-    document.getElementById('catGrade').innerHTML = achou.length ? `<div class="catPick">${achou.map(chip).join('')}</div>`
-      : `<div class="hint">Nenhuma categoria encontrada.</div><div class="catPick"><button type="button" class="more" data-onclick="catBuscaCria()">${I('plus', 17)}`
-        + `Criar a categoria "${esc(F.catBusca.trim())}"</button></div>`;
-    return;
-  }
-  const grupos = Object.entries(G).map(([k, c]) => `<button type="button" class="${k === g ? 'on' : ''}" data-g="${esc(k)}" `
-    + `data-onclick="catGrupoAbre(this.dataset.g)"><span class="grpIco" style="background:${c[2]}">${I(c[0], 20)}</span><small>${esc(c[1])}</small></button>`);
-  const novo = `<button type="button" class="novo" data-onclick="formGrupoNovo()"><span class="grpIco">${I('plus', 20)}</span><small>Novo grupo</small></button>`;
-  document.getElementById('catGrade').innerHTML = `<div class="catRot">Grupos</div><div class="grpGrade">${grupos.join('')}${novo}</div>`;
+  const achou = q.length && Object.keys(C).filter(k => pode.has(k) && (!C[k][3] || k === cur) && q.every(p => catBuscaTexto(type, k).includes(p)));
+  document.getElementById('catAchou').innerHTML = !q.length ? '' : achou.length ? `<div class="catPick">${achou.map(chip).join('')}</div>`
+    : `<div class="hint">Nenhuma categoria encontrada.</div><div class="catPick"><button type="button" class="more" data-onclick="catBuscaCria()">${I('plus', 17)}`
+      + `Criar a categoria "${esc(F.catBusca.trim())}"</button></div>`;
 }
 const catPodem = () => new Set([...document.getElementById('f_cat').options].map(o => o.value));
 // "Grupo › Categoria" com cada nome num texto próprio (a tradução troca um de cada vez).
@@ -149,17 +163,8 @@ function catBuscaTexto(type, k){
   const nomes = [grupoInfo(type, grupoDe(type, k))[1], CAT_OF[type][k][1]];
   return nomeComparar(nomes.join(' ') + (lang() === 'pt' ? '' : ' ' + nomes.map(trText).join(' ')));
 }
-// Categorias usadas por último (até 6, sem repetir): do lançamento criado ou editado mais recentemente para o mais
-// antigo (sem essas datas, a ordem em que estão guardados). Só as que existem, não estão escondidas e cabem no campo.
-function catRecentes(type, pode){
-  const C = CAT_OF[type], r = [];
-  const L = (type === 'ganho' ? db.incomes : db.expenses.concat(db.installments)).map((x, i) => [Math.max(x.cri || 0, x.u || 0), i, x.cat]);
-  L.sort((a, b) => b[0] - a[0] || b[1] - a[1]);
-  for (const [, , k] of L) if (!r.includes(k) && pode.has(k) && C[k] && !C[k][3] && r.push(k) >= 6) break;
-  return r;
-}
 function catBuscar(q){ if (!F) return; F.catBusca = q; drawCatPick(); }
-// Escolha pela busca, pelas recentes ou pelas gerais: escolhe e limpa a busca.
+// Escolha pela busca ou pelas gerais: escolhe e limpa a busca.
 function catBuscaEscolhe(k){
   if (!F) return;
   const b = document.getElementById('catBusca');
@@ -234,6 +239,8 @@ function seguraNo(el, aoSegurar){
 function catSegurar(type, k){
   const c = CAT_OF[type][k];
   if (!F || !c) return;
+  if (k === 'outros') return void showPicker(`<h3>${I(c[0], 22)} ${esc(c[1])}</h3><div class="hint">${CAT_OUTROS_AVISO}</div>
+    <div class="btns foot"><button class="btn primary" data-onclick="closePicker()">Fechar</button></div>`);
   const base = BASE_CATS[type][k], aviso = 'Categoria que já vem no app: dá para editar, mas não para excluir. Para tirá-la da lista, '
     + 'esconda em Configurações › Categorias.';
   showPicker(`<h3>${I(c[0], 22)} ${esc(c[1])}</h3>${base ? `<div class="hint">${aviso}</div>` : ''}
@@ -246,7 +253,6 @@ function catSeguraExclui(type, k){
   deleteCat(type, k, formCatRefaz);
 }
 function pickCat(v){ if (!F) return; const el = document.getElementById('f_cat'); el.value = v; el.onchange(); }
-function pickIcon(k, v){ const el = document.getElementById('f_' + k); el.value = v; el.oninput(); }
 // O que mudou entre duas versões de um lançamento, em texto ("valor R$ 10,00 → R$ 12,00"). '' se nada relevante mudou.
 const DIFF_FIELDS = [['value', 'valor', 1], ['total', 'total', 1], ['target', 'meta', 1], ['saved', 'guardado', 1], ['desc', 'descrição'],
   ['name', 'nome'], ['cat', 'categoria'],
@@ -311,6 +317,7 @@ function submitForm(){
     if (f.showIf && !f.showIf(F.vals)){ out[f.k] = ''; continue; }
     if (f.k === 'fixed'){ out.fixed = ['y', 'n', 'm'].includes(raw) ? 'y' : !!raw; if (raw === 'n' || raw === 'm') out.repTipo = raw; continue; }
     if (f.type === 'meses'){ out[f.k] = raw; continue; }
+    if (!raw && f.vazio){ out[f.k] = f.vazio; continue; } // ganho ou gasto sem categoria: vai para "Outros"
     if (!raw){ if (f.optional){ out[f.k] = f.type === 'money' ? 0 : ''; continue; } return err('Preencha: ' + name.toLowerCase(), f); }
     if (f.type === 'money' || f.type === 'num' || f.type === 'int'){
       const n = f.type === 'int' ? (/^\d+$/.test(raw) ? parseInt(raw) : NaN) : parseMoney(raw);

@@ -48,7 +48,7 @@ function logErr(onde, e){
 }
 addEventListener('error', e => logErr('erro na tela', (e.error && e.error.stack) || (e.message || '') + ' @' + (e.lineno || 0) + ':' + (e.colno || 0)));
 addEventListener('unhandledrejection', e => logErr('promessa', e.reason));
-const APP_VERSION = '2.90'; // manter igual ao versionName do build.gradle
+const APP_VERSION = '2.91'; // manter igual ao versionName do build.gradle
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const I = (name, size = 18) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 // Categorias: [ícone, nome, cor]
@@ -392,7 +392,9 @@ function applyCats(){
   for (const [type, target] of [['gasto', CAT_GASTO], ['ganho', CAT_GANHO]]){
     for (const k in target) delete target[k];
     Object.assign(target, JSON.parse(JSON.stringify(BASE_CATS[type])));
+    // "Outros" recebe os lançamentos sem categoria: fica sempre como vem no app (não se edita, esconde nem exclui).
     for (const [k, c] of Object.entries(db.cats[type])){
+      if (k === 'outros') continue;
       const base = target[k] || ['tag', c.name, '#64748b'];
       target[k] = [c.icon || base[0], c.name || base[1], c.color || base[2], !!c.hidden];
     }
@@ -422,14 +424,14 @@ function gruposAplicar(type, cats){
   const fabNome = {};
   for (const k of Object.keys(BASE_CATS[type])) if (cats[k]) fabNome[plainName(cats[k][1])] = fab[k];
   for (const k of Object.keys(cats)){
-    const g = (db.cats[type][k] || {}).g, padrao = BASE_CATS[type][k] ? fab[k] : fabNome[plainName(cats[k][1])];
+    const g = k === 'outros' ? 'outros' : (db.cats[type][k] || {}).g, padrao = BASE_CATS[type][k] ? fab[k] : fabNome[plainName(cats[k][1])];
     CG[k] = G[g] ? g : G[padrao] ? padrao : 'outros';
   }
   // Categoria criada pelo usuário com o mesmo nome de uma de fábrica do mesmo grupo (ex.: "Pets"): fica só a do usuário.
   // Em grupos diferentes, as duas ficam ("Lazer › Presentes" e "Compras › Presentes").
   const proprias = new Set(Object.keys(db.cats[type]).filter(k => !BASE_CATS[type][k] && cats[k]).map(k => CG[k] + ':' + plainName(cats[k][1])));
   for (const k of Object.keys(BASE_CATS[type]))
-    if (!db.cats[type][k] && proprias.has(CG[k] + ':' + plainName(cats[k][1]))){ delete cats[k]; delete CG[k]; }
+    if (k !== 'outros' && !db.cats[type][k] && proprias.has(CG[k] + ':' + plainName(cats[k][1]))){ delete cats[k]; delete CG[k]; }
 }
 applyCats();
 // touch = false para gravações que não são alteração do usuário (abrir o app, atualizar taxas e cotações).

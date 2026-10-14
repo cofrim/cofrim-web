@@ -3,20 +3,20 @@
 // janela serve à tela de categorias das Configurações (openCats) e aos formulários de ganho e gasto; depois(g) diz o
 // que fazer em seguida. As regras ficam em grupos.js.
 
-let grupoEd = null; // {type, g, icon, color, depois}
+let grupoEd = null; // {type, g, icon, color, nome, depois}
 function grupoEditor(type, g = '', depois = openCats){
   const c = g && GRUPOS_CAT[type][g];
-  grupoEd = {type, g, icon:c ? c[0] : 'tag', color:c ? c[2] : '#64748b', depois};
-  const cats = g ? catsDoGrupo(type, g) : [];
+  grupoEd = {type, g, icon:c ? c[0] : 'tag', color:c ? c[2] : '#64748b', nome:c ? c[1] : '', depois};
+  grupoEdDesenha();
+}
+// Desenha a janela do grupo com o que já foi escolhido (grupoEd); o ícone e a cor ficam numa janela à parte
+// (escolherIcone), que volta para cá sem perder o nome digitado.
+function grupoEdDesenha(){
+  const {type, g, icon, color, nome} = grupoEd, c = g && GRUPOS_CAT[type][g], cats = g ? catsDoGrupo(type, g) : [];
   showPicker(`<h3>${c ? 'Editar grupo' : type === 'gasto' ? 'Novo grupo de gastos' : 'Novo grupo de ganhos'}</h3>
     <label for="geNome">Nome</label>
-    <input id="geNome" type="text" maxlength="40" placeholder="Ex.: Lazer" autocomplete="off" value="${esc(c ? c[1] : '')}">
-    <label>Ícone</label><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button"
-      class="${k === grupoEd.icon ? 'on' : ''}" data-i="${k}" aria-label="${n}" title="${n}"
-      data-onclick="grupoEdEscolhe(this,'icon')">${I(k, 23)}</button>`).join('')}</div>
-    <label>Cor</label><div class="swatches colorGrid">${CAT_COLORS.map(cor => `<button type="button"
-      class="sw${cor === grupoEd.color ? ' on' : ''}" data-c="${cor}" style="background:${cor}" aria-label="Cor ${cor}"
-      data-onclick="grupoEdEscolhe(this,'color')"></button>`).join('')}</div>
+    <input id="geNome" type="text" maxlength="40" placeholder="Ex.: Lazer" autocomplete="off" value="${esc(nome)}">
+    <label>Ícone e cor</label>${iconeBtn(icon, color, 'grupoEdIcone()')}
     ${c ? `<label>Categorias do grupo</label>${cats.length ? `<div class="chips grpCats">${cats.map(k =>
       `<span>${I(CAT_OF[type][k][0], 15)}${esc(CAT_OF[type][k][1])}</span>`).join('')}</div>` : '<div class="hint">Nenhuma categoria neste grupo.</div>'}
       <div class="btns"><button class="btn" data-onclick="grupoEdNovaCat()">${I('plus', 16)}Nova categoria neste grupo</button></div>` : ''}
@@ -26,9 +26,9 @@ function grupoEditor(type, g = '', depois = openCats){
         + `${I('trash', 17)}Excluir</button>` : ''}
       <button class="btn primary" data-onclick="grupoEdSalvar()">${c ? 'Salvar' : 'Criar'}</button></div>`);
 }
-function grupoEdEscolhe(b, campo){
-  grupoEd[campo] = campo === 'icon' ? b.dataset.i : b.dataset.c;
-  b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+function grupoEdIcone(){
+  const d = grupoEd; d.nome = document.getElementById('geNome').value;
+  escolherIcone(d.icon, d.color, (icon, color) => { Object.assign(d, {icon, color}); grupoEdDesenha(); }, grupoEdDesenha);
 }
 function grupoEdSalvar(){
   const {type, g, icon, color, depois} = grupoEd, nome = document.getElementById('geNome').value;

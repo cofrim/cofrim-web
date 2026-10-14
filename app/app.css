@@ -401,14 +401,18 @@ h1 span{display:flex;gap:2px}
 .catPick button.on{background:color-mix(in srgb,var(--brand) 22%,var(--bg));border-color:var(--brand)}
 /* Categoria por grupo (drawCatGrupos): a escolhida, as recentes, a busca e a grade dos grupos; janela do grupo (grpTit) */
 .catPick.catGrupos{display:block}
-.catRot{font-size:12.5px;font-weight:700;color:var(--muted);margin:12px 0 6px}
 .catGrupos .catSel{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border-radius:14px;border:1.5px solid var(--brand);background:color-mix(in srgb,var(--brand) 12%,var(--bg));font-size:14.5px;font-weight:700;text-align:left}
 .catSel small{margin-left:auto;color:var(--brand);font-weight:700}
 .catSep{color:var(--muted);font-weight:500}
 .grpIco{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;color:#fff;flex:none}
 .catGrupos .grpIco .ic,.grpTit .grpIco .ic{color:#fff}
+.grpGrade .grpIco{position:relative}
+.grpOk{position:absolute;top:-5px;right:-7px;width:20px;height:20px;border-radius:50%;background:#16a34a;border:2px solid var(--card);display:grid;place-items:center}
+.catGrupos .grpOk .ic{color:#fff;width:12px;height:12px}
 .catSel .grpIco{width:30px;height:30px}
-.catBusca{margin-top:10px}
+.catBusca{margin-top:0}
+#catAchou>*{margin-top:8px}
+.grpMais{margin-top:8px}
 .grpGrade{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
 .catGrupos .grpGrade button{flex-direction:column;justify-content:flex-start;gap:6px;padding:10px 4px;border-radius:14px;min-height:84px;text-align:center}
 .grpGrade small{font-size:12.5px;font-weight:600;line-height:1.2;overflow-wrap:anywhere}
@@ -416,6 +420,21 @@ h1 span{display:flex;gap:2px}
 .catGrupos .novo .grpIco{background:var(--line)}
 .catGrupos .novo .grpIco .ic{color:var(--brand)}
 .grpTit{display:flex;align-items:center;gap:10px}
+/* Escolher ícone (escolherIcone): botão com o ícone na cor, a prévia e a cor personalizada (tom e claridade) */
+.icoBtn{justify-content:flex-start}
+.icoBtn>span:nth-child(2){flex:1}
+.icoBtn .grpIco{width:32px;height:32px;flex:none}
+.icoPrevia{display:flex;justify-content:center;margin:4px 0 2px}
+.icoPrevia .grpIco{width:56px;height:56px}
+.icoPrevia .grpIco .ic,.icoBtn .grpIco .ic{color:#fff}
+.corLivre{display:flex;align-items:center;gap:14px;padding:4px 2px}
+.corLivre>div{flex:1;display:flex;flex-direction:column;gap:4px}
+.corLivre small{color:var(--muted);font-size:12px;font-weight:600}
+.corLivre input[type=range]{width:100%;height:14px;margin:2px 0 8px;padding:0;border:0;border-radius:99px;-webkit-appearance:none;appearance:none;background:var(--line)}
+.corLivre input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.corLivre input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid var(--text)}
+#ieTom{background:linear-gradient(90deg,#d63333,#d6d633,#33d633,#33d6d6,#3333d6,#d633d6,#d63333)}
+.catFixa{flex:none;color:var(--muted);padding:0 8px}
 .iconGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
 .iconGrid button{aspect-ratio:1;border-radius:14px;background:var(--bg);border:1.5px solid var(--line);display:grid;place-items:center;color:var(--muted)}
 .iconGrid button.on{color:#fff;border-color:transparent;background:linear-gradient(135deg,var(--hero1),var(--hero2))}

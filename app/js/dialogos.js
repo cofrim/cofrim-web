@@ -71,3 +71,53 @@ function dlgClose(v){
 }
 // Avisos vindos do lado nativo ("Arquivo salvo", falha da câmera…) aparecem no aviso de rodapé do app.
 function onToast(text){ toast(text); }
+
+// ---------- Escolher ícone e cor (categorias e grupos) ----------
+// Janela por cima com todos os ícones, as cores do app e uma cor personalizada (tom e claridade, em barras que funcionam
+// em qualquer celular). pronto(ícone, cor) recebe a escolha; voltar() roda no Cancelar (quem abriu redesenha a sua tela).
+let iconeEsc = null; // {icon, color, pronto, voltar}
+function escolherIcone(icon, color, pronto, voltar){
+  iconeEsc = {icon, color, pronto, voltar};
+  showPicker(`<h3>Escolher ícone</h3><div class="icoPrevia" id="iePrevia"></div>
+    <label>Ícone</label><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button" data-i="${k}" aria-label="${n}"
+      title="${n}" data-onclick="iconeEscMuda('icon',this.dataset.i)">${I(k, 23)}</button>`).join('')}</div>
+    <label>Cor</label><div class="swatches colorGrid">${CAT_COLORS.map(c => `<button type="button" class="sw" data-c="${c}" style="background:${c}"
+      aria-label="Cor ${c}" data-onclick="iconeEscMuda('color',this.dataset.c)"></button>`).join('')}</div>
+    <label>Cor personalizada</label><div class="corLivre">
+      <span class="sw" id="ieLivre"></span><div>
+      <small>Tom</small><input id="ieTom" type="range" min="0" max="359" aria-label="Tom" data-oninput="iconeEscLivre()">
+      <small>Claridade</small><input id="ieLuz" type="range" min="25" max="70" aria-label="Claridade" data-oninput="iconeEscLivre()"></div></div>
+    <div class="btns foot"><button class="btn" data-onclick="iconeEscFim(false)">Cancelar</button>
+      <button class="btn primary" data-onclick="iconeEscFim(true)">Pronto</button></div>`);
+  const [h, l] = corTomLuz(color);
+  document.getElementById('ieTom').value = h; document.getElementById('ieLuz').value = l;
+  iconeEscDesenha();
+}
+function iconeEscMuda(campo, v){ if (iconeEsc){ iconeEsc[campo] = v; iconeEscDesenha(); } }
+function iconeEscLivre(){ iconeEscMuda('color', hslHex(+document.getElementById('ieTom').value, 72, +document.getElementById('ieLuz').value)); }
+function iconeEscDesenha(){
+  const {icon, color} = iconeEsc, livre = !CAT_COLORS.includes(color);
+  document.getElementById('iePrevia').innerHTML = `<span class="grpIco" style="background:${color}">${I(icon, 26)}</span>`;
+  document.querySelectorAll('#picker .iconGrid button').forEach(b => b.classList.toggle('on', b.dataset.i === icon));
+  document.querySelectorAll('#picker .colorGrid button').forEach(b => b.classList.toggle('on', b.dataset.c === color));
+  const l = document.getElementById('ieLivre'), tom = +document.getElementById('ieTom').value;
+  document.getElementById('ieLuz').style.background = `linear-gradient(90deg,${hslHex(tom, 72, 25)},${hslHex(tom, 72, 70)})`;
+  l.style.background = livre ? color : hslHex(+document.getElementById('ieTom').value, 72, +document.getElementById('ieLuz').value);
+  l.classList.toggle('on', livre);
+}
+function iconeEscFim(ok){
+  const e = iconeEsc; iconeEsc = null;
+  if (e) (ok ? () => e.pronto(e.icon, e.color) : e.voltar || closePicker)();
+}
+// Tom (0 a 359) e claridade (25 a 70) de uma cor #rrggbb, para as barras da cor personalizada começarem perto dela.
+function corTomLuz(hex){
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(String(hex).slice(i, i + 2), 16) / 255);
+  if ([r, g, b].some(isNaN)) return [250, 50];
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2 * 100;
+  const h = !d ? 0 : mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [Math.round(h * 60) % 360, Math.round(Math.min(70, Math.max(25, l)))];
+}
+// Botão "Escolher ícone" das telas de categoria e de grupo: o ícone escolhido, na cor dele.
+const iconeBtn = (icon, color, acao) => `<button type="button" class="pickBtn icoBtn" data-onclick="${acao}"><span class="grpIco"
+  style="background:${color}">${I(icon, 18)}</span><span>Escolher ícone</span>${I('chev', 14)}</button>`;
+

@@ -92,7 +92,7 @@ function repeatFill(i){
 const mesNovo = () => state.tab === 'resumo' ? resumoMes() : state.month;
 const FORMS = {
   // Campos com more:true ficam atrás de "Mais opções" num lançamento novo (lançamento rápido); big = valor em destaque.
-  incomes: { title:'ganho', defaults:() => ({cat:'salario', fixed:'1', start:mesNovo()}), fields:() => formVale ? [
+  incomes: { title:'ganho', defaults:() => ({fixed:'1', start:mesNovo()}), fields:() => formVale ? [
     {k:'value', label:'Valor do crédito', type:'money', big:true},
     {k:'cat', label:'Qual vale', type:'select', options:() => Object.entries(VALES)},
     EMP_FIELD,
@@ -102,7 +102,7 @@ const FORMS = {
     {k:'end', label:'Até (opcional)', type:'month', optional:true, showIf:v => v.fixed, more:true},
     ...SCOPE_FIELDS] : [
     {k:'value', label:'Valor', type:'money', big:true},
-    {k:'cat', label:'Categoria', type:'select', grupos:'ganho', options:() => opts(CAT_GANHO)},
+    {k:'cat', label:'Categoria', type:'select', grupos:'ganho', vazio:'outros', options:() => opts(CAT_GANHO)},
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Salário', optional:true},
     {k:'fixed', label:'Tipo', type:'select',
       options:[['1','Fixo — repete todo mês'],['y','Anual — uma vez por ano (13º, bônus…)'], ...TIPO_REP, ['','Avulso — só em um mês']]},
@@ -124,7 +124,7 @@ const FORMS = {
   // Gasto novo à vista ou parcelado (parc): parcelado vira uma compra parcelada em db.installments, a mesma da aba
   // Parceladas (ver commit), com o mês do gasto como mês da 1ª parcela.
   // Gasto novo no mês atual já vem com o dia de hoje (usado na fatura do cartão e na ordem da lista).
-  expenses: { title:'gasto', defaults:() => catDefaults({cat:'alimentacao', fixed:'', start:mesNovo(), parc:'', mode:'total',
+  expenses: { title:'gasto', defaults:() => catDefaults({cat:'', fixed:'', start:mesNovo(), parc:'', mode:'total',
     day:mesNovo() === curYM ? String(now.getDate()) : ''}), fields:() => formVale ? [
     {k:'value', label:'Valor', type:'money', big:true},
     {k:'pay', label:'Qual vale', type:'select', options:() => Object.entries(VALES)},
@@ -136,7 +136,7 @@ const FORMS = {
     {k:'parc', label:'Pagamento', type:'select', optional:true, showIf:v => !(F && F.id) && !v.fixed, options:[['', 'À vista'], ['1', 'Parcelado']]},
     {k:'n', label:'Número de parcelas', type:'int', showIf:parcelado},
     {k:'mode', label:'Informar', type:'select', showIf:parcelado, options:[['total', 'Valor total da compra'], ['parcela', 'Valor de cada parcela']]},
-    {k:'cat', label:'Categoria', type:'select', grupos:'gasto', options:() => opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')},
+    {k:'cat', label:'Categoria', type:'select', grupos:'gasto', vazio:'outros', options:() => opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')},
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Mercado', optional:true},
     // Pago com um vale: no lugar do banco, a empresa do vale (com o logotipo); o gasto vai para a parte dos vales.
     ...WHERE_FIELDS().reverse().map(f => ({...f, more:true, ...(f.k === 'bank' ? {showIf:v => !VALES[v.pay]} : {})})),
@@ -202,7 +202,7 @@ const FORMS = {
   // débito e taxa nos dois últimos. Depois de um abatimento, prazo e valores mudam só pelo botão Abater (seg).
   installments: { title:() => PARC_TIPOS[formTipo] ? PARC_TIPOS[formTipo].toLowerCase() : 'compra parcelada', fem:() => !formTipo,
     defaults:() => formTipo ? {cat:formTipo === 'emprestimo' ? 'emprestimo' : 'transporte', mode:'parcela', n:'', paid:'0', start:curYM}
-      : {cat:'compras', pay:'credito', mode:'total', n:'', paid:'0', start:curYM},
+      : {cat:'', pay:'credito', mode:'total', n:'', paid:'0', start:curYM},
     fields:() => [
     {k:'desc', label:formTipo ? 'Nome' : 'Descrição', type:'text',
       ph:formTipo === 'emprestimo' ? 'Ex.: Empréstimo pessoal' : formTipo ? 'Ex.: Financiamento do carro' : 'Ex.: Celular'},
@@ -210,7 +210,7 @@ const FORMS = {
       {k:'credor', label:'Credor (banco ou financeira, opcional)', type:'text', ph:'Ex.: Caixa', optional:true, sug:bankSuggestions},
       {k:'conta', label:'Conta de débito', type:'select', optional:true, banco:true,
         options:() => [['', 'Não informar'], ...db.accounts.map(a => [a.name, a.name])]}] : []),
-    {k:'cat', label:'Categoria', type:'select', grupos:'gasto', options:() => opts(CAT_GASTO)},
+    {k:'cat', label:'Categoria', type:'select', grupos:'gasto', vazio:'outros', options:() => opts(CAT_GASTO)},
     ...(formTipo ? [] : WHERE_FIELDS()),
     {k:'n', label:'Número de parcelas', type:'int', showIf:semAbat},
     {k:'mode', label:'Informar', type:'select', showIf:semAbat,
@@ -430,8 +430,8 @@ const FORMS = {
   catEdit: { noDelete:true, fields:() => [
     {k:'name', label:'Nome', type:'text', ph:'Ex.: Pets'},
     {k:'g', label:'Grupo', type:'select', options:() => Object.entries(GRUPOS_CAT[catEditTipo]).map(([g, c]) => [g, c[1]])},
-    {k:'icon', label:'Ícone', type:'icons'},
-    {k:'color', label:'Cor (aparece com os ícones coloridos, em Configurações › Categorias)', type:'colors', optional:true}],
+    {k:'icon', label:'Ícone e cor', type:'icone'},
+    {k:'color', label:'Cor', type:'cor', optional:true}],
     check(v){ const [type, key] = F.id.split(':'); return catNomeErro(type, v.name, v.g, key); },
     commit(v, id){ const [type, key] = id.split(':'); catSalvar(type, key, v); },
     after:() => openCats()},
@@ -539,8 +539,8 @@ function fieldHtml(f){
     + `<div class="chips sug" id="sug_${f.k}" hidden></div>`;
   if (f.type === 'select') return `<select id="${id}" hidden>${(typeof f.options === 'function' ? f.options() : f.options).map(o => `<option value="${esc(o[0])}">${esc(o[1])}</option>`).join('')}</select>` +
     (f.k === 'cat' ? '<div class="catPick" id="catPick"></div>' : `<div id="o_${f.k}"></div>`);
-  if (f.type === 'icons') return `<input id="${id}" type="hidden"><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button" data-i="${k}" aria-label="${n}" title="${n}" data-onclick="pickIcon('${f.k}','${k}')">${I(k, 23)}</button>`).join('')}</div>`;
-  if (f.type === 'colors') return `<input id="${id}" type="hidden"><div class="swatches colorGrid">${CAT_COLORS.map(c => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-label="Cor ${c}" data-onclick="setField('${f.k}','${c}')"></button>`).join('')}</div>`;
+  // Ícone e cor (categoria): um botão que abre a janela de escolher (escolherIcone); a cor fica no campo 'cor', sem tela.
+  if (f.type === 'icone' || f.type === 'cor') return `<input id="${id}" type="hidden">${f.type === 'icone' ? `<div id="o_${f.k}"></div>` : ''}`;
   if (f.type === 'month' || f.type === 'date') return `<input id="${id}" type="hidden"><button type="button" class="pickBtn" id="p_${f.k}" data-onclick="pickField('${f.k}')"></button>`;
   if (f.type === 'meses') return `<input id="${id}" type="hidden"><div class="mesGrid" id="o_${f.k}"></div>`; // os 12 meses, para marcar
   // Valor de um gasto em vermelho e de um ganho em verde, para confirmar o que está sendo lançado.

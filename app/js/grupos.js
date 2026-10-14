@@ -13,7 +13,18 @@ function catRotulo(type, k){
   const C = CAT_OF[type], c = C[k] || C.outros, n = nomeComparar(c[1]), g = grupoDe(type, k);
   return Object.keys(C).some(o => o !== k && grupoDe(type, o) !== g && nomeComparar(C[o][1]) === n) ? catCompleto(type, k) : c[1];
 }
-const catsDoGrupo = (type, g) => Object.keys(CAT_OF[type]).filter(k => grupoDe(type, k) === g);
+// Categorias de um grupo em ordem alfabética (pedido do dono, 14/10), pelo nome no idioma do app; "Outros" por último.
+const catsDoGrupo = (type, g) => { const C = CAT_OF[type], nome = k => trText(C[k][1]);
+  return Object.keys(C).filter(k => grupoDe(type, k) === g)
+    .sort((a, b) => (a === 'outros') - (b === 'outros') || nome(a).localeCompare(nome(b), LOCALES[lang()], {sensitivity:'base'})); };
+// Grupos de um tipo do mais usado para o menos usado (quantos lançamentos têm categoria dele); empate: a ordem dos grupos.
+function gruposMaisUsados(type){
+  const n = {};
+  for (const x of type === 'ganho' ? db.incomes : db.expenses.concat(db.installments))
+    if (CAT_OF[type][x.cat]){ const g = grupoDe(type, x.cat); n[g] = (n[g] || 0) + 1; }
+  const ks = Object.keys(GRUPOS_CAT[type]);
+  return [...ks].sort((a, b) => (n[b] || 0) - (n[a] || 0) || ks.indexOf(a) - ks.indexOf(b));
+}
 
 // Regras de nome: não vazio; grupo único no tipo; categoria única dentro do grupo (em grupos diferentes, pode repetir).
 function grupoNomeErro(type, nome, g = ''){

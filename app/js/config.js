@@ -490,7 +490,7 @@ function openCats(){
   settingsOpen = false; F = null;
   const row = (type, k, c) => `
     <div class="item u-linha">${tile(c[0])}<div class="mid" style="${c[3] ? 'opacity:.5' : ''}"><b>${esc(c[1])}</b>${c[3] ? '<small>escondida</small>' : ''}</div>
-      <button class="btn" style="flex:none;padding:8px 12px" data-onclick="editCat('${type}','${k}')">Editar</button>
+      ${k === 'outros' ? '<small class="catFixa">fixa</small>' : `<button class="btn" style="flex:none;padding:8px 12px" data-onclick="editCat('${type}','${k}')">Editar</button>`}
       ${BASE_CATS[type][k] ? '' : `<button class="iconbtn out" data-onclick="deleteCat('${type}','${k}')" aria-label="Excluir categoria">${I('close', 20)}</button>`}
       ${k === 'outros' ? '' : `<button class="iconbtn ${c[3] ? 'muted' : 'in'}" data-onclick="toggleCat('${type}','${k}')" aria-label="${c[3] ? 'Mostrar' : 'Esconder'}">${I(c[3] ? 'unchecked' : 'checked', 24)}</button>`}</div>`;
   const grupo = (type, g, c) => { const ks = catsDoGrupo(type, g), id = type + ':' + g; return `
@@ -504,6 +504,7 @@ function openCats(){
     ${Object.entries(GRUPOS_CAT[type]).map(([g, c]) => grupo(type, g, c)).join('')}
     <div class="btns"><button class="btn" data-onclick="gruposRestaurarPedir('${type}')">${I('refresh', 16)}Restaurar grupos padrão</button></div>`;
   showSheet(`<h3>Categorias</h3>
+    <div class="semTopo hint">${CAT_OUTROS_AVISO}</div>
     <div class="semTopo hint">As categorias ficam em grupos (ex.: Lazer reúne Bares, Cinema e Viagens), para ver o total de cada grupo. Toque em um grupo para abrir. Categoria escondida some das listas de escolha, mas os lançamentos antigos continuam com ela. As que você criou podem ser excluídas (X): os lançamentos passam para a de fábrica com o mesmo nome ou para "Outros".</div>
     ${secao('gasto')}${secao('ganho')}
     <div class="btns foot"><button class="btn primary" data-onclick="openSettings('categorias')">Voltar</button></div>`);
@@ -522,26 +523,34 @@ function catSalvar(type, k, v){
 // (nome: o da planilha, já escrito). Com edita (chave de uma categoria), a mesma janela edita essa categoria, já com o
 // nome, o grupo, o ícone e a cor dela (segurar a categoria no formulário, catSegurar). grupo: o grupo já escolhido.
 let catNovaDe = null; // {type, aoCriar, icon, color, edita, g}
+// "Outros" recebe os ganhos e gastos lançados sem categoria: não se edita nem se exclui.
+const CAT_OUTROS_AVISO = 'A categoria Outros recebe os ganhos e gastos lançados sem categoria: ela não se edita nem se exclui.';
 function novaCategoria(type, aoCriar, nome = '', edita = '', grupo = ''){
+  if (edita === 'outros') return;
   const c = edita && CAT_OF[type][edita];
-  catNovaDe = {type, aoCriar, icon:c ? c[0] : 'tag', color:c ? c[2] : '#64748b', edita, g:c ? grupoDe(type, edita) : GRUPOS_CAT[type][grupo] ? grupo : 'outros'};
-  if (c) nome = c[1];
-  showPicker(`<h3>${c ? 'Editar categoria' : 'Nova categoria de ' + type}</h3>
+  catNovaDe = {type, aoCriar, icon:c ? c[0] : 'tag', color:c ? c[2] : '#64748b', edita, nome:c ? c[1] : nome,
+    g:c ? grupoDe(type, edita) : GRUPOS_CAT[type][grupo] ? grupo : 'outros'};
+  catNovaDesenha();
+}
+// Desenha a janela de categoria com o que já foi escolhido (catNovaDe); o ícone e a cor ficam numa janela à parte
+// (escolherIcone), que volta para cá sem perder o nome digitado.
+function catNovaDesenha(){
+  const {type, icon, color, edita, nome, g} = catNovaDe;
+  showPicker(`<h3>${edita ? 'Editar categoria' : 'Nova categoria de ' + type}</h3>
     <label for="cnNome">Nome</label><input id="cnNome" type="text" maxlength="40" placeholder="Ex.: Pets" autocomplete="off" value="${esc(nome)}">
-    <label>Grupo</label><div class="chips grpEscolhe">${Object.entries(GRUPOS_CAT[type]).map(([g, gc]) => `<button type="button"
-      class="${g === catNovaDe.g ? 'on' : ''}" data-g="${g}" data-onclick="catNovaEscolhe(this,'g')"><span style="color:${gc[2]}">${I(gc[0], 15)}</span>${esc(gc[1])}</button>`).join('')}</div>
-    <label>Ícone</label><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button"
-      class="${k === catNovaDe.icon ? 'on' : ''}" data-i="${k}" aria-label="${n}" title="${n}"
-      data-onclick="catNovaEscolhe(this,'icon')">${I(k, 23)}</button>`).join('')}</div>
-    <label>Cor</label><div class="swatches colorGrid">${CAT_COLORS.map(cor => `<button type="button"
-      class="sw${cor === catNovaDe.color ? ' on' : ''}" data-c="${cor}" style="background:${cor}" aria-label="Cor ${cor}"
-      data-onclick="catNovaEscolhe(this,'color')"></button>`).join('')}</div>
+    <label>Grupo</label><div class="chips grpEscolhe">${Object.entries(GRUPOS_CAT[type]).map(([k, gc]) => `<button type="button"
+      class="${k === g ? 'on' : ''}" data-g="${k}" data-onclick="catNovaEscolhe(this)"><span style="color:${gc[2]}">${I(gc[0], 15)}</span>${esc(gc[1])}</button>`).join('')}</div>
+    <label>Ícone e cor</label>${iconeBtn(icon, color, 'catNovaIcone()')}
     <div class="err" id="cnErr"></div>
     <div class="btns foot"><button class="btn" data-onclick="closePicker()">Cancelar</button>
-      <button class="btn primary" data-onclick="catNovaCriar()">${c ? 'Salvar' : 'Criar'}</button></div>`);
+      <button class="btn primary" data-onclick="catNovaCriar()">${edita ? 'Salvar' : 'Criar'}</button></div>`);
 }
-function catNovaEscolhe(b, campo){
-  catNovaDe[campo] = campo === 'icon' ? b.dataset.i : campo === 'g' ? b.dataset.g : b.dataset.c;
+function catNovaIcone(){
+  const d = catNovaDe; d.nome = document.getElementById('cnNome').value;
+  escolherIcone(d.icon, d.color, (icon, color) => { Object.assign(d, {icon, color}); catNovaDesenha(); }, catNovaDesenha);
+}
+function catNovaEscolhe(b){
+  catNovaDe.g = b.dataset.g;
   b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
 }
 function catNovaCriar(){
@@ -559,6 +568,7 @@ function catNovaCriar(){
 // Categoria nas Configurações (formulário catEdit): nova (k = '', no grupo g) ou já existente; o Grupo a move de grupo.
 let catEditTipo = 'gasto';
 function editCat(type, k, g = ''){
+  if (k === 'outros') return;
   const c = CAT_OF[type][k];
   catEditTipo = type;
   openForm('catEdit', null,
