@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <!-- Content Security Policy: o que a página pode carregar e com quem pode falar. 'unsafe-inline' porque o app usa
      data-onclick="" e style="" nas telas (e, no APK atualizado, tudo vem embutido num arquivo só). connect-src: Google
-     (Drive, Planilhas, login), GitHub (atualização), cotações, taxas do Banco Central, notícias, feriados de outros países e o local aproximado dos aparelhos (ipapi.co). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; connect-src 'self' https://date.nager.at https://ipapi.co https://www.googleapis.com https://sheets.googleapis.com https://oauth2.googleapis.com https://raw.githubusercontent.com https://economia.awesomeapi.com.br https://brapi.dev https://api.bcb.gov.br https://news.google.com https://www.bing.com https://exame.com https://api.web3forms.com">
+     (Drive, Planilhas, login), GitHub (atualização), cotações, taxas do Banco Central, notícias, feriados de outros países e o local aproximado dos aparelhos (ipapi.co, ipwho.is, geojs.io). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' data: blob: https://*.bing.com https://*.bing.net https://raw.githubusercontent.com/cofrim/cofrim-updater/main/temas/; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; connect-src 'self' https://date.nager.at https://ipapi.co https://ipwho.is https://get.geojs.io https://www.googleapis.com https://sheets.googleapis.com https://oauth2.googleapis.com https://raw.githubusercontent.com https://economia.awesomeapi.com.br https://brapi.dev https://api.bcb.gov.br https://news.google.com https://www.bing.com https://exame.com https://api.web3forms.com">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <script src="js/largura.js"></script>
 <meta name="theme-color" content="#0f172a">
@@ -31,7 +31,7 @@
 <!-- Assistente: botão flutuante em todas as telas (não é mais uma aba do menu); o ícone é posto por inicio.js. -->
 <button class="fab chat" id="fabChat" data-onclick="go('chat')" aria-label="Assistente"></button>
 <nav class="tabs"><span class="marca" aria-hidden="true"><img src="icon.svg" alt="">Cofrim</span><div id="tabs"></div></nav>
-<div class="overlay" id="overlay" data-onclick="closeForm()"></div>
+<div class="overlay" id="overlay" data-onclick="fecharFolha()"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-hidden="true" inert></div>
 <div class="overlay" id="pickBg" data-onclick="closePicker()"></div>
 <div class="sheet" id="picker" role="dialog" aria-modal="true" aria-hidden="true" inert></div>

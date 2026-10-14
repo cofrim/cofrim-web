@@ -2,8 +2,8 @@
 // própria linha num arquivo da pasta oculta do app no Google Drive (aparelhos.json), na primeira sincronização de cada
 // abertura e depois no máximo a cada 30 min, e lê as dos outros. Tirar outro aparelho marca a linha dele (sair): ele
 // sai sozinho na próxima sincronização. O local (cidade, estado e país) é aproximado, pelo endereço de internet
-// (ipapi.co), e só é pedido uma vez por abertura do app. Depende de sincronizacao.js (driveList, driveWrite) e de
-// copias.js (sairDaqui).
+// (ipapi.co, ipwho.is ou geojs.io), pedido uma vez por abertura do app e de novo enquanto faltar. Depende de
+// sincronizacao.js (driveList, driveWrite) e de copias.js (sairDaqui).
 const APARELHO_KEY = 'financas-aparelho', APARELHOS_ARQ = 'aparelhos.json';
 let aparelhos = null, aparelhoGravado = 0, aparelhoSessao = false, aparelhoLocal = null, aparelhosPedido = 0;
 // Identidade deste aparelho (só dele, não vai para a conta junto com os dados).
@@ -23,15 +23,22 @@ function aparelhoNome(){
     : /Linux/.test(ua) ? 'Linux' : '';
   return nav + (so ? ' · ' + so : '');
 }
-// Cidade, estado e país aproximados (pelo endereço de internet), uma vez por abertura; sem internet ou sem resposta, nada.
+// Cidade, estado e país aproximados (pelo endereço de internet). O ipapi.co recusa pedidos quando muita gente sai pelo
+// mesmo endereço (rede de celular): aí tenta o ipwho.is e o geojs.io. Achou, vale até fechar o app; não achou (sem
+// internet ou nenhum respondeu), tenta de novo depois de 10 min.
+const ONDE_FONTES = [['https://ipapi.co/json/', j => !j.error && [j.city, j.region, j.country_name]],
+  ['https://ipwho.is/', j => j.success !== false && [j.city, j.region, j.country]],
+  ['https://get.geojs.io/v1/ip/geo.json', j => [j.city, j.region, j.country]]];
+let aparelhoOndeTentou = 0;
 async function aparelhoOnde(){
-  if (aparelhoLocal) return aparelhoLocal;
-  try {
-    const r = await Promise.race([fetch('https://ipapi.co/json/'), new Promise((_, falha) => setTimeout(() => falha(new Error('sem resposta')), 6000))]);
-    const j = await r.json(), t = v => String(v || '').slice(0, 60);
-    if (j && !j.error) aparelhoLocal = {cidade:t(j.city), estado:t(j.region), pais:t(j.country_name)};
+  if (aparelhoLocal || Date.now() - aparelhoOndeTentou < 10 * 60e3) return aparelhoLocal;
+  aparelhoOndeTentou = Date.now();
+  for (const [url, ler] of ONDE_FONTES) try {
+    const r = await Promise.race([fetch(url), new Promise((_, falha) => setTimeout(() => falha(new Error('sem resposta')), 6000))]);
+    const l = ler(await r.json() || {}), t = v => String(v || '').slice(0, 60);
+    if (l && l.some(Boolean)) return aparelhoLocal = {cidade:t(l[0]), estado:t(l[1]), pais:t(l[2])};
   } catch(e){}
-  return aparelhoLocal;
+  return null;
 }
 // Linhas lidas do arquivo, conferidas (o arquivo vem da conta, mas pode ter sido gravado por uma versão antiga).
 function aparelhosLimpos(d){
@@ -53,9 +60,12 @@ async function aparelhosAtualizar(forcar){
   if (demoOn || !canSync() || !sync.on || (!forcar && Date.now() - aparelhoGravado < 30 * 60e3)) return;
   const {f, lista} = await aparelhosLer(), id = aparelhoId(), eu = lista[id], agora = Date.now();
   if (eu && eu.sair) return aparelhoSaiuDeLonge(f, lista);
-  const novo = !eu || !aparelhoSessao, onde = novo ? await aparelhoOnde() : null;
-  lista[id] = {...(eu || {}), nome:aparelhoNome(), app:APP_VERSION, prim:eu && eu.prim || agora, primLocal:eu && eu.prim ? eu.primLocal : onde,
-    ult:novo ? agora : eu.ult, ultLocal:novo ? onde || (eu && eu.ultLocal) : eu.ultLocal, sinc:sync.at || agora, sair:0};
+  // O local é pedido na primeira vez de cada abertura e, enquanto faltar, de novo (aparelhoOnde espera 10 min entre
+  // tentativas). O do primeiro acesso só é completado no mesmo dia em que ele aconteceu.
+  const novo = !eu || !aparelhoSessao, onde = novo || !eu.ultLocal ? await aparelhoOnde() : null;
+  lista[id] = {...(eu || {}), nome:aparelhoNome(), app:APP_VERSION, prim:eu && eu.prim || agora,
+    primLocal:eu && eu.prim ? eu.primLocal || (agora - eu.prim < 864e5 ? onde : null) : onde,
+    ult:novo ? agora : eu.ult, ultLocal:onde || (eu && eu.ultLocal) || null, sinc:sync.at || agora, sair:0};
   for (const [k, x] of Object.entries(lista)) if (k !== id && Math.max(x.ult, x.sinc) < agora - 365 * 864e5) delete lista[k]; // sem notícia há 1 ano
   await aparelhosGravar(f, lista);
   aparelhos = lista; aparelhoGravado = agora; aparelhoSessao = true;
@@ -101,14 +111,18 @@ function aparelhosHtml(){
   aparelhosPedir();
   if (!aparelhos) return '<label>Aparelhos ligados à conta</label><div class="semTopo hint">Buscando os aparelhos…</div>';
   const id = aparelhoId(), quando = t => t ? new Date(t).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) : '—';
-  const onde = l => l && (l.cidade || l.estado || l.pais) ? ' · ' + esc([l.cidade, l.estado, l.pais].filter(Boolean).join(', ')) : '';
-  const lista = Object.entries(aparelhos).sort(([a, x], [b, y]) => (a === id ? -1 : b === id ? 1 : y.sinc - x.sinc));
-  return `<label>Aparelhos ligados à conta</label>${lista.map(([k, x]) => `<div class="plano card aparelho">
-    <b>${esc(x.nome || 'Aparelho')}</b>${k === id ? '<small class="in">Este aparelho</small>' : ''}
-    <small><span>Primeiro acesso:</span> ${quando(x.prim)}${onde(x.primLocal)}</small>
-    <small><span>Último acesso:</span> ${quando(x.ult)}${onde(x.ultLocal)}</small>
-    <small><span>Última sincronização:</span> ${quando(x.sinc)}</small>
-    ${k === id ? '' : x.sair ? '<small class="warn">Saída pedida: o aparelho sai da conta quando abrir o app.</small>'
-      : `<div class="btns"><button class="btn danger" data-onclick="aparelhoTirar('${k}')">Tirar da conta</button></div>`}</div>`).join('')}
-    <div class="hint">O local é aproximado, pelo endereço de internet de cada aparelho (serviço ipapi.co).</div>`;
+  const onde = l => `<small>${I('pin', 12)}${l && (l.cidade || l.estado || l.pais) ? esc([l.cidade, l.estado, l.pais].filter(Boolean).join(', '))
+    : '<span>Local não disponível</span>'}</small>`;
+  const lista = Object.entries(aparelhos).sort(([a, x], [b, y]) => (a === id ? -1 : b === id ? 1 : y.sinc - x.sinc)), eu = aparelhos[id];
+  return `<label>Aparelhos ligados à conta</label><div class="aparelhos">${lista.map(([k, x]) => `<div class="aparelho">
+    <div class="apTopo">${I(/Android|iPhone/.test(x.nome) ? 'phone' : 'laptop', 20)}<b>${esc(x.nome || 'Aparelho')}</b>
+      ${k === id ? '<span class="tag">Este aparelho</span>' : ''}</div>
+    <p><span>Primeiro acesso:</span> ${quando(x.prim)}${onde(x.primLocal)}</p>
+    <p><span>Último acesso:</span> ${quando(x.ult)}${onde(x.ultLocal)}</p>
+    <p><span>Última sincronização:</span> ${quando(x.sinc)}</p>
+    ${k === id ? '' : x.sair ? '<div class="hint warn">Saída pedida: o aparelho sai da conta quando abrir o app.</div>'
+      : `<div class="btns"><button class="btn danger" data-onclick="aparelhoTirar('${k}')">Tirar da conta</button></div>`}</div>`).join('')}</div>
+    ${eu && !eu.ultLocal ? `<div class="hint warn">${I('alert', 13)} Não foi possível descobrir o local deste aparelho agora: os serviços de
+      localização pela internet não responderam. O app tenta de novo daqui a alguns minutos.</div>` : ''}
+    <div class="hint">O local é aproximado, pelo endereço de internet de cada aparelho (não usa o GPS).</div>`;
 }

@@ -2,16 +2,25 @@
 // Saiu de js/comprovantes.js (só mudou de arquivo); carregado logo depois dele no index.html.
 
 function removeItem(){ if (!F) return; const {col, id} = F; closeForm(); removeRec(col, id); } // segundo toque em "Excluir" depois que o formulário fechou
-// Exclui um lançamento e oferece "Desfazer" por alguns segundos.
-function removeRec(col, id){
-  const i = db[col].findIndex(x => x.id === id), rec = db[col][i];
+// Exclui um lançamento e oferece "Desfazer" por alguns segundos. Ganho ou gasto que repete e já valia antes do mês na
+// tela: pergunta se encerra (some a partir deste mês, os anteriores ficam) ou se sai de todos os meses (tudo).
+function removeRec(col, id, tudo){
+  const i = db[col].findIndex(x => x.id === id), rec = db[col][i], mes = mesNovo();
   if (i < 0) return tell(ARCH_MSG); // lançamento do arquivo de anos antigos
+  if (!tudo && (col === 'incomes' || col === 'expenses') && rec.fixed && rec.start < mes && !(rec.end && rec.end < mes))
+    return pickList(`Excluir "${rec.desc}"`, [['fim', `Só a partir de ${monthName(mes)} (os meses anteriores ficam)`], ['tudo', 'De todos os meses']], '',
+      v => v === 'fim' ? encerrarRec(rec, mes) : removeRec(col, id, true));
   db[col].splice(i, 1);
   db.tomb[id] = Date.now();
   db.trash.push({col, rec, at:Date.now()});
   save(); render();
   showUndo('Excluído', () => { db[col].splice(i, 0, touch(rec)); delete db.tomb[id]; db.trash = db.trash.filter(t => t.rec !== rec); save(); render(); },
     {dest:{k:'lixeira'}});
+}
+function encerrarRec(rec, mes){
+  const antes = rec.end;
+  rec.end = addMonths(mes, -1); touch(rec); save(); render();
+  showUndo(`Encerrado: some a partir de ${monthName(mes)}`, () => { if (antes) rec.end = antes; else delete rec.end; touch(rec); save(); render(); });
 }
 // Lixeira: lançamentos excluídos nos últimos 30 dias (neste aparelho), com opção de restaurar.
 const COL_NAMES = {incomes:'Ganho', expenses:'Gasto', installments:'Compra parcelada', investments:'Investimento', goals:'Meta', accounts:'Conta',
@@ -21,7 +30,8 @@ function openTrash(){
   const list = db.trash.map((t, i) => ({t, i})).reverse();
   showSheet(`<h3>Lixeira</h3>
     <div class="semTopo hint">O que você exclui fica aqui por 30 dias, só neste aparelho.</div>
-    ${list.length ? list.map(({t, i}) => { const r = t.rec || {}, dias = Math.floor((Date.now() - t.at) / 864e5), v = r.value ?? r.total ?? r.target;
+    ${list.length ? list.map(({t, i}) => { const r = t.rec || {}, v = r.value ?? r.total ?? r.target;
+      const dias = Math.max(0, Math.floor((Date.now() - t.at) / 864e5)); // relógio adiantado em outro aparelho: nunca "há -2 dias"
       const quando = 'excluído ' + (dias ? 'há ' + dias + ' dia' + (dias > 1 ? 's' : '') : 'hoje');
       if (t.col === 'lote') return `<div class="semCursor item"><div class="mid"><b>Planilha ${esc(t.lote.nome)}</b>
         <small>Importação desfeita · ${plural(t.recs.length, 'lançamento', 'lançamentos')} · ${quando}</small></div>

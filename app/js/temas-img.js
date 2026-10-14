@@ -1,7 +1,7 @@
 // Cofrim — Imagens dos temas especiais (só dados). Gerado por scripts/temas-img.js a partir de temas/temas.json: não edite à mão.
 // Por tema: [estilo de interface (data-ui), SHA-256 das imagens (feliz, ok, triste, fundo, objeto), animação do objeto
 // [movimento, duração, pausa, escala, altura, amplitude, curva, sentido, quantidade, variação de escala, variação de altura],
-// cenário [segundos do deslize (ou do balanço, no centrado), sentido, 1 = centrado: uma imagem só, no meio, sem deslizar] e personagem [respiração em segundos, flutua?, sombra que acompanha?]].
+// cenário [segundos do deslize (no centrado, o passeio leva um quinto disso), sentido, 1 = centrado: uma imagem só, no meio, sem deslizar] e personagem [respiração em segundos, flutua?, sombra que acompanha?]].
 // As imagens ficam em temas/ do cofrim-updater; js/temas-baixar.js baixa só as do tema em uso e confere o SHA-256.
 const TEMA_PARTES = ['feliz', 'ok', 'triste', 'fundo', 'objeto'];
 const TEMAS_IMG = {

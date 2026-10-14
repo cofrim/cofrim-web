@@ -150,17 +150,17 @@ function donut(parts, total, rotulo = 'Total'){
 }
 
 // Cartão com a rosca de gastos por categoria: total no centro e, ao lado, as cinco maiores categorias (o resto vira
-// "Outras") com valor e percentual. lista = [[categoria, valor], ...]; rotulo = o que vai no centro (mês ou ano).
+// "Demais categorias", para não confundir com a categoria Outros) com valor e percentual. lista = [[categoria, valor], ...]; rotulo = o que vai no centro (mês ou ano).
 function roscaCats(lista, rotulo, vazio){
   const cs = [...lista].sort((a, b) => b[1] - a[1]), tot = sum(cs, c => c[1]), top = cs.slice(0, 5), resto = sum(cs.slice(5), c => c[1]);
   if (!cs.length) return `<div class="hint u-vazio">${vazio}</div>`;
   const cor = (k, i) => (CAT_GASTO[k] || CAT_GASTO.outros)[2] || shade(i, top.length);
-  const linhas = [...top.map(([k, v], i) => [cor(k, i), (CAT_GASTO[k] || CAT_GASTO.outros)[1], v]), ...(resto ? [['var(--muted)', 'Outras', resto]] : [])];
+  const linhas = [...top.map(([k, v], i) => [cor(k, i), (CAT_GASTO[k] || CAT_GASTO.outros)[1], v]), ...(resto ? [['var(--muted)', 'Demais categorias', resto]] : [])];
   return `<div class="card rosca">${donut(linhas.map(([c, , v]) => [c, v]), tot, rotulo)}
     <div>${linhas.map(([c, nome, v]) => `<div class="leg duas"><i class="dot" style="background:${esc(c)}"></i><span>${esc(nome)}<small>${fmtCurto(v)}</small></span><b>${Math.round(v / tot * 100)}%</b></div>`).join('')}</div></div>`;
 }
 
-const mesCurto = ym => monthName(ym).split(' ')[0].slice(0, 3) + '.';
+const mesCurto = ym => trText(monthName(ym)).split(' ')[0].slice(0, 3) + '.'; // no idioma do app (set. / Sep.)
 function viewResumo(){
   // rm = mês escolhido no Resumo (state.rmes), sempre dentro do ano escolhido (state.year).
   const y = state.year, rm = resumoMes(), nomeM = monthName(rm).split(' ')[0], months = [...Array(12)].map((_,i) => ymOf(y,i));
@@ -186,7 +186,7 @@ function viewResumo(){
   const B = {
   mascote: () => db.prefs.fun ? funMascot() : '',
   conquistas: () => db.prefs.fun ? funBadges() : '',
-  atalhos: () => `<div class="quick">${[['expenses','receipt','Gasto'],['incomes','income','Ganho'],['investments','trend','Investir']].map(([col, ic, t]) => `<button data-onclick="openForm('${col}')"><span>${I(ic, 20)}</span>+ ${t}</button>`).join('')}</div>`,
+  atalhos: () => `<div class="quick">${[['incomes','income','Ganho'],['expenses','receipt','Gasto'],['investments','trend','Investir']].map(([col, ic, t]) => `<button data-onclick="openForm('${col}')"><span>${I(ic, 20)}</span>+ ${t}</button>`).join('')}</div>`,
   // Mês e ano lado a lado, no mesmo cartão de destaque: o gasto em cima, os ganhos embaixo. Tocar leva aos gastos do mês.
   // Em cada um: barra de quanto dos ganhos já foi gasto e um selo (mês: comparação com o mês anterior; ano: sobra ou falta).
   // O selo fala do mês anterior pelo nome curto ("set."): o cartão é estreito e o texto longo saía do cartão.
@@ -194,9 +194,10 @@ function viewResumo(){
     const uso = (g, t) => `<div class="uso"><i style="width:${g ? Math.min(100, t / g * 100) : 0}%"></i></div><small>${g ? `${hideVals ? '••' : Math.round(t / g * 100)}% dos ganhos (${fmtCurto(g)})` : 'sem ganhos lançados'}</small>`;
     return `<div class="hero2">
     <div class="hero" data-onclick="goMonth('${rm}')"><small>Gastos de ${nomeM}</small>${bigNum(mo, 1)}${uso(mi, mo)}
-      ${dif == null || hideVals ? '' : `<span class="selo">${dif ? `${dif > 0 ? '▲' : '▼'} ${Math.abs(dif)}% sobre ${mesCurto(addMonths(rm, -1))}` : `= igual a ${mesCurto(addMonths(rm, -1))}`}</span>`}</div>
+      ${dif == null || hideVals ? '' : `<span class="selo">${dif ? tf('{} sobre {}', `${dif > 0 ? '▲' : '▼'} ${Math.abs(dif)}%`, mesCurto(addMonths(rm, -1)))
+        : tf('= igual a {}', mesCurto(addMonths(rm, -1)))}</span>`}</div>
     <div class="hero ano"><small>Gastos de ${y}</small>${bigNum(tout, 1)}${uso(tin, tout)}
-      ${tin || tout ? `<span class="selo">${tin - tout < 0 ? 'faltou' : 'sobrou'} ${fmtCurto(Math.abs(tin - tout))}</span>` : ''}</div></div>`; },
+      ${tin || tout ? `<span class="selo">${tf(tin - tout < 0 ? 'faltou {}' : 'sobrou {}', fmtCurto(Math.abs(tin - tout)))}</span>` : ''}</div></div>`; },
   // Gastos por categoria do mês escolhido: rosca com o total no centro e as maiores categorias ao lado.
   rosca: () => { const g = {}; expensesOf(rm).forEach(e => g[e.cat] = (g[e.cat] || 0) + e.value);
     return `<h2>Gastos por categoria em ${nomeM} <button data-onclick="goMonth('${rm}')">Ver gastos</button></h2>${roscaCats(Object.entries(g), cap(nomeM), `Nenhum gasto em ${monthName(rm)}.`)}`; },
@@ -422,7 +423,7 @@ function viewGanhos(){
   ${once.length ? `<div class="card">${once.map(row).join('')}</div>` : empty('wallet', `Nenhum ganho avulso em ${monthName(m)}.`)}`
   };
   return head('Ganhos', 'ganhos') + ganhosSeg() + navMes() + blocks('ganhos', B)
-    + `<div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('ganhos')">${I('trash')}Apagar ganhos por dia, mês ou ano</button></div>`;
+    + `<div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('ganhos')">${I('trash')}Apagar por dia, mês ou ano</button></div>`;
 }
 
 // Comparativo: gasto de cada categoria no mês m, no mês anterior e na média dos 6 meses antes de m.
@@ -461,12 +462,13 @@ const bigNum = (v, curto) => `<div class="big" data-v="${+v || 0}"${curto ? ' da
 // os valores da linha diminuem juntos, na mesma proporção, até o maior caber (no mínimo 60%). Roda depois de desenhar a
 // tela ou uma folha, ao mudar o tamanho da janela e quando a fonte de um tema termina de carregar.
 function valoresCabem(root = document){
-  for (const r of root.querySelectorAll('.hero .row, .grid2, .grid3')){
-    const bs = [...r.querySelectorAll(':scope > * > b')];
-    for (const b of bs){ if (!('fs' in b.dataset)) b.dataset.fs = b.style.fontSize; b.style.setProperty('font-size', b.dataset.fs); }
-    const k = Math.min(1, ...bs.filter(b => b.scrollWidth > 0).map(b => b.clientWidth / b.scrollWidth));
-    if (k < 1) for (const b of bs) b.style.setProperty('font-size', parseFloat(getComputedStyle(b).fontSize) * Math.max(.6, k * .98) + 'px', 'important');
-  }
+  // Primeiro só escreve (volta ao tamanho original), depois só mede (todas as linhas de uma vez) e no fim só escreve:
+  // medir no meio das mudanças fazia o navegador recalcular a tela uma vez por linha.
+  const linhas = [...root.querySelectorAll('.hero .row, .grid2, .grid3')].map(r => [...r.querySelectorAll(':scope > * > b')]);
+  for (const bs of linhas) for (const b of bs){ if (!('fs' in b.dataset)) b.dataset.fs = b.style.fontSize; b.style.setProperty('font-size', b.dataset.fs); }
+  const ajustes = linhas.map(bs => { const k = Math.min(1, ...bs.filter(b => b.scrollWidth > 0).map(b => b.clientWidth / b.scrollWidth));
+    return k < 1 ? bs.map(b => [b, parseFloat(getComputedStyle(b).fontSize) * Math.max(.6, k * .98)]) : []; });
+  for (const a of ajustes) for (const [b, px] of a) b.style.setProperty('font-size', px + 'px', 'important');
 }
 let valoresT = 0;
 addEventListener('resize', () => { clearTimeout(valoresT); valoresT = setTimeout(valoresCabem, 150); });

@@ -48,7 +48,7 @@ const paraPlanilha = d => JSON.stringify({...d, sugs:undefined});
 const sharedMsg = e => e.status === 403 && /SERVICE_DISABLED|has not been used|not been enabled/i.test(e.text) ? 'A API do Google Sheets não está ativada no projeto do app no Google Cloud.'
   : e.status === 403 || e.status === 404 ? 'Sem acesso à conta compartilhada: confira se o convite foi feito para esta conta Google.' : '';
 const codeOf = s => (String(s).match(/\/d\/([\w-]{20,})/) || String(s).trim().match(/^([\w-]{20,})$/) || [])[1] || '';
-const inviteText = id => `Te convidei para a nossa conta compartilhada no app Cofrim. No app, abra Configurações > Conta compartilhada > Tenho um convite e cole este código:\n${id}`;
+const inviteText = id => `Te convidei para a nossa conta compartilhada no app Cofrim. No app, abra Configurações › Conta compartilhada › Tenho um convite e cole este código:\n${id}`;
 // Quem lançou: registros antigos (sem by) passam a ser desta pessoa ao entrar numa conta compartilhada.
 function claimMine(){ const me = myName(); if (me) for (const c of COLS) for (const r of db[c]) if (!r.by){ r.by = me; r.u = Date.now(); } }
 // ---------- Pessoas e avisos da conta compartilhada ----------

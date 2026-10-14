@@ -141,9 +141,10 @@ function recorrentes(){
   const desde = addMonths(curYM, -5), ign = db.prefs.recorrIgnorados || [], grupos = {};
   const fixos = new Set(db.expenses.filter(x => x.fixed && (!x.end || x.end >= curYM)).map(x => recorrChave(x.desc)));
   for (const x of db.expenses){
+    // os testes baratos antes: a chave (sem acento, sem números) só é calculada para os gastos dos últimos 6 meses
+    if (x.fixed || !x.start || x.start < desde || x.start > curYM || VALES[x.pay] || RECORR_FORA.includes(x.cat)) continue;
     const k = recorrChave(x.desc);
-    if (x.fixed || !x.start || x.start < desde || x.start > curYM || VALES[x.pay] || RECORR_FORA.includes(x.cat) || k.length < 3 || fixos.has(k)
-      || ign.includes(k)) continue;
+    if (k.length < 3 || fixos.has(k) || ign.includes(k)) continue;
     (grupos[k] = grupos[k] || []).push(x);
   }
   const mediana = l => { const v = l.map(x => x.value).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; };
@@ -160,7 +161,18 @@ const valeEmp = k => ([...db.incomes.filter(x => x.cat === k && x.emp),
   ...db.expenses.filter(x => x.pay === k && x.emp)].sort((a, b) => (b.u || 0) - (a.u || 0))[0] || {}).emp || '';
 const temVales = () => Object.keys(VALES).some(temVale);
 const valeGanho = x => !!VALES[x.cat], valeGasto = x => !!VALES[x.pay];
-const incomesAll = ym => cached('I' + ym, () => [...db.incomes, ...archRecs('incomes', ym)].filter(x => activeIn(x, ym)));
+// Lançamentos de db[col] que valem no mês ym, na ordem da lista. Os avulsos só valem no mês de start: ficam num índice por
+// mês (guardado até a próxima mudança, como os outros cached), e só os fixos são conferidos um a um.
+const indiceMes = col => cached('X' + col, () => {
+  const fixos = [], avulsos = new Map();
+  db[col].forEach((x, i) => { if (x.fixed) fixos.push(i); else { const l = avulsos.get(x.start); if (l) l.push(i); else avulsos.set(x.start, [i]); } });
+  return {fixos, avulsos};
+});
+function ativosNoMes(col, ym){
+  const l = db[col], {fixos, avulsos} = indiceMes(col), idx = fixos.filter(i => activeIn(l[i], ym)), av = avulsos.get(ym);
+  return (av ? idx.concat(av).sort((a, b) => a - b) : idx).map(i => l[i]);
+}
+const incomesAll = ym => cached('I' + ym, () => [...ativosNoMes('incomes', ym), ...archRecs('incomes', ym).filter(x => activeIn(x, ym))]);
 const incomesOf = ym => cached('i' + ym, () => incomesAll(ym).filter(x => !valeGanho(x)));
 const expensesAll = ym => cached('E' + ym, () => expensesRaw(ym));
 const expensesOf = ym => cached('e' + ym, () => expensesAll(ym).filter(x => !valeGasto(x)));
@@ -178,7 +190,7 @@ const valeSaldo = (k, ym = curYM) => cached('vs' + k + ym, () => {
 function expensesRaw(ym){
   // Gasto dividido: value passa a ser só a sua parte; full guarda o total que saiu da sua conta;
   // got diz se a parte da outra pessoa já foi recebida (nos gastos fixos, mês a mês, em x.sm).
-  const list = [...db.expenses, ...archRecs('expenses', ym)].filter(x => activeIn(x, ym)).map(x => ({...x, kind:'expense', full:x.value,
+  const list = [...ativosNoMes('expenses', ym), ...archRecs('expenses', ym).filter(x => activeIn(x, ym))].map(x => ({...x, kind:'expense', full:x.value,
     value:x.value - (x.share || 0), got:x.fixed ? (x.sm || []).includes(ym) : !!x.settled}));
   // Parcelas: cada uma no mês dela, paga ou não ("Pagar" só muda o status). Financiamento e empréstimo saem da conta de
   // débito. Os abatimentos entram como gasto no mês em que foram feitos.

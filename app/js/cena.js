@@ -195,7 +195,7 @@ function cenaImgHtml(k){
   const tiras = [...Array(cenaCopias())].map((_, i) => `<i${i % 2 ? ' class="esp"' : ''}><img src="${fundo}" alt=""></i>`).join('');
   const n = cenaQuieta() ? 0 : efeitosLeves() ? Math.min(1, obj[8]) : obj[8];
   return `<div class="cenaImg"><div class="cenaFundo" style="height:${CENA_ALT}px">`
-    + (centro ? `<div class="cfCentro" style="--d:${deslize}s"><img src="${fundo}" alt=""></div></div>`
+    + (centro ? `<div class="cfCentro" style="--d:${Math.round(deslize / 5)}s"><img src="${fundo}" alt=""></div></div>`
       : `<div class="cfTira${sentido > 0 ? ' dir' : ''}" style="--d:${deslize}s;--w:${CENA_ALT * 2.4}px">${tiras}</div></div>`)
     + `${cenaPartHtml(k)}
     <div class="cenaObj">${[...Array(n)].map(() => `<i><img src="${temaImg(k, 'objeto')}" alt=""></i>`).join('')}</div>

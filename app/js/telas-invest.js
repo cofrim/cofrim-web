@@ -8,7 +8,7 @@ function viewInvest(){
   const known = hist.filter(h => h[1] != null), hmax = Math.max(1, ...known.map(h => h[1]));
   const B = {
   total: () => `<div class="hero"><small>Total investido hoje</small>${bigNum(hoje)}
-    <div class="row"><div><small>Projeção em 12 meses</small><b>${fmt(fut)}</b></div><div><small>Aportes do ano</small><b>${fmt(sum(vs, v => (v.monthly||0)*12))}</b></div></div></div>`,
+    <div class="row"><div><small>Projeção em 12 meses</small><b>${fmt(fut)}</b></div><div><small>Aportes previstos no ano</small><b>${fmt(sum(vs, v => (v.monthly||0)*12))}</b></div></div></div>`,
   evolucao: () => vs.length ? `<div class="card"><b>Evolução do total investido</b>
     <div class="chart" style="height:110px">${chartGrid(hmax)}${hist.map(([m, v]) => `<div class="semCursor col"><div class="bars"><i style="height:${v == null ? 0 : v/hmax*100}%;width:70%;max-width:16px;background:${v == null ? 'transparent' : 'linear-gradient(var(--brand),var(--brand2))'}"></i></div><small>${MESES[+m.slice(5)-1].slice(0,3)}</small></div>`).join('')}</div>
     <div class="hint">${known.length > 1 ? `De ${fmt(known[0][1])} em ${monthName(known[0][0])} para ${fmt(hoje)} hoje.` : 'O histórico começa neste mês e ganha uma barra a cada mês de uso.'}</div></div>` : '',
@@ -24,7 +24,7 @@ function viewInvest(){
         <div class="stat"><small>Meta</small><b class="u-fs14">${fmt(g.target)}</b></div>
         <div class="stat"><small>Falta</small><b class="u-fs14">${fmt(left)}</b></div></div>
       ${left <= 0 ? `<div class="hint in">${I('checked', 15)} Meta alcançada</div>` : g.date ? `<div class="hint">${months > 0 ? `Guardando ${fmt(left / months)} por mês você chega lá no prazo (${months} ${months > 1 ? 'meses' : 'mês'}).` : 'O prazo desta meta já chegou.'}</div>` : ''}
-      <div class="btns"><button class="btn primary" data-onclick="openForm('goalAdd', null, {id:'${g.id}'})">+ Guardar dinheiro</button></div>
+      <div class="btns"><button class="btn primary" data-onclick="openForm('goalAdd', null, {id:'${g.id}'})">Guardar ou retirar</button></div>
     </div>`; }).join('') : vazioParte('Crie uma meta (viagem, reserva de emergência…) e acompanhe quanto falta.', ['+ Criar meta', "openForm('goals')"])}`,
   carteira: () => `<h2>Meus investimentos ${vs.some(v => v.ticker) ? `<button data-onclick="refreshQuotes(true)">${quoting ? 'Atualizando…' : I('refresh', 14) + 'Atualizar cotações'}</button>` : ''}</h2>
   ${vs.length ? vs.map(v => { const c = CAT_INV[v.cat] || CAT_INV.outros, p = projection(v), ap = (v.monthly||0)*12;
@@ -73,12 +73,12 @@ function viewInvest(){
       <div class="hint">O valor é atualizado sozinho a cada virada de mês com o rendimento${v.monthly ? ` e o aporte mensal de ${fmt(v.monthly)}` : ''}.</div>
     </div>`; }).join('')
   : empty('trend', 'Cadastre seus investimentos para ver<br>quanto você terá daqui a um ano.', ['+ Cadastrar investimento', "openForm('investments')"])}`,
-  taxas: () => `<div class="hint" style="text-align:center;padding:0 10px">Projeção bruta (sem IR), com as taxas: CDI ${r.cdi}% · Selic ${r.selic}% · IPCA ${r.ipca}% a.a. (${ratesInfo()}).
+  taxas: () => `<div class="hint" style="text-align:center;padding:0 10px">Projeção bruta (sem IR), com as taxas: CDI ${numBR(r.cdi, 2)}% · Selic ${numBR(r.selic, 2)}% · IPCA ${numBR(r.ipca, 2)}% a.a. (${ratesInfo()}).
     <a class="u-marca" href="#" data-onclick="openRates();return false">Ver taxas</a>
     ${vs.some(v => v.ticker) ? '<br>Ações e moedas entram pelo valor atual, sem projeção. As cotações podem ter alguns minutos de atraso.' : ''}</div>`
   };
   return head('Investimentos', 'invest') + blocks('invest', B)
-    + (vs.length ? `<div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('invest')">${I('trash')}Apagar investimentos por dia, mês ou ano</button></div>` : '');
+    + (vs.length ? `<div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('invest')">${I('trash')}Apagar por dia, mês ou ano</button></div>` : '');
 }
 function openDiv(id){ const v = db.investments.find(x => x.id === id); openForm('div', null, {id, title:'Provento de ' + v.ticker}); }
 function buyMore(id){

@@ -39,7 +39,7 @@ function scheduleReminders(){
   if (demoOn) return;
   if (!(temNativo('lembretes'))) return;
   const p = db.prefs, list = [], oinc = p.fun && !p.skin ? 'Oinc! ' : ''; // com tema especial, o mascote não é o porquinho
-  if (!lembLigados()) return void nativo('lembretes', '[]'); // interruptor do aparelho desligado: nada agendado
+  if (!lembLigados()) return void nativoSeMudou('lembretes', '[]'); // interruptor do aparelho desligado: nada agendado
   if (podeNotificar('contas')) for (const x of db.expenses){
     if (!x.fixed || !x.due || p.notifyCats[x.cat] === false) continue;
     for (const m of [curYM, addMonths(curYM, 1), addMonths(curYM, 2)]){
@@ -61,8 +61,12 @@ function scheduleReminders(){
         text:`${q.desc}: parcela ${j + 1}/${q.n} (${fmt(parcVal(q, j))}) vence hoje, ${fmtDate(vencData(v)).slice(0, 5)}.`});
     }
   }
-  nativo('lembretes', JSON.stringify(list.filter(n => n.at > Date.now()).sort((a,b) => a.at - b.at).slice(0, 60)));
+  nativoSeMudou('lembretes', JSON.stringify(list.filter(n => n.at > Date.now()).sort((a,b) => a.at - b.at).slice(0, 60)));
 }
+// Envia ao lado nativo só o que mudou desde o último envio nesta abertura: o widget e os alarmes eram refeitos a cada
+// gravação, mesmo iguais (no Android, redesenhar 6 widgets e reagendar até 60 alarmes).
+const nativoEnviado = {};
+function nativoSeMudou(k, texto, enviar = () => nativo(k, texto)){ if (nativoEnviado[k] === texto) return; nativoEnviado[k] = texto; enviar(); }
 
 // Widget da tela inicial (só no APK): entrega ao lado nativo os números do mês atual, já formatados.
 function updateWidget(){
@@ -74,19 +78,20 @@ function updateWidget(){
   const frase = {feliz:db.prefs.skin ? 'Mês no azul' : 'Oinc! Mês no azul', ok:'Tudo sob controle', triste:'Segura o cartão…'}[humor];
   const semSimbolo = s => s.replace(moeda.simbolo, '').replace(/^[\s\u00A0]+|[\s\u00A0]+$/g, '').replace(/^-[\s\u00A0]+/, '-');
   const curto = v => semSimbolo(fmt(v)).replace(/,\d+$/, ''); // sem o símbolo nem centavos: cabe no widget de saldo, que é estreito
-  nativo('widget', widgetMascara(JSON.stringify({mes:m[0].toUpperCase() + m.slice(1), saldo:fmt(saldoPrev), negativo:saldoPrev < 0,
+  const json = widgetMascara(JSON.stringify({mes:m[0].toUpperCase() + m.slice(1), saldo:fmt(saldoPrev), negativo:saldoPrev < 0,
     saldoRot:(reserva ? 'Saldo previsto de ' : 'Saldo de ') + mesNome, prevTxt:prevInclui(reserva), ganhos:fmt(tin), gastos:fmt(tout),
     ganhosC:curto(tin), gastosC:curto(tout),
     fun:!!db.prefs.fun, frase, linhas:widgetLines(), pig:db.prefs.widgetPig ?? !!db.prefs.fun, humor, skin:db.prefs.skin || '',
     // cor = cor do app (o fundo dos widgets acompanha); fundo = 'tema' (cor ou tema especial) ou 'escuro'; pct = gastos sobre ganhos.
     cor:db.prefs.color, fundo:db.prefs.widgetFundo || 'tema', pct:tin > 0 ? Math.min(100, Math.round(tout / tin * 100)) : tout > 0 ? 100 : 0,
-    ...widgetGastos(), ...widgetContas(), sugs:widgetSugs(), ts:Date.now(),
+    ...widgetGastos(), ...widgetContas(), sugs:widgetSugs(), ts:0, // ts entra no envio (a comparação ignora a hora)
     // Números curtos do tamanho 1x1 (sem o símbolo da moeda): saldo, quantas contas vencem e o total da lista de gastos.
     saldoC:semSimbolo(fmtCurto(saldoPrev)), contasN:upcomingBills().length ? String(upcomingBills().length) : '',
     contas:upcomingBills().slice(0, 12).map(b => ({t:b.x.desc,
       s:b.diff < 0 ? 'atrasada' : b.diff === 0 ? 'vence hoje' : 'vence dia ' + dueDay(b.x, curYM), v:fmt(b.x.value), c:b.diff <= 0 ? 'out' : '',
       k:(CAT_GASTO[b.x.cat] || CAT_GASTO.outros)[2]})),
-    porco:{humor, frase, gastos:fmt(tout), sub:tin > 0 ? `gastos: ${Math.round(tout / tin * 100)}% dos ganhos` : 'gastos do mês'}})));
+    porco:{humor, frase, gastos:fmt(tout), sub:tin > 0 ? `gastos: ${Math.round(tout / tin * 100)}% dos ganhos` : 'gastos do mês'}}));
+  nativoSeMudou('widget', json, () => nativo('widget', json.replace('"ts":0', '"ts":' + Date.now())));
 }
 // "Esconder valores nos widgets": o lado nativo esconde os valores em "R$"; com outra moeda, eles já vão escondidos daqui
 // (o símbolo da moeda e os números curtos, que não têm símbolo).

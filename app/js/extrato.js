@@ -33,7 +33,7 @@ function printReport(){
 
 // ---------- Importar extrato do banco (OFX ou CSV) ----------
 // Palavras comuns na descrição → categoria sugerida (o usuário pode trocar antes de importar).
-const GUESS = [['alimentacao', /mercado|supermerc|padaria|restaur|ifood|lanch|pizza|acougue|hortifruti|burger|cafe/],
+const GUESS = [['alimentacao', /mercado|supermerc|padaria|restaur|ifood|lanch|pizza|acougue|hortifruti|burger|cafe|almoc|jantar|refeic/],
   ['transporte', /uber|\b99 ?(app|pop|taxi)|posto|combust|gasolina|estacion|pedagio|metro|onibus/],
   ['saude', /farmac|drog|hospital|clinica|medic|dentist|laborat/], ['moradia', /aluguel|condomin|iptu/],
   ['contas', /energia|\bluz\b|\bagua\b|internet|telefon|netflix|spotify|claro|vivo|\btim\b|assinatura/],
@@ -45,8 +45,8 @@ const guessCat = d => { const t = plain(d), g = GUESS.find(([, re]) => re.test(t
   return g && !(g[0] === 'alimentacao' && /mercado ?(livre|pago)/.test(t)) ? g[0] : /mercado ?livre/.test(t) ? 'compras' : 'outros'; };
 const parseNum = s => numEscrito(String(s).replace(/[R$\s"]/g, ''));
 function parseDate(s){
-  let m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})/), d = '';
-  if (m) d = `${m[3]}-${m[2]}-${m[1]}`;
+  let m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4}|\d{2})(?!\d)/), d = ''; // ano com 2 dígitos (05/10/26) é 20xx
+  if (m) d = `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2]}-${m[1]}`;
   else if ((m = String(s).trim().match(/^(\d{4})-?(\d{2})-?(\d{2})/))) d = `${m[1]}-${m[2]}-${m[3]}`;
   return d && dataExiste(d) ? d : '';
 }
@@ -138,7 +138,11 @@ async function importStatement(input){
   }));
   rows.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
   const datas = l => l.rows.map(x => x.date).sort();
-  stmt = {arqs:bons.map(l => ({nome:l.nome, flip:false, bank:l.bank, n:l.rows.length, de:datas(l)[0], ate:datas(l).pop()})), rows, pay:'',
+  // Fatura de cartão já vem marcada como fatura: pelo nome do arquivo ou porque as compras são positivas e o pagamento
+  // da fatura é negativo (num extrato é o contrário). A pessoa troca na tela de revisão se o palpite errar.
+  const pareceFatura = l => /fatura|cart[aã]o|invoice|credit/i.test(l.nome) || (l.rows.some(x => x.amount < 0 && STMT_FATURA.test(plain(x.desc)))
+    && l.rows.filter(x => x.amount > 0).length > l.rows.length * .6);
+  stmt = {arqs:bons.map(l => ({nome:l.nome, flip:pareceFatura(l), bank:l.bank, n:l.rows.length, de:datas(l)[0], ate:datas(l).pop()})), rows, pay:'',
     ruins:ruins.map(l => `${l.nome}: ${l.erro.replace(LER_ERRO + '\n\n', '')}`)};
   openStatement();
 }
@@ -187,7 +191,7 @@ function openStatement(){
     <input value="${esc(a.bank)}" id="stmtBank${k}" placeholder="Ex.: Nubank" data-oninput="stmt.arqs[${k}].bank=this.value"><div class="chips sug" id="sug_stmt${k}" hidden></div>`;
   let mesAntes = '';
   showSheet(`<h3>${varios ? `Importar ${stmt.arqs.length} extratos` : 'Importar extrato'}</h3>
-    <div class="semTopo hint">${stmt.rows.length} lançamentos encontrados${varios ? ` em ${stmt.arqs.length} arquivos` : ''}${meses.length > 1 ? `, de ${meses.length} meses` : ''}. Cada um entra no dia e no mês da data dele. Valores negativos entram como gastos e positivos como ganhos.</div>
+    <div class="semTopo hint">Lançamentos encontrados: ${stmt.rows.length}<br>${varios ? `Em ${stmt.arqs.length} arquivos${meses.length > 1 ? `, de ${meses.length} meses` : ''}.<br>` : meses.length > 1 ? `De ${meses.length} meses.<br>` : ''}Cada um entra no dia e no mês da data dele. Valores negativos entram como gastos e positivos como ganhos.</div>
     ${stmt.ruins.length ? `<div class="hint warn">Não li: ${stmt.ruins.map(esc).join('; ')}</div>` : ''}
     ${nFat || nCad ? `<div class="hint">Vêm desmarcados: ${[nFat && `${nFat} pagamento${nFat > 1 ? 's' : ''} da fatura do cartão (não é gasto nem ganho)`,
       nCad && `${nCad} gasto${nCad > 1 ? 's' : ''} que já ${nCad > 1 ? 'estão' : 'está'} no app como gasto fixo ou parcela`].filter(Boolean).join(' e ')}.
@@ -213,7 +217,7 @@ function stmtToggle(i, b){
 }
 // Desenha o botão de marcar de uma linha (impLinha) e devolve o novo estado.
 const impMarca = (b, on) => { b.className = 'iconbtn ' + (on ? 'in' : 'muted'); b.innerHTML = I(on ? 'checked' : 'unchecked', 24); return on; };
-const stmtLabel = () => `Importar ${stmt.rows.filter(x => x.on).length} lançamentos`;
+const stmtLabel = (n = stmt.rows.filter(x => x.on).length) => `Importar ${n} lançamento${n === 1 ? '' : 's'}`;
 function commitStatement(){
   const added = [], meses = new Set(); // added: [coleção, id] para o "Desfazer"
   for (const x of stmt.rows.filter(r => r.on)){
@@ -227,7 +231,7 @@ function commitStatement(){
   if (!added.length) return closeForm();
   state.month = [...meses].sort().pop(); // mostra o mês mais recente importado
   save(); closeForm(); render();
-  showUndo(`${added.length} lançamentos importados${meses.size > 1 ? ` em ${meses.size} meses` : ''}`, () => {
+  showUndo(`Lançamentos importados: ${added.length}${meses.size > 1 ? ` em ${meses.size} meses` : ''}`, () => {
     for (const [col, id] of added){ db[col] = db[col].filter(r => r.id !== id); db.tomb[id] = Date.now(); }
     save(); render();
   }, {dest:{k:'gastos', m:state.month}});

@@ -44,12 +44,15 @@ async function syncNow(interactive){
     compNativo();
     if (sid) vistoGuardar(db); else espiarComp(); // na conta pessoal, aproveita para espiar a compartilhada
     let ver = file && file.version, idc = file && file.id;
-    if (mesma ? hashId(canonS(db)) !== sync.hash : !remote || canonS(db) !== canonS(remote)){
+    // O texto canônico e a marca do que vai ser enviado, calculados uma vez (com muitos lançamentos, cada canonS custa caro);
+    // a marca guardada é a do que foi enviado, mesmo que algo mude aqui durante o envio (isso vai na próxima).
+    const cDb = canonS(db), hDb = hashId(cDb);
+    if (mesma ? hDb !== sync.hash : !remote || cDb !== canonS(remote)){
       if (sid) await sharedWrite(sid, paraPlanilha(db));
       else { const r = await driveWrite(file && file.id, 'financas.json', await fechaGz(JSON.stringify(db)));
         try { ({id:idc, version:ver} = JSON.parse(r.text)); } catch(e){ ver = ''; } }
     }
-    if (!sid) Object.assign(sync, {idConta:idc || '', verConta:ver ? String(ver) : '', hash:hashId(canonS(db))});
+    if (!sid) Object.assign(sync, {idConta:idc || '', verConta:ver ? String(ver) : '', hash:hDb});
     centralAdd('Sincronização efetuada', 'sucesso', 0, {k:'sync'});
     Object.assign(sync, {linked:true, at:Date.now(), err:'', errTipo:'', retry:0, pend:Math.max(0, (sync.pend || 0) - pend0), pausa:false, nConta:nRegs(db)});
     // o que foi salvo durante a sincronização continua pendente
@@ -192,7 +195,7 @@ function iconePadrao(){
 async function wipeAll(semPerguntar){
   if (demoBloqueia()) return;
   // Na conta compartilhada, apagar tudo apagaria os dados da outra pessoa também.
-  if (shared()){ tell('Você está numa conta compartilhada. Saia dela antes (Configurações > Conta compartilhada) para apagar os seus dados.'); return; }
+  if (shared()){ tell('Você está numa conta compartilhada. Saia dela antes (Configurações › Conta compartilhada) para apagar os seus dados.'); return; }
   if (!semPerguntar){
     if (!await ask('Apagar todos os seus dados?\n\nSomem os lançamentos deste aparelho e os da sua conta Google, com as cópias diárias e os comprovantes. Outros aparelhos com esta conta também ficam sem os dados.', 'Apagar tudo', true)) return;
     if (!await ask('Tem certeza? Isso não pode ser desfeito.', 'Sim, apagar', true)) return;

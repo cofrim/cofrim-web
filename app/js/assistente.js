@@ -25,6 +25,10 @@ function parseEntry(q){
   const verbo = t.match(/^ (gastei|gasto|paguei|comprei|lancar|lanca|lance|anota|anotar|registrar|registra|adicionar|adiciona|recebi|ganhei|entrou|caiu) /);
   if (!verbo && (t.trim().split(' ').length > 6 || /\b(saldo|gastos?|ganhos?|parcelas?|investi\w*|orcamento|contas?|proventos?|sobra\w*|20\d\d)\b/.test(t.replace(num[0], ' ')))) return null;
   const value = /^\d{1,3}(\.\d{3})+$/.test(num[1]) ? +num[1].replace(/\./g, '') : parseNum(num[1]);
+  // Com o verbo de lançar, valor negativo ou zero e compra parcelada viram uma explicação (antes viravam um gasto de 20
+  // com a descrição "- no café", a resposta do total do mês ou um gasto à vista).
+  if (verbo && (/ [-−] ?\d/.test(t) || !(value > 0))) return {erro:'Para lançar, informe um valor maior que zero (ex.: gastei 30 no almoço).'};
+  if (verbo && /\b\d{1,3} ?x\b|parcel/.test(t)) return {erro:'Compra parcelada se lança pelo + › Gasto, em Pagamento › Parcelado.'};
   if (!(value > 0)) return null;
   const col = verbo && /recebi|ganhei|entrou|caiu/.test(verbo[1]) ? 'incomes' : 'expenses';
   const pay = col === 'expenses' ? findKey(t, PAY_WORDS) || '' : '';
@@ -44,7 +48,7 @@ function parseEntry(q){
   const nomes = k => [plain(C[k][1]), plain(trText(C[k][1]))]; // o nome em português e no idioma do app
   const porNome = Object.keys(C).find(k => !C[k][3] && nomes(k).some(n => n === pd || pd.split(' ').includes(n)));
   const memo = col === 'expenses' && db.catMemo[pd];
-  const cat = memo && C[memo] ? memo : porNome || (col === 'expenses' ? guessCat(desc0) : 'outros');
+  const cat = memo && C[memo] ? memo : porNome || (col === 'expenses' ? guessCat(desc0) : findKey(pd, INC_WORDS) || 'outros');
   return {col, desc:cap(desc0) || C[cat][1], value:round2(value), cat, bank, pay, q};
 }
 function entryHtml(i){
@@ -302,8 +306,10 @@ function answer(q){
       what, `<b>${fmt(sum(items, x => x.value) / months.length)}</b>`, months.length, trText(monthName(months[0])), trText(monthName(months[months.length - 1])));
   }
   if (/saldo|sobr(ou|a|ando|ara)|economiz/.test(t)){
-    const tin = sum(P.months, totalIn), tout = sum(P.months, totalOut);
-    return tf(future ? 'Seu saldo {} é {} (previsão).' : 'Seu saldo {} é {}.', P.label, `<b>${fmt(tin - tout)}</b>`) + chatRows([['Ganhos', tin], ['Gastos', tout]]);
+    // O mesmo saldo da aba Gastos: desconta o que ainda está reservado nas previsões de gastos do mês.
+    const tin = sum(P.months, totalIn), tout = sum(P.months, totalOut), r = sum(P.months, reservaPrevisoes);
+    return tf(future ? 'Seu saldo {} é {} (previsão).' : 'Seu saldo {} é {}.', P.label, `<b>${fmt(tin - tout - r)}</b>`)
+      + chatRows([['Ganhos', tin], ['Gastos', tout], ...(r ? [['Previsões', r]] : [])]);
   }
   if (/ganh(ei|o|os|ar)|receb|renda|salario|entrou|entrada|\bvale (alimentacao|refeicao)/.test(t) && !/gast|pagu?ei|pago/.test(t)){
     const cat = findKey(t, INC_WORDS), de = cat ? ' ' + tf('de {}', esc(trText(CAT_GANHO[cat][1]).toLowerCase())) : '';
@@ -356,7 +362,8 @@ function sendChat(text){
   const el = document.getElementById('chatIn'), q = (text || el.value).trim();
   if (!q) return;
   const ent = parseEntry(q);
-  chatLog.push({me:true, html:esc(q)}, ent ? {me:false, entry:chatEntries.push(ent) - 1} : {me:false, html:falaTema(q, answer(q))});
+  chatLog.push({me:true, html:esc(q)}, ent && ent.erro ? {me:false, html:ent.erro} : ent ? {me:false, entry:chatEntries.push(ent) - 1}
+    : {me:false, html:falaTema(q, answer(q))});
   el.value = '';
   document.getElementById('chatLog').innerHTML = chatHtml();
   const msgs = document.querySelectorAll('#chatLog .msg.me');
@@ -478,7 +485,7 @@ function onBack(){
   if (!document.getElementById('gate').hidden) return false;
   if (!document.getElementById('lockAsk').hidden){ answerLock(false); return true; }
   if (pickerOpen()){ closePicker(); return true; }
-  if (sheetOpen()){ closeForm(); return true; }
+  if (sheetOpen()){ fecharFolha(); return true; }
   if (explorarOrigem && explorarOrigem.aba === state.tab){ go('explorar'); return true; } // veio de um item da Explorar
   if (state.tab === 'gastos' && state.parcDet){ fecharParc(); return true; } // detalhe de uma parcela: volta para a lista
   if (state.tab === 'gastos' && state.gsub === 'saude'){ fecharSaude(); return true; } // detalhe da saúde financeira: volta para Gastos

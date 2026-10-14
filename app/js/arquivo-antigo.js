@@ -76,8 +76,9 @@ function syncSection(){
   const status = syncing ? 'Sincronizando…' : sync.err ? `<span class="warn">${I('alert', 14)}</span> ` + esc(sync.err)
     : sync.at ? `<span class="in">${I('check', 14)}</span> Sincronizado em ` + new Date(sync.at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) : 'Ainda não sincronizado.';
   const email = temNativo('conta') ? nativo('conta') : '';
+  const sessaoCaiu = sync.errTipo === 'sessao' || sync.err === 'É preciso entrar na conta Google.'; // o botão pede o login de novo
   return `<label>Conta Google</label>${email ? `<div class="semTopo hint">Conectado como <b>${esc(email)}</b></div>` : ''}<div class="hint" style="margin-top:${email ? 4 : 0}px">${status}</div>
-    <div class="btns"><button class="btn" data-onclick="syncNow(true)">${I('refresh')}Sincronizar agora</button><button class="btn" data-onclick="openBackups()">${I('history')}Versões salvas</button></div>
+    <div class="btns"><button class="btn${sessaoCaiu ? ' primary' : ''}" data-onclick="syncNow(true)">${I('refresh')}${sessaoCaiu ? 'Entrar de novo' : 'Sincronizar agora'}</button><button class="btn" data-onclick="openBackups()">${I('history')}Versões salvas</button></div>
     ${pausaHtml()}${beforeHtml()}${conflitoLista().length ? `<div class="btns"><button class="btn" data-onclick="openConflitos()">${I('alert')}Editados em dois aparelhos (${conflitoLista().length})</button></div>` : ''}
     ${aparelhosHtml()}
     <div class="btns"><button class="cresce btn danger" data-onclick="logout()">Sair ou trocar de conta</button></div>`;

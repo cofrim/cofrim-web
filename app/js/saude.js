@@ -81,12 +81,30 @@ function calcSaude(ym){
     return {semDados:false, nota, faixa:saudeFaixa(nota)[1], cor:saudeFaixa(nota)[2], fraco, componentes:C};
   });
 }
+// Saúde do ano de m: a média das notas dos meses do ano com dados, de janeiro até o mês atual (o ano que ainda não
+// começou não tem nota). null sem nenhum mês com nota.
+function saudeAno(m){
+  return cached('SA' + m.slice(0, 4), () => {
+    const y = m.slice(0, 4), ate = y + '-12' < curYM ? y + '-12' : curYM, notas = [];
+    for (let i = y + '-01'; i <= ate; i = addMonths(i, 1)){ const r = calcSaude(i); if (!r.semDados) notas.push(r.nota); }
+    if (!notas.length) return null;
+    const nota = Math.round(sum(notas, n => n) / notas.length), f = saudeFaixa(nota);
+    return {nota, faixa:f[1], cor:f[2], meses:notas.length};
+  });
+}
+// Notas do mês e do ano lado a lado (no bloco de Gastos e no detalhe).
+function saudePeriodos(m, r){
+  const a = saudeAno(m), item = (nome, n, cor) => `<span>${nome}<b style="color:${cor}">${n}</b></span>`;
+  if (!a) return '';
+  const mes = r.semDados ? '' : item(cap(monthName(m).split(' ')[0]), r.nota, r.cor);
+  return `<div class="saudePer">${mes}${item(`Ano de ${m.slice(0, 4)}`, a.nota, a.cor)}</div>`;
+}
 const SAUDE_VAZIO = 'Lance seus ganhos e gastos para ver sua saúde financeira.';
 function saudeBloco(m){
   const r = calcSaude(m);
   return `<h2>Saúde financeira</h2><div class="card saude" data-onclick="abrirSaude()">${r.semDados ? `<div class="hint u-m0">${SAUDE_VAZIO}</div>`
     : `<div class="saudeTopo"><div class="saudeNota" style="color:${r.cor}">${r.nota}<small>/100</small></div><div><b style="color:${r.cor}">${r.faixa}</b><small>${esc(r.fraco.curta)}</small></div></div>`}
-    <div class="saudeVer">Ver detalhe da análise ${I('chev', 14)}</div></div>`;
+    ${saudePeriodos(m, r)}<div class="saudeVer">Ver detalhe da análise ${I('chev', 14)}</div></div>`;
 }
 function abrirSaude(){ state.gsub = 'saude'; renderIn(); scrollTo(0, 0); }
 function fecharSaude(){ state.gsub = 'mes'; renderIn(); scrollTo(0, 0); }
@@ -94,11 +112,13 @@ function viewSaude(){
   const m = state.month, r = calcSaude(m), ant = addMonths(m, -1), ra = calcSaude(ant);
   const dif = !r.semDados && !ra.semDados ? r.nota - ra.nota : null;
   const topo = `<h1><span class="volta"><button class="iconbtn" data-onclick="fecharSaude()" aria-label="Voltar para Gastos">‹</button>Detalhe da análise</span></h1>`;
-  if (r.semDados) return `${topo}<div class="card"><div class="hint u-m0">${SAUDE_VAZIO}</div></div>${saudeItens(r)}`;
+  // Topo enxuto: a nota com a faixa e a comparação com o mês anterior (verde se subiu, vermelha se caiu); embaixo, o mês e o ano lado a lado (como no bloco).
+  if (r.semDados) return `${topo}<div class="card"><div class="hint u-m0">${SAUDE_VAZIO}</div>${saudePeriodos(m, r)}</div>${saudeItens(r)}`;
   return `${topo}
-  <div class="card saude"><div class="saudeTopo"><div class="saudeNota" style="color:${r.cor}">${r.nota}<small>/100</small></div><div><b style="color:${r.cor}">${r.faixa}</b>
-    ${dif != null ? `<small>${dif > 0 ? '+' : ''}${dif === 0 ? 'Igual a' : dif + ' desde'} ${monthName(ant).split(' ')[0]}</small>` : ''}</div></div>
-    <div class="hint" style="margin:8px 0 0">Analisado em ${fmtDate(new Date().toLocaleDateString('sv'))} · análise local · ${monthName(m)}</div></div>
+  <div class="card saude semCursor"><div class="saudeTopo"><div class="saudeNota" style="color:${r.cor}">${r.nota}<small>/100</small></div><div><b style="color:${r.cor}">${r.faixa}</b>
+    ${dif != null ? `<small${dif ? ` style="color:var(--${dif > 0 ? 'in' : 'out'})"` : ''}>`
+      + `${dif > 0 ? '+' : ''}${dif === 0 ? 'Igual a' : dif + ' desde'} ${monthName(ant).split(' ')[0]}</small>` : ''}</div></div>
+    ${saudePeriodos(m, r)}</div>
   ${saudeItens(r)}`;
 }
 const saudeItens = r => `<h2>Composição do score</h2><div class="card">${r.componentes.map(c => c.nota == null

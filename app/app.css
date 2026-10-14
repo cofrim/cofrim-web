@@ -19,7 +19,8 @@ body{background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-syste
 #app.hasFab{padding-bottom:calc(160px + env(safe-area-inset-bottom))} /* espaço para rolar o fim da página acima dos botões flutuantes */
 h1{font-size:22px;margin:4px 0 14px;display:flex;justify-content:space-between;align-items:center}
 h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 4px 8px;font-weight:600;display:flex;align-items:center;column-gap:10px}
-h2 button{font-size:12.5px;color:var(--brand);font-weight:700;text-transform:none;letter-spacing:0;white-space:nowrap;flex:none;margin-left:10px}
+h2 button{font-size:12.5px;color:var(--brand);font-weight:700;text-transform:none;letter-spacing:0;white-space:nowrap;flex:none;margin:-10px -6px -10px 4px;
+  padding:10px 6px} /* área de toque de 40 px sem mudar o desenho (o padding é compensado pela margem negativa) */
 /* O título fica à esquerda (logo depois do enfeite dos temas, h2::before) e os botões dele, à direita. */
 h2>button,h2>span:last-child{margin-left:auto}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
@@ -230,7 +231,7 @@ input,select{padding:13px;border-radius:14px}
 .btns.foot{position:sticky;bottom:0;z-index:2;background:var(--card);padding:10px 0;margin:6px 0 -6px;box-shadow:0 -12px 12px -12px rgba(0,0,0,.3)}
 /* Excluir / Cancelar / Salvar: sempre numa linha só, em qualquer tema, estilo e idioma, até em 360 px; cada botão
    ganha a largura do seu texto e a letra diminui um pouco se faltar espaço */
-.btns.foot .btn{flex:1 1 auto;min-width:0;white-space:nowrap;padding-inline:8px;font-size:min(1em,4.3vw)}
+.btns.foot .btn{flex:1 1 auto;min-width:0;white-space:nowrap;padding-inline:8px;font-size:min(1em,4.3vw);overflow:hidden;text-overflow:ellipsis}
 #saveWarn{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));z-index:45;max-width:496px;margin:0 auto;background:var(--out);color:#fff;border-radius:14px;padding:10px 14px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow)}
 textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,monospace;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:10px;resize:none;outline:none}
 /* Componentes próprios dos formulários (no lugar das janelas do Android) */
@@ -407,10 +408,12 @@ h1 span{display:flex;gap:2px}
 .bubble.troca{animation:falaTroca .35s ease-out}
 @keyframes falaTroca{from{opacity:0;transform:translateY(4px)}}
 .pigBox{flex:none}
-.pig .corpo{transform-origin:60px 102px;animation:pigBreath 2.6s ease-in-out infinite}
+/* A respiração anima o desenho inteiro (o elemento svg), que o celular move sem redesenhar; animar uma parte de dentro
+   do svg (g.corpo) obrigava a pintar o personagem de novo a cada quadro. A moeda cai três vezes e some. */
+.pig{transform-origin:50% 93%;animation:pigBreath 2.6s ease-in-out infinite}
 .pig .moeda{display:none}
-.pig.feliz .moeda{display:block;animation:pigCoin 1.8s ease-in-out infinite}
-.pig.triste .corpo{animation-duration:4s}
+.pig.feliz .moeda{display:block;animation:pigCoin 1.8s ease-in-out 3 forwards}
+.pig.triste{animation-duration:4s}
 @keyframes pigBreath{50%{transform:scale(1.03,.97)}}
 @keyframes pigCoin{0%{transform:translateY(-6px);opacity:0}25%{opacity:1}70%{transform:translateY(14px);opacity:1}100%{transform:translateY(18px);opacity:0}}
 @keyframes pigPoke{30%{transform:rotate(-9deg) scale(1.08)}60%{transform:rotate(7deg) scale(1.04)}}
@@ -425,6 +428,10 @@ h1 span{display:flex;gap:2px}
 html[data-fun=on] .tabs button.on span{animation:funHop .45s ease-out}
 html[data-fun=on] .fab{animation:funPulse 2.8s ease-in-out infinite}
 html[data-fun=on] .hero{background-size:180% 180%;animation:funShift 7s ease-in-out infinite alternate}
+/* Temas com uma faixa ou um xadrez no cartão de destaque: o modo divertido não aumenta nem move o fundo (a faixa ou o
+   xadrez virava um bloco branco atrás do valor). */
+html[data-fun=on][data-skin=fusca] .hero{background-size:100% 5px,auto;animation:none}
+html[data-fun=on]:where([data-ui=velocidade]) .hero{background-size:8px 8px,auto;animation:none}
 html[data-fun=on] #app.enter .card,html[data-fun=on] #app.enter .hero{animation:pop .3s ease-out backwards}
 html[data-fun=on] #app.enter .card:nth-of-type(2){animation-delay:.04s}
 html[data-fun=on] #app.enter .card:nth-of-type(3){animation-delay:.08s}
@@ -652,6 +659,8 @@ html.abrindo #cena *{animation-play-state:paused}
 .leg{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13.5px}
 .leg span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .leg b{font-weight:600;color:var(--muted)}
+/* Legenda de texto (colunas do CSV no Importar extrato): quebra a linha em vez de cortar "Descrição (opci…". */
+.legLivre .leg{align-items:flex-start}.legLivre .leg span{white-space:normal}.legLivre .leg>b{text-align:right;max-width:55%}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .cal small{text-align:center;color:var(--muted);font-size:11px;font-weight:600}
 .cal button{aspect-ratio:1;border-radius:9px;font-size:12px;font-weight:600;color:var(--muted);background:var(--bg)}
@@ -812,10 +821,11 @@ html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #
 .cfTira img{height:100%;width:calc(var(--w) + 6px);margin-left:-3px;display:block}
 @keyframes cfDesliza{to{transform:translate3d(calc((var(--w) - 1px) * -2),0,0)}}
 /* Cenário centrado (temas com o assunto no meio e os lados vazios, modo "centro" no temas.json): uma imagem só, que não
-   desliza; balança ±1,5% e respira de 1 a 1,06 sem nunca mostrar a borda (no zoom 1 ela fica parada no meio). */
+   desliza; passeia devagar de um lado ao outro (±3%, sobe um pouco no meio) e aproxima de 1,04 a 1,1, sem nunca mostrar
+   a borda (o zoom sempre cobre o passeio). Um ciclo leva um quinto do deslize do tema (16 a 31 s; cena.js). */
 .cfCentro{position:absolute;inset:0;will-change:transform;animation:cfRespira var(--d) ease-in-out infinite alternate}
 .cfCentro img{width:100%;height:100%;object-fit:cover;display:block}
-@keyframes cfRespira{0%{transform:translate3d(-1.5%,0,0) scale(1.06)}50%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(1.5%,0,0) scale(1.06)}}
+@keyframes cfRespira{0%{transform:translate3d(-3%,0,0) scale(1.1)}50%{transform:translate3d(0,-1.5%,0) scale(1.04)}100%{transform:translate3d(3%,0,0) scale(1.1)}}
 .cenaObj{position:absolute;inset:0 0 auto 0;height:340px;overflow:hidden}
 .cenaObj i{position:absolute;display:block;will-change:transform}
 .cenaObj img{width:100%;height:100%;object-fit:contain;display:block}
@@ -823,8 +833,10 @@ html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #
 .cenaVeu.img{background:linear-gradient(180deg,transparent 150px,color-mix(in srgb,var(--bg) 80%,transparent) 340px,var(--bg) 420px)}
 .confetti.tema img{position:absolute;top:-30px;height:auto;animation:confete linear forwards}
 .gastoAnim img.gastoFig{position:absolute;object-fit:contain}
-.pig.img .corpo{animation:none}
-.pig.img .resp{transform-origin:60px 104px;animation:pigResp var(--resp) ease-in-out infinite}
+.pig.img{transform-origin:50% 95%;animation:pigResp var(--resp) ease-in-out infinite}
+/* Personagem que flutua (a sombra fica no chão e acompanha): esses continuam animando as partes de dentro. */
+.pig.img.flutua{animation:none}
+.pig.img.flutua .resp{transform-origin:60px 104px;animation:pigResp var(--resp) ease-in-out infinite}
 .pig.img.flutua .corpo{animation:pigFlutua calc(var(--resp) * 1.5) ease-in-out infinite}
 .pig.img.sombra .chao{transform-origin:60px 104px;animation:pigSombra calc(var(--resp) * 1.5) ease-in-out infinite}
 @keyframes pigResp{50%{transform:scale(1.03)}}
@@ -856,7 +868,7 @@ html[data-skin]:not([data-skin=""]) .hello,html[data-skin]:not([data-skin=""]) #
 .card.rosca{padding:18px 16px}
 .leg.duas{align-items:flex-start;padding:5px 0}
 .leg.duas .dot{margin-top:5px;border-radius:50%}
-.leg.duas span{display:flex;flex-direction:column;white-space:normal;line-height:1.2;font-weight:600}
+.leg.duas span{display:flex;flex-direction:column;white-space:normal;line-height:1.2;font-weight:600;overflow-wrap:anywhere;hyphens:auto}
 .leg.duas span small{color:var(--muted);font-weight:500;font-size:12px}
 .leg.duas b{color:var(--text);font-weight:700}
 .escala{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:12px;font-size:11px;color:var(--muted)}
@@ -1002,6 +1014,9 @@ ul.causas{margin:0 0 4px;padding-left:20px;color:var(--muted);font-size:14px}
 .saudeNota{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1;flex:none}
 .saudeTopo .saudeNota small{display:inline;font-size:15px;font-weight:600;color:var(--muted);margin-left:2px}
 .saudeVer{display:flex;align-items:center;justify-content:flex-end;gap:2px;margin-top:10px;font-size:13px;font-weight:600;color:var(--brand)}
+.saudePer{display:flex;gap:8px;margin-top:12px}
+.saudePer span{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:7px 12px;border-radius:12px;background:var(--line);font-size:13px;color:var(--muted)}
+.saudePer b{font-size:17px}
 .saudeDica{margin-top:4px;color:var(--text)}
 /* Previsões de gastos (aba Gastos) e o quanto delas entra num valor projetado. */
 .prevItem{cursor:pointer}
@@ -1440,5 +1455,20 @@ html[data-efeitos=leve] :is(.pig,.pig *,.hero){animation:none!important}
 html[data-efeitos=leve] #app.enter::before,html[data-efeitos=leve] #app.enter::after{display:none!important}
 @keyframes trLeve{from{opacity:0}}
 /* Aparelhos ligados à conta (Configurações › Conta e sincronização, js/aparelhos.js). */
-.aparelho small{display:block;color:var(--muted);margin-top:2px}
-.aparelho small.in,.aparelho small.warn{font-weight:600}
+.aparelho{padding:12px 0;border-bottom:1px solid var(--line)}.aparelho:last-child{border-bottom:0}
+.apTopo{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.apTopo b{flex:1;min-width:0;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aparelho p{margin:6px 0 0 28px;font-size:13.5px}.aparelho p>span{color:var(--muted)}
+.aparelho p small{display:flex;align-items:center;gap:4px;margin-top:1px;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.aparelho p small span{font-style:italic}.aparelho .btns,.aparelho .hint{margin-left:28px}
+/* Escolhas com 4 botões (Animações): 2 por linha, para caberem no celular. */
+.btns.g2{display:grid;grid-template-columns:1fr 1fr}
+/* Celular estreito: o texto de um botão não quebra no meio; se dois botões não cabem lado a lado, o segundo desce para
+   a linha de baixo, na largura toda (antes ficavam "Enviar / sugestão" em duas linhas). As grades (.g2, .pontos) e o
+   rodapé (.foot, com reticências) têm a sua própria regra. */
+@media (max-width:420px){.btns:not(.foot):not(.g2):not(.pontos):has(.btn + .btn){flex-wrap:wrap}
+  .btns:not(.foot):not(.g2):not(.pontos):has(.btn + .btn) .btn{flex:1 1 auto;white-space:nowrap}
+  .btns:not(.foot) .btn:only-child{font-size:min(1em,3.9vw)} /* botão sozinho com texto longo cabe numa linha */
+  .btns.pontos .btn.longo{grid-column:1 / -1}} /* "Chegou no previsto" na linha toda */
+/* Pontos dos avisos de valores: as porcentagens 4 por linha, os textos ("Chegou no valor") em meia linha. */
+.btns.pontos{display:grid;grid-template-columns:repeat(4,1fr)}.btns.pontos .btn{padding-inline:4px}.btns.pontos .longo{grid-column:span 2}

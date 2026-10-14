@@ -81,12 +81,16 @@ const CONQ_UN = {'Anotador':['gasto', 'gastos'], 'Ganha-pão':['ganho', 'ganhos'
   'Transferidor':['transferência', 'transferências'], 'Rachador':['gasto dividido', 'gastos divididos'],
   'Assinante consciente':['assinatura', 'assinaturas'], 'Sobrou!':'reais', 'Constância':['mês', 'meses'],
   'Detalhista':['gasto avulso', 'gastos avulsos'], 'Em dia':null, 'Em dupla':null};
-function funFamilies(){
+// Guardado até a próxima mudança nos dados (cached, limpo por dirty): o Resumo pedia a lista 3 vezes por desenho.
+function funFamilies(){ return cached('FF', funFamiliasCalc); }
+function funFamiliasCalc(){
   const ultimos = n => [...Array(n)].map((_, i) => addMonths(curYM, -i));
   const azul = m => totalIn(m) > 0 && totalIn(m) >= totalOut(m), ano2 = ultimos(24);
   let seq = 0, melhor = 0;
   for (const m of [...ano2].reverse()){ seq = azul(m) ? seq + 1 : 0; melhor = Math.max(melhor, seq); }
-  const avulsosNoMes = Math.max(0, ...ultimos(12).map(m => db.expenses.filter(x => !x.fixed && x.start === m).length));
+  const porMes = {}; // gastos avulsos por mês, numa passada só (antes eram 12 filtros sobre todos os gastos)
+  for (const x of db.expenses) if (!x.fixed) porMes[x.start] = (porMes[x.start] || 0) + 1;
+  const avulsosNoMes = Math.max(0, ...ultimos(12).map(m => porMes[m] || 0));
   const emDia = db.expenses.some(x => x.fixed && x.due) && upcomingBills().every(b => b.diff >= 0);
   return [
     ['receipt', 'Anotador', n => `lance ${plural(n, 'gasto', 'gastos')}`, db.expenses.length, [1, 5, 10, 25, 50, 100, 250, 500, 1000]],
@@ -131,6 +135,13 @@ function funBadgeList(){
 // divertido desligado, roda calado a cada gravação (save), para a data ficar certa quando ele for ligado.
 // Na demonstração não confere: as conquistas viriam dos dados fictícios (aviso com confete logo ao entrar) e ficariam
 // guardadas como já ganhas, sem aviso quando a pessoa as ganhasse de verdade.
+// Chamada por loadDb (dados.js) quando os dados chegam de fora, como ao entrar com uma conta que já existe num celular
+// novo: as conquistas que já estão nesses dados ficam anotadas como vistas, sem aviso nem confete.
+function funConhecerGanhas(){
+  if (demoOn) return;
+  funState.got = [...new Set([...(funState.got || []), ...funBadgeList().filter(b => b[3]).map(b => b[1])])];
+  try { localStorage.setItem(FUN_KEY, JSON.stringify(funState)); } catch(e){}
+}
 function funCheck(){
   if (demoOn) return;
   const fams = funFamilies(), lista = funBadgeList().filter(b => b[3]), ganhas = lista.map(b => b[1]);

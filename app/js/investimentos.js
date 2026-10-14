@@ -79,6 +79,7 @@ async function refreshQuotes(force){
   }
   quoting = false;
   if (ok){ db.quotesAt = Date.now(); checkPriceAlerts(); save(false); }
+  else if (force) avisoErro('internet', 'Não foi possível atualizar as cotações agora.'); // pedido pelo botão: diz que não deu
   telaAtualizar();
   return ok;
 }

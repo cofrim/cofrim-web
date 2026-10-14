@@ -213,9 +213,9 @@ const TOUR = [
   ['chat', 'Assistente',
     'Pergunte "quanto gastei com mercado este mês?" ou escreva (ou fale) "gastei 30 no almoço" para lançar sem abrir formulário. '
     + 'Com um tema especial, quem responde é o personagem do tema, com as falas dele.'],
-  ['calendar', 'Lembretes', 'Começam desligados neste aparelho. Ligue em Configurações › Lembretes (o Android pede a permissão de notificações) e escolha os tipos: contas a vencer, antes e no dia, parcelas de financiamentos e os avisos das previsões de gastos. Desligue a economia de bateria do app para os avisos chegarem na hora.'],
+  ['calendar', 'Lembretes', () => WEB_APP ? 'Os lembretes de contas a vencer, parcelas e previsões chegam como notificação no app do Android. Na versão web, as contas a vencer aparecem no Resumo e os avisos ficam no sino.' : 'Começam desligados neste aparelho. Ligue em Configurações › Lembretes (o Android pede a permissão de notificações) e escolha os tipos: contas a vencer, antes e no dia, parcelas de financiamentos e os avisos das previsões de gastos. Desligue a economia de bateria do app para os avisos chegarem na hora.'],
   ['people', 'Sua conta e a conta compartilhada',
-    'Tudo sincroniza com a sua conta Google, com uma cópia por dia. Em Configurações > Conta compartilhada, dá para dividir os dados com outra pessoa.'],
+    'Tudo sincroniza com a sua conta Google, com uma cópia por dia. Em Configurações › Conta compartilhada, dá para dividir os dados com outra pessoa.'],
   ['gear', 'Do seu jeito',
     'Mais de 180 temas especiais, cada um com personagem, cenário animado e estilo de interface próprios, além de cores, moeda e país, '
     + 'abas do menu, bloqueio com senha, widgets na tela inicial (com ou sem os valores) e o modo divertido, com mais de 100 conquistas. Tudo em Configurações.']];
@@ -224,7 +224,7 @@ function openTour(i, daConfig){
   settingsOpen = false; F = null; tourAt = {i, daConfig:!!daConfig};
   const [ic, t, s] = TOUR[i], ult = i === TOUR.length - 1;
   showSheet(`<div class="tour"><span class="tourIco">${I(ic, 40)}</span>
-    <h3>${typeof t === 'function' ? t() : t}</h3><p>${s}</p>
+    <h3>${typeof t === 'function' ? t() : t}</h3><p>${typeof s === 'function' ? s() : s}</p>
     <div class="dots">${TOUR.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div></div>
     <div class="btns foot">${i ? `<button class="btn" data-onclick="openTour(${i - 1},${!!daConfig})">Voltar</button>` : `<button class="btn" data-onclick="tourDone(${!!daConfig})">Pular</button>`}
       <button class="btn primary" data-onclick="${ult ? `tourDone(${!!daConfig})` : `openTour(${i + 1},${!!daConfig})`}">${ult ? 'Começar' : 'Próximo'}</button></div>`);

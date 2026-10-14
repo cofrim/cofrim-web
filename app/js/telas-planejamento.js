@@ -89,8 +89,11 @@ function togglePaid(id, ym){
   if (window.event) event.stopPropagation();
   const x = db.expenses.find(e => e.id === id);
   if (!x) return tell(ARCH_MSG);
-  const pm = x.pm || [];
+  const pm = x.pm || [], pd = {...x.pd};
   x.pm = pm.includes(ym) ? pm.filter(m => m !== ym) : pm.concat(ym);
+  // Dia em que foi marcada como paga (pd: {AAAA-MM: 'AAAA-MM-DD'}), mostrado na lista de Gastos.
+  if (pm.includes(ym)) delete pd[ym]; else pd[ym] = new Date().toLocaleDateString('sv');
+  if (Object.keys(pd).length) x.pd = pd; else delete x.pd;
   touch(x); save(); render();
   if (db.prefs.fun && !pm.includes(ym)){ confetti(); toast(pick(semPorquinho(FUN_PAID)), {central:false}); } // brincadeira do modo divertido
 }

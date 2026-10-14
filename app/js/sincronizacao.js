@@ -204,7 +204,7 @@ const shareStart = umaVez(async function(email, semPerguntar, limpa = !!sync.lim
   if (demoBloqueia()) return;
   email = String(email).trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return shErr('Digite um e-mail válido.');
-  if (!limpa && db.archUntil) return shErr('Antes de compartilhar, traga de volta os anos arquivados (Configurações > Dados e ajustes > Anos antigos).');
+  if (!limpa && db.archUntil) return shErr('Antes de compartilhar, traga de volta os anos arquivados (Configurações › Dados e ajustes › Anos antigos).');
   if (!semPerguntar && !await ask(limpa ? `Criar uma conta compartilhada do zero com ${email}?\n\nEla começa vazia, numa planilha na sua conta Google que ${email} poderá ver e editar pelo app. Os seus lançamentos de hoje continuam guardados na sua conta e voltam se a conta compartilhada for encerrada.`
     : `Criar a conta compartilhada com ${email}?\n\nOs seus lançamentos vão para uma planilha na sua conta Google, que ${email} poderá ver e editar pelo app.`,
     'Criar e convidar')) return;
@@ -231,7 +231,7 @@ const shareStart = umaVez(async function(email, semPerguntar, limpa = !!sync.lim
     const convidou = await shareInvite(email, true);
     await syncNow();
     showSheet(`<h3>Conta compartilhada criada</h3>
-      <div class="semTopo hint">${convidou ? `${esc(email)} vai receber um e-mail do Google.` : `Não consegui enviar o convite pelo Google. Abra a planilha "Cofrim (conta compartilhada)" no Google Planilhas e compartilhe com ${esc(email)} como editor.`} Mande também o código abaixo: no app, a pessoa abre Configurações > Conta compartilhada > Tenho um convite.</div>
+      <div class="semTopo hint">${convidou ? `${esc(email)} vai receber um e-mail do Google.` : `Não consegui enviar o convite pelo Google. Abra a planilha "Cofrim (conta compartilhada)" no Google Planilhas e compartilhe com ${esc(email)} como editor.`} Mande também o código abaixo: no app, a pessoa abre Configurações › Conta compartilhada › Tenho um convite.</div>
       <textarea readonly style="min-height:70px">${esc(id)}</textarea>
       <div class="btns foot"><button class="btn" data-onclick="shareCopy()">Copiar convite</button><button class="btn primary" data-onclick="shareBack()">Pronto</button></div>`);
   } catch(e){

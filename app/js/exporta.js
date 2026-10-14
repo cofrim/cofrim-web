@@ -124,7 +124,7 @@ function openStatementHelp(){
     <div class="semTopo hint">É o formato "OFX" ou "Money" que quase todo banco oferece ao exportar o extrato. Não precisa ajustar nada.</div>
     <label>2. CSV (planilha em texto)</label>
     <div class="semTopo hint">A primeira linha precisa ter os nomes das colunas, separadas por ponto e vírgula ou vírgula:</div>
-    <div class="card" style="box-shadow:none;background:var(--bg);padding:10px 12px;margin:8px 0">
+    <div class="card legLivre" style="box-shadow:none;background:var(--bg);padding:10px 12px;margin:8px 0">
       <div class="leg"><span><b class="u-texto">Data</b> (obrigatória)</span><b>31/12/2026 ou 2026-12-31</b></div>
       <div class="leg"><span><b class="u-texto">Valor</b> (obrigatória)</span><b>-45,90 ou 1200.00</b></div>
       <div class="leg"><span><b class="u-texto">Descrição</b> (opcional)</span><b>também Histórico ou Título</b></div></div>

@@ -5,7 +5,7 @@
 // ---------- Previsões (bloco da aba Gastos e detalhe) ----------
 // Barra: verde até 80% do previsto, amarela até 100%, vermelha acima (cheia, com o excesso escrito).
 const prevCor = pct => pct > 100 ? 'var(--out)' : pct >= 80 ? 'var(--yield)' : 'var(--in)';
-const prevNome = cat => (CAT_GASTO[cat] || CAT_GASTO.outros)[1];
+const prevCat = cat => PREV_GERAIS[cat] || CAT_GASTO[cat] || CAT_GASTO.outros, prevNome = cat => prevCat(cat)[1];
 function prevPrazo(it){
   const g = prevGasto(it), dif = round2(g - it.value), hoje = today();
   if (!prevAtiva(it) && it.m <= hoje[0]) return dif > 0 ? `encerrada · ${fmt(dif)} acima` : dif < 0 ? `encerrada · sobraram ${fmt(-dif)}` : 'encerrada · exatamente o previsto';
@@ -16,10 +16,10 @@ function prevBloco(m){
   const l = previsoesDoMes(m);
   return `<h2>Previsões <button data-onclick="novaPrevisao()">Nova previsão</button></h2>${l.length ? `<div class="card">${l.map(it => {
     const g = prevGasto(it), pct = g / it.value * 100, dif = round2(g - it.value);
-    return `<div class="catrow prevItem" data-id="${it.p.id}" data-m="${m}" data-onclick="abrirPrevisao(this.dataset.id,this.dataset.m)"><div class="top"><span>${catName(CAT_GASTO[it.cat] || CAT_GASTO.outros)}</span><b>${fmt(g)} de ${fmt(it.value)}</b></div>
+    return `<div class="catrow prevItem" data-id="${it.p.id}" data-m="${m}" data-onclick="abrirPrevisao(this.dataset.id,this.dataset.m)"><div class="top"><span>${catName(prevCat(it.cat))}</span><b>${fmt(g)} de ${fmt(it.value)}</b></div>
       <div class="bar" style="margin:6px 0"><i style="width:${Math.min(100, pct)}%;background:${prevCor(pct)}"></i></div>
       <div class="semTopo hint">${prevPrazo(it)}${dif > 0 && prevAtiva(it) ? ` · <span class="out">${fmt(dif)} acima do previsto</span>` : ''}${it.p.rep ? ' · todo mês' : ''}</div></div>`; }).join('')}</div>`
-    : `<div class="card"><div class="hint u-m0">Previsão é um gasto que você espera ter numa categoria até um dia do mês (ex.: R$ 300 de combustível até o dia 25). Diferente do orçamento, que é um limite, ela já entra no saldo previsto do mês.</div>
+    : `<div class="card"><div class="hint u-m0">Previsão é um gasto que você espera ter até um dia do mês, numa categoria (ex.: R$ 300 de combustível até o dia 25), em todos os gastos ou no cartão de crédito. Diferente do orçamento, que é um limite, ela já entra no saldo previsto do mês.</div>
       <div class="btns"><button class="btn" data-onclick="novaPrevisao()">${I('plus')}Nova previsão</button></div></div>`}`;
 }
 // Detalhe: os lançamentos que contaram, editar e excluir.
@@ -32,7 +32,7 @@ function abrirPrevisao(id, m){
     <div class="semTopo hint">${monthName(m)} · ${fmt(g)} de ${fmt(it.value)} · ${prevPrazo(it)}${it.p.rep ? ' · repete todo mês' : ''}</div>
     <label>Lançamentos que contaram (do dia 1 ao dia ${it.dia})</label>
     ${l.length ? `<div class="plano card">${l.map(x => `<div class="semCursor item"><div class="mid"><b>${esc(x.desc || prevNome(x.cat))}</b><small>dia ${diaDe(x, m) || '—'}</small></div><div class="val out">${fmt(x.value)}</div></div>`).join('')}</div>`
-      : '<div class="hint">Nenhum gasto desta categoria até o dia final.</div>'}
+      : `<div class="hint">${PREV_GERAIS[it.cat] ? 'Nenhum gasto até o dia final.' : 'Nenhum gasto desta categoria até o dia final.'}</div>`}
     <div class="btns"><button class="btn danger" data-id="${id}" data-m="${m}" data-onclick="excluirPrevisao(this.dataset.id,this.dataset.m)">Excluir</button><button class="btn" data-id="${id}" data-m="${m}" data-onclick="editarPrevisao(this.dataset.id,this.dataset.m)">Editar</button></div>
     <div class="btns foot"><button class="btn primary" data-onclick="closeForm()">Fechar</button></div>`);
 }

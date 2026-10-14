@@ -32,6 +32,8 @@ const TR_NUM = '(?<![\\p{L}\\p{N}])(?:[+\\-−]\\s?)?(?:R\\$\\s?)?[+\\-−]?(?:\
 const TR_MESES = '(?:' + 'janeiro fevereiro março abril maio junho julho agosto setembro outubro novembro dezembro'.split(' ')
   .map(m => `[${m[0]}${m[0].toUpperCase()}]${m.slice(1)}`).join('|') + ')';
 const TR_MES_CURTO = '(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/\\d{2,4}'; // "mai/2027"
+// Montadas uma vez (o trSetup passa por milhares de frases). Com g, cada uso vai até o fim e o lastIndex volta a 0.
+const TR_MARCA = new RegExp(`${TR_NUM}|\\{\\w*\\}`, 'gu'), TR_MES_PARTE = new RegExp(`^(${TR_MESES})( (de )?(\\d{4}))?$`, 'u');
 // Monta, para o idioma atual: exatos (frase inteira), modelos (frase com `{}`) e trechos (frases sem `{}` com mais de
 // uma palavra, usados só quando a frase inteira não está na tabela).
 let trCache = null;
@@ -66,7 +68,7 @@ function trSetup(){
 // número igual ao do original também vale como parte. Plural montado no código ("categoria${n > 1 ? 's' : ''}"): o `{}`
 // colado numa palavra casa com qualquer final curto e, na tradução, vira o plural do idioma (re). Sem partes, null.
 function trModelo(pt, v){
-  const marca = new RegExp(`${TR_NUM}|\\{\\w*\\}`, 'gu'), colado = (s, t, i) => t[0] === '{' && /\p{L}/u.test(s[i - 1] || '');
+  const marca = TR_MARCA, colado = (s, t, i) => t[0] === '{' && /\p{L}/u.test(s[i - 1] || '');
   const tokens = [];
   const chave = pt.replace(marca, (t, i) => { tokens.push({t, colado:colado(pt, t, i)}); return tokens.at(-1).colado ? '\u0001' : '{}'; });
   if (!tokens.length || !/\p{L}{2}/u.test(chave.replace(/\{\}|\u0001/g, ''))) return null;
@@ -98,7 +100,7 @@ function trSufixo(pt, antes, l){
 }
 // O que a pessoa digitou (lançamentos, contas, metas, cartões, categorias próprias…) e os nomes das categorias: partes
 // da frase que não são traduzidas (as categorias do app são, sozinhas). Refeito quando os dados mudam.
-const TR_CODIGOS = /^(id|pid|cat|pay|kind|start|end|month|mes|date|since|regra|index|tipo|emp|sub|accYM|u|ver|cor|icon|color|lang)$/;
+const TR_CODIGOS = /^(id|pid|cat|pay|kind|start|end|month|mes|date|since|regra|ajuste|modo|mode|col|d|ate|autoYM|autoProx|index|tipo|emp|sub|accYM|u|ver|cor|icon|color|lang)$/;
 function trUsuario(c){
   const marca = [db, db.mod, db.expenses.length, db.incomes.length, myName()].join();
   if (c.usu && c.usuDb === db && c.usuMarca === marca) return c.usu;
@@ -108,7 +110,11 @@ function trUsuario(c){
     if (typeof v === 'string'){ if (!TR_CODIGOS.test(k) && v.trim().length >= 3) lista.add(v.trim()); return; }
     if (v && typeof v === 'object') for (const [kk, vv] of Object.entries(v)) junta(vv, Array.isArray(v) ? k : kk);
   };
-  for (const [k, v] of Object.entries(db)) if (k !== 'prefs') junta(v, k);
+  for (const [k, v] of Object.entries(db)) if (!['prefs', 'catMemo'].includes(k)) junta(v, k); // catMemo: descrição → código da categoria
+  // Mudar um valor ou uma data não traz texto novo: a expressão (a parte cara, com milhares de nomes) continua a mesma.
+  const lida = [...lista].join('\u0001') + '\u0002' + lang();
+  if (c.usu && c.usuLida === lida) return c.usu;
+  c.usuLida = lida;
   const cats = Object.values({...CAT_GASTO, ...CAT_GANHO, ...CAT_INV}).map(t => t[1]);
   c.usuSet = new Set([...lista].filter(t => !cats.includes(t))); // texto inteiro digitado pela pessoa: fica como está
   cats.forEach(t => lista.add(t));
@@ -125,10 +131,11 @@ function trText(s){
   if (lang() === 'pt' || !s) return s;
   const c = trSetup();
   if (!c) return s;
-  const t = s.trim();
+  // Texto escrito em várias linhas no código (quebra e recuo no meio da frase) vale como a frase numa linha só.
+  const t0 = s.trim(), t = t0.replace(/[ \t]*\r?\n[ \t]{2,}/g, ' '); // a quebra sem recuo (lista com •) continua separando
   if (!t) return s;
   const v = trFrase(c, t);
-  return v === t ? s : s.replace(t, () => v);
+  return v === t ? s : s.replace(t0, () => v);
 }
 function trFrase(c, t){
   if (trUsuario(c) && c.usuSet.has(t)) return t;
@@ -161,7 +168,7 @@ function trParte(c, p){
   if (c.exato.has(p)) return c.exato.get(p);
   const curto = p.match(/^([a-z]{3})(\/\d+)$/);
   if (curto) return (c.exato.get(curto[1]) || curto[1]) + curto[2];
-  const m = p.match(new RegExp(`^(${TR_MESES})( (de )?(\\d{4}))?$`, 'u'));
+  const m = p.match(TR_MES_PARTE);
   if (!m) return p;
   let mes = c.exato.get(m[1].toLowerCase()) || m[1];
   if (c.l === 'en' || m[1][0] !== m[1][0].toLowerCase()) mes = mes[0].toUpperCase() + mes.slice(1); // "Outubro" → "Octubre"

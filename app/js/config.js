@@ -51,7 +51,7 @@ function openSettings(sec){
     <div class="semTopo btns"><button class="btn" data-onclick="escolherPais()">${esc(paisNome(p.pais || 'BR'))}</button></div>
     <div class="hint">O país diz os feriados e o fim de semana no dia útil dos ganhos. Fora do Brasil, os feriados vêm da internet uma vez por ano.</div>`],
   ['aparencia', 'sun', 'Aparência', 'Tema, cores e animações', `
-    <label>Tema</label>
+    <label>Claro ou escuro</label>
     <div class="semTopo btns">${Object.entries(MODES).map(([k,v]) => `<button class="btn ${p.mode === k ? 'primary' : ''}" data-onclick="setPref('mode','${k}')">${v}</button>`).join('')}</div>
     ${p.skin ? `<div class="hint">Com um tema especial claro, o modo escuro (ou o automático com o celular escuro) deixa o app
       escuro, com as cores do tema. Os temas escuros ficam sempre escuros.</div>` : ''}
@@ -69,7 +69,7 @@ function openSettings(sec){
     ${temNativo('girar') ? `<label>Girar a tela com o celular</label>
     <div class="semTopo btns">${[[true,'Sim'],[false,'Não, sempre em pé']].map(([v,t]) => `<button class="btn ${!!nativo('girarLigado') === v ? 'primary' : ''}" data-onclick="nativo('girar', ${v});openSettings()">${t}</button>`).join('')}</div>` : ''}
     <label>Animações</label>
-    <div class="semTopo btns">${[['auto','Automáticas'],['completo','Completas'],['leve','Leves'],['off','Desligadas']].map(([v,t]) => `<button class="btn
+    <div class="semTopo btns g2">${[['auto','Automáticas'],['completo','Completas'],['leve','Leves'],['off','Desligadas']].map(([v,t]) => `<button class="btn
       ${(p.anim ? leveCfg().modo : 'off') === v ? 'primary' : ''}" data-onclick="setEfeitos('${v}')">${t}</button>`).join('')}</div>
     <div class="hint">Leves: o cenário continua, com menos coisas se mexendo, para ficar fluido num celular mais simples. Vale só para este aparelho.</div>
     ${p.anim && leveCfg().modo === 'auto' && efeitosLeves() ? '<div class="hint"><b>Neste celular, as animações estão leves.</b></div>' : ''}
@@ -78,20 +78,22 @@ function openSettings(sec){
     <div class="hint">Mascote, conquistas e recados bem-humorados.</div>
     <label>Tema especial</label>
     <div class="semTopo btns"><button class="btn" data-onclick="openSettings('temas')">${I('sparkle')}${p.skin ? 'Em uso: ' + SKINS[p.skin][0] : 'Escolher um tema especial'}</button></div>
-    <div class="hint">Com um tema especial, Tema e Cor não valem.</div>`],
+    <div class="hint">Com um tema especial, a Cor não vale: as cores são as do tema.</div>`],
   ['temas', 'sparkle', 'Temas especiais', `${Object.keys(SKINS).length} temas com mascote`, `
-    <div class="semTopo hint">Um tema especial muda as cores do app inteiro, o mascote do modo divertido, a abertura e os widgets; os ícones das categorias ficam com a cor de cada uma. ${p.skin ? `Em uso: <b>${SKINS[p.skin][0]}</b>.` : 'Nenhum em uso.'}</div>
+    <div class="semTopo hint">Um tema especial muda as cores do app inteiro, o mascote do modo divertido, a abertura e os widgets; os ícones das categorias ficam com a cor de cada uma.
+      ${p.skin ? `<span>Em uso: <b>${SKINS[p.skin][0]}</b></span>` : '<span>Nenhum em uso.</span>'}</div>
     <div class="semTopo btns"><button class="btn ${p.skin ? '' : 'primary'}" data-onclick="setSkin('')">Sem tema especial</button></div>
     ${sorteioBtn('tema', 'Tema aleatório todo dia')}
     ${WEB_APP ? '<div class="hint">No iPhone, adicione de novo à Tela de Início para trocar o ícone.</div>' : ''}
     ${TEMA_CATS.map(([c, nome, ks]) => `<details class="grp" ${ks.includes(p.skin) || (!p.skin && c === 'estilos') ? 'open' : ''}><summary>${nome}<small>${ks.length}</small>${I('chev')}</summary>
       <div class="icoGrid t3">${ks.map(k => `<button class="${p.skin === k ? 'on' : ''}" data-onclick="setSkin('${k}')"><span class="temaM" style="background:linear-gradient(135deg,${SKINS[k][4]},${SKINS[k][5]})">${mascoteEm(k, 'ok', 0, 0, 46)}${temaMiniatura(k)}</span><small>${SKINS[k][0]}</small></button>`).join('')}</div></details>`).join('')}`],
   ['categorias', 'tag', 'Categorias', 'Criar, renomear, esconder e cores', `
-    <div class="semTopo btns"><button class="btn" data-onclick="openCats()">${I('tag')}Criar, renomear ou esconder categorias</button></div>
+    <label>Suas categorias</label>
+    <div class="semTopo btns"><button class="btn" data-onclick="openCats()">${I('tag')}Criar, renomear ou esconder</button></div>
     <div class="hint">Na hora de lançar também dá: "+ Nova categoria" no fim da lista e, segurando uma categoria, Editar e Excluir.</div>
     <label>Cor dos ícones</label>
-    <div class="semTopo btns">${[[false,'Do tema'],[true,'Uma cor por categoria']].map(([v,t]) => `<button class="btn ${!!p.catColor === v ? 'primary' : ''}" data-onclick="setPref('catColor',${v})">${t}</button>`).join('')}</div>
-    `],
+    <div class="semTopo btns">${[[false,'Do tema'],[true,'Coloridos']].map(([v,t]) => `<button class="btn ${!!p.catColor === v ? 'primary' : ''}" data-onclick="setPref('catColor',${v})">${t}</button>`).join('')}</div>
+    <div class="hint">Coloridos: cada categoria com a cor escolhida para ela.</div>`],
   ['menu', 'sliders', 'Menu de baixo', 'Ordem das abas', `
     <div class="semTopo hint">O Resumo fica sempre no menu.</div>
     <div>${p.tabs.map((t,i) => { if (t === 'chat' || (WEB_APP && t === 'noticias')) return ''; const off = p.tabsOff.includes(t);
@@ -142,7 +144,8 @@ function openSettings(sec){
     ${[['prev', 'Previsões de gastos', PREV_PONTOS, prevPontos()], ['orc', 'Orçamento de cada categoria', PONTOS, pontosDe('orc')],
       ['cartao', 'Limite do cartão (quanto já está comprometido)', PONTOS, pontosDe('cartao')], ['meta', 'Metas (quanto já foi guardado)', PONTOS, pontosDe('meta')]]
       .map(([tipo, t, lista, marcados]) => `<label>${t}</label>
-    <div class="semTopo quebraLinha btns pontos">${Object.entries(lista).map(([k, r]) => `<button class="btn ${marcados.includes(k) ? 'primary' : ''}"
+    <div class="semTopo btns pontos">${Object.entries(lista).map(([k, r]) =>
+      `<button class="btn ${marcados.includes(k) ? 'primary' : ''}${/%$/.test(r) ? '' : ' longo'}"
       data-onclick="togglePonto('${tipo}','${k}')">${r}</button>`).join('')}</div>
     ${marcados.length ? '' : '<div class="hint warn">Nenhum ponto marcado: este aviso fica desligado.</div>'}`).join('')}`],
   ['widgets', 'chart', 'Widgets', 'Quadros da tela inicial', !(temNativo('widget')) ? '' : `
@@ -196,7 +199,7 @@ function openSettings(sec){
       também o Diagnóstico do app (versão, aparelho e erros, sem os seus dados), para achar a causa mais rápido.</div>`],
   ['dados', 'box', 'Dados e ajustes', 'Backup, lixeira e planilha', `
     <label>Investimentos</label>
-    <div class="semTopo btns"><button class="btn" data-onclick="openRates()">${I('trend')}Taxas de referência (CDI, Selic, IPCA)</button></div>
+    <div class="semTopo btns"><button class="btn" data-onclick="openRates()">${I('trend')}Taxas: CDI, Selic e IPCA</button></div>
     ${archHtml()}
     <label>Lixeira</label>
     <div class="semTopo btns"><button class="btn" data-onclick="openTrash()">${I('trash')}Lançamentos excluídos (${db.trash.length})</button></div>
@@ -272,10 +275,21 @@ async function iconeNaCor(k){
     'Trocar o ícone')) nativo('setIconeApp', k, 'b', 0);
 }
 async function setSkin(k){
+  const tinha = db.prefs.skin;
   db.prefs.sorteio = '';
   setPref('skin', k);
+  if (!k && tinha) return iconeSemTema();
   if (k && temNativo('setIconeApp') && nativo('icone') !== k && iconeTem(k)
     && await ask(`Trocar também o ícone do app para combinar com o tema ${SKINS[k][0]}?\n\nO Android fecha o app ao trocar o ícone: é só abrir de novo pelo ícone novo.`, 'Trocar o ícone')) nativo('setIconeApp', k, 't', nativo('iconeNome')); // o ícone do tema: o mascote dele e as barras do app
+}
+// De volta ao "Sem tema especial": o ícone do app (só no Android) que não é o padrão (outra cor, outro desenho, o ícone de
+// um tema ou outro nome) pode voltar ao do Cofrim, na cor em uso. Pergunta antes: trocar o ícone pode fechar o app.
+async function iconeSemTema(){
+  if (!(temNativo('setIconeApp') && temNativo('icone')) || demoOn) return;
+  const cor = COLORS[db.prefs.color] ? db.prefs.color : 'indigo';
+  if (nativo('icone') === cor && nativo('iconeDesenho') === 'b' && !(temNativo('iconeNome') && nativo('iconeNome'))) return;
+  if (await ask('Voltar também o ícone do app para o padrão do Cofrim?\n\nAo trocar o ícone, o Android pode fechar o app: é só abrir de novo.',
+    'Voltar ao padrão')) nativo('setIconeApp', cor, 'b', 0);
 }
 // Guia do app (Configurações): todas as funções (GUIA, em js/guia.js), por assunto, com busca.
 function guideHtml(){
@@ -327,18 +341,14 @@ function sugEnviosHoje(){
   try { const d = Date.now() - 864e5; return (JSON.parse(localStorage.getItem(SUG_KEY_ENVIOS)) || []).filter(t => typeof t === 'number' && t > d); }
   catch(e){ return []; }
 }
-// Retrato da tela em texto, no lugar de uma print (o Web3Forms gratuito não aceita anexos): qual aba, janela e aviso
-// estavam abertos e o texto que aparecia neles, sem os dados da pessoa. Saem todos os números (valores, datas, saldos), o
-// que ela digitou (descrições, nomes, bancos, metas, categorias próprias), o nome e o e-mail dela.
-let telaRetrato = ''; // tirado na hora do erro (relatarProblema), antes de as Configurações cobrirem a tela
-function retratoTela(semFolha){
-  // Tudo o que a pessoa digitou: qualquer texto guardado nos dados (lançamentos, contas, metas, categorias, cartões,
-  // membros), menos os códigos do próprio app (categoria, forma de pagamento, datas…), que dão o contexto. A troca não
-  // liga para maiúsculas: a tela mostra alguns títulos em MAIÚSCULAS.
+// Troca por ••• tudo o que a pessoa digitou: qualquer texto guardado nos dados (lançamentos, contas, metas, categorias,
+// cartões, membros), menos os códigos do próprio app (categoria, forma de pagamento, datas…), que dão o contexto; o
+// nome, a saudação, o e-mail da conta e qualquer e-mail. Não liga para maiúsculas (a tela mostra alguns títulos em
+// MAIÚSCULAS). Vale para o retrato da tela e para o Diagnóstico que vai junto num problema.
+function semDadosDaPessoa(texto){
   const proprios = new Set([myName(), db.prefs.greet, sync.account]);
-  const CODIGOS = /^(id|pid|cat|pay|kind|start|end|month|mes|date|since|regra|index|tipo|emp|sub|accYM|u|ver|cor|icon)$/;
   const junta = (v, k) => {
-    if (typeof v === 'string') { if (!CODIGOS.test(k)) proprios.add(v); return; }
+    if (typeof v === 'string') { if (!TR_CODIGOS.test(k)) proprios.add(v); return; } // os códigos são os mesmos do tradutor
     if (!v || typeof v !== 'object') return;
     if (/^(card|catMemo)/.test(k) && !Array.isArray(v)) Object.keys(v).forEach(b => proprios.add(b)); // cartões: chave = banco; catMemo: descrição
     for (const [kk, vv] of Object.entries(v)) junta(vv, Array.isArray(v) ? k : kk);
@@ -347,7 +357,14 @@ function retratoTela(semFolha){
   const lista = [...proprios].filter(t => typeof t === 'string' && t.trim().length >= 3 && !/^\d{4}-\d{2}/.test(t)).map(t => t.trim())
     .sort((a, b) => b.length - a.length);
   const re = lista.length && new RegExp(lista.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'giu');
-  const censura = t => (re ? t.replace(re, '•••') : t).replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '•••@•••').replace(/\d/g, '•');
+  return (re ? String(texto).replace(re, '•••') : String(texto)).replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '•••@•••');
+}
+// Retrato da tela em texto, no lugar de uma print (o Web3Forms gratuito não aceita anexos): qual aba, janela e aviso
+// estavam abertos e o texto que aparecia neles, sem os dados da pessoa. Saem todos os números (valores, datas, saldos), o
+// que ela digitou (descrições, nomes, bancos, metas, categorias próprias), o nome e o e-mail dela.
+let telaRetrato = ''; // tirado na hora do erro (relatarProblema), antes de as Configurações cobrirem a tela
+function retratoTela(semFolha){
+  const censura = t => semDadosDaPessoa(t).replace(/\d/g, '•'); // e todos os números (valores, datas, saldos)
   const vis = id => { const e = document.getElementById(id); return e && !e.hidden && e.offsetParent !== null ? e : null; };
   const folha = !semFolha && vis('sheet'), aviso = vis('dlg');
   document.body.classList.add('semEtiquetas'); // innerText sem as etiquetas "Novo" (escondidas só durante a leitura)
@@ -379,7 +396,7 @@ async function enviarSugestao(tipo, btn){
   if (envios.length >= SUG_POR_DIA){ tell(`Você já mandou ${SUG_POR_DIA} mensagens nas últimas 24 horas. Tente de novo amanhã, por favor.`); return; }
   if (envios.length && Date.now() - Math.max(...envios) < 30e3) return toast('Espere alguns segundos antes de mandar outra mensagem.');
   const assunto = `Cofrim ${APP_VERSION} · ${tipo === 'problema' ? 'Problema' : 'Sugestão'}`;
-  const info = (tipo === 'problema' ? diagText() : `Cofrim ${APP_VERSION}\nAparelho: ${navigator.userAgent}`)
+  const info = (tipo === 'problema' ? semDadosDaPessoa(diagText()) : `Cofrim ${APP_VERSION}\nAparelho: ${navigator.userAgent}`)
     + (sugRetratoLigado() ? '\n\n--- Retrato da tela (dados escondidos) ---\n' + (telaRetrato || retratoTela(true)) : '');
   btn.disabled = true;
   try {

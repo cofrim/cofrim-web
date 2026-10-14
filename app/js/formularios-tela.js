@@ -15,7 +15,8 @@ function openForm(col, item, preset = {}){
   if (item && repete(item)){ vals.cada = Number.isInteger(item.rep) ? String(item.rep) : ''; vals.meses = Array.isArray(item.rep) ? item.rep.join(',') : ''; }
   if (item && cfg.load) cfg.load(vals, item);
   settingsOpen = false;
-  F = {col, cfg, fields, id:preset.id || (item && item.id), vals, touched:{}, asset:preset.asset || null, vale:formVale, sug:preset.sug || null};
+  F = {col, cfg, fields, id:preset.id || (item && item.id), vals, inicio:{...vals}, touched:{}, asset:preset.asset || null, vale:formVale,
+    sug:preset.sug || null};
   // sug: hora da sugestão do banco que abriu o formulário
   // Lançamento rápido: num registro novo, os campos "more" começam recolhidos.
   const hasMore = fields.some(f => f.more);
@@ -27,16 +28,18 @@ function openForm(col, item, preset = {}){
     (hasMore && !F.id ? `<button type="button" class="moreBtn" id="moreBtn" data-onclick="if(F){F.more=!F.more;syncForm()}"></button><div class="hint u-centro" id="moreSum"></div>` : '') +
     `<div class="hint" id="fhint"></div><div class="err" id="ferr"></div>
     <div class="btns foot">${F.id && !cfg.noDelete ? '<button class="btn danger" data-onclick="removeItem()">Excluir</button>' : ''}
-      <button class="btn" data-onclick="closeForm()">Cancelar</button><button class="btn primary" data-onclick="submitForm()">Salvar</button></div>` +
+      <button class="btn" data-onclick="cancelarForm()">Cancelar</button><button class="btn primary" data-onclick="submitForm()">Salvar</button></div>` +
     (cfg.extra ? cfg.extra() : '') + cadastroHtml(col, item) + histHtml(item));
   for (const f of fields){
     const el = document.getElementById('f_' + f.k);
     el.value = vals[f.k] ?? '';
     // Valor atual que não está mais na lista (ex.: categoria escondida): entra como opção para não se perder.
-    if (f.type === 'select' && vals[f.k] && el.value !== vals[f.k]){ el.add(new Option(f.k === 'cat' ? ((CAT_GASTO[vals.cat] || CAT_GANHO[vals.cat] || [0, vals.cat])[1]) : vals[f.k], vals[f.k])); el.value = vals[f.k]; }
-    // Valores em dinheiro: a pessoa digita só os números e a vírgula dos centavos entra sozinha (1 → 0,01; 1234 → 12,34).
-    // Vale para o que é digitado; valores postos pelo app (setField, comprovante lido) já chegam prontos.
-    if (f.type === 'money') el.addEventListener('input', () => { el.value = centsMask(el.value); el.setSelectionRange(el.value.length, el.value.length); });
+    if (f.type === 'select' && vals[f.k] && el.value !== vals[f.k]){ el.add(new Option(f.k === 'cat' ? ((PREV_GERAIS[vals.cat] || CAT_GASTO[vals.cat] || CAT_GANHO[vals.cat] || [0, vals.cat])[1]) : vals[f.k], vals[f.k])); el.value = vals[f.k]; }
+    // Valores em dinheiro: a pessoa digita só os números e a vírgula dos centavos entra sozinha (1 → 0,01; 1234 → 12,34);
+    // no teclado do computador, quem digita a vírgula escreve do jeito de sempre (valorDigitado). Vale para o que é
+    // digitado; valores postos pelo app (setField, comprovante lido) já chegam prontos.
+    if (f.type === 'money') el.addEventListener('input', e => {
+      el.value = valorDigitado(el, e); el.setSelectionRange(el.value.length, el.value.length); });
     el.oninput = el.onchange = () => {
       if (!F) return; // formulário já fechado (toque ou valor que chegou depois de fechar)
       F.vals[f.k] = el.value; F.touched[f.k] = true;
@@ -81,24 +84,31 @@ function syncForm(skip){
     document.getElementById('moreSum').textContent = !F.more && F.cfg.summary ? F.cfg.summary(F.vals) : '';
   }
 
-  drawPicks();
-  drawCatPick();
+  // Digitando num campo de texto ou de número, os botões das listas e das categorias só são redesenhados se algum valor
+  // de lista mudou (o onChange pode mudar um): redesenhar tudo a cada letra deixava a digitação lenta no celular.
+  const TEXTO = ['text', 'money', 'int', 'num'], campo = skip && F.fields.find(f => f.k === skip);
+  const listas = JSON.stringify(F.fields.filter(f => !TEXTO.includes(f.type)).map(f => F.vals[f.k] ?? ''));
+  if (!(campo && TEXTO.includes(campo.type) && listas === F.listas)){ drawPicks(); drawCatPick(); }
+  F.listas = listas;
   document.querySelectorAll('.iconGrid button').forEach(b => b.classList.toggle('on', b.dataset.i === F.vals.icon));
   document.querySelectorAll('.colorGrid button').forEach(b => b.classList.toggle('on', b.dataset.c === F.vals.color));
 }
 // Categoria: em vez da lista suspensa, um botão por categoria (o <select> continua existindo, escondido).
-// Com muitas categorias, aparecem as mais usadas primeiro e o resto fica atrás de "Mais categorias".
+// Com muitas categorias, aparecem as mais usadas primeiro e o resto fica atrás de "Mais categorias"; com todas à mostra,
+// "Menos categorias" volta às mais usadas. As opções gerais das previsões (PREV_GERAIS) ficam sempre à mostra.
 function drawCatPick(){
   const cp = document.getElementById('catPick');
   if (!cp) return;
   const M = F.col === 'incomes' ? CAT_GANHO : F.col === 'investments' ? CAT_INV : CAT_GASTO, LIM = 11, used = {};
   for (const x of F.col === 'incomes' ? db.incomes : F.col === 'investments' ? db.investments : db.expenses.concat(db.installments)) used[x.cat] = (used[x.cat] || 0) + 1;
   let list = [...document.getElementById('f_cat').options].map(o => [o.value, o.text]);
-  const cut = list.length > LIM + 1 && !F.allCats;
+  const muitas = list.length > LIM + 1, cut = muitas && !F.allCats;
   if (cut){ const top = [...list].sort((a, b) => (used[b[0]] || 0) - (used[a[0]] || 0)).slice(0, LIM).map(o => o[0]);
-    list = list.filter(o => top.includes(o[0]) || o[0] === F.vals.cat); }
-  cp.innerHTML = list.map(([v, t]) => `<button type="button" class="${v === F.vals.cat ? 'on' : ''}" data-v="${esc(v)}" data-onclick="pickCat(this.dataset.v)">${I((M[v] || ['tag'])[0], 17)}${esc(t)}</button>`).join('') +
-    (cut ? `<button type="button" class="more" data-onclick="F.allCats=true;drawCatPick()">Mais categorias…</button>` : '') +
+    list = list.filter(o => top.includes(o[0]) || o[0] === F.vals.cat || PREV_GERAIS[o[0]]); }
+  const ico = v => (M[v] || PREV_GERAIS[v] || ['tag'])[0];
+  cp.innerHTML = list.map(([v, t]) => `<button type="button" class="${v === F.vals.cat ? 'on' : ''}" data-v="${esc(v)}" data-onclick="pickCat(this.dataset.v)">${I(ico(v), 17)}${esc(t)}</button>`).join('') +
+    (cut ? `<button type="button" class="more" data-onclick="F.allCats=true;drawCatPick()">Mais categorias…</button>`
+      : muitas ? `<button type="button" class="more" data-onclick="F.allCats=false;drawCatPick()">Menos categorias</button>` : '') +
     (M === CAT_INV ? '' : `<button type="button" class="more" data-onclick="novaCategoria('${M === CAT_GANHO ? 'ganho' : 'gasto'}',formCatNova)">`
       + `${I('plus', 17)}Nova categoria</button>`);
   catSeguraNo(cp, M === CAT_INV ? '' : M === CAT_GANHO ? 'ganho' : 'gasto');
@@ -149,7 +159,7 @@ const DIFF_FIELDS = [['value', 'valor', 1], ['total', 'total', 1], ['target', 'm
   ['bank', 'banco'], ['pay', 'pagamento'], ['start', 'mês'], ['end', 'até'], ['day', 'dia'], ['due', 'vencimento'], ['n', 'parcelas'],
   ['paid', 'pagas'], ['tags', 'etiquetas']];
 function diffRec(a, b){
-  const show = (k, v, money) => v === '' || v == null ? 'vazio' : money ? shown(() => fmt(v)) : k === 'cat' ? (CAT_GASTO[v] || CAT_GANHO[v] || CAT_INV[v] || [0, v])[1] : k === 'pay' ? PAY[v] || v : String(v);
+  const show = (k, v, money) => v === '' || v == null ? 'vazio' : money ? shown(() => fmt(v)) : k === 'cat' ? (PREV_GERAIS[v] || CAT_GASTO[v] || CAT_GANHO[v] || CAT_INV[v] || [0, v])[1] : k === 'pay' ? PAY[v] || v : String(v);
   return DIFF_FIELDS.filter(([k]) => (a[k] ?? '') !== (b[k] ?? '')).map(([k, nome, money]) => `${nome} ${show(k, a[k], money)} → ${show(k, b[k], money)}`).join('; ');
 }
 // Ao abrir um ganho, gasto ou parcelada: quando foi criado no app e editado pela última vez (só o que estiver guardado).
@@ -162,6 +172,15 @@ const cadastroHtml = (col, item) => {
 };
 const histHtml = item => item && item.h && item.h.length ? `<label>Histórico de alterações</label>${[...item.h].reverse().map(h =>
   `<div class="hint u-mt4"><b>${dataHora(h.t)}</b> · ${esc(h.d)}</div>`).join('')}` : '';
+// "Cancelar" de um formulário aberto pela lista de boas-vindas volta para ela (como o "Salvar").
+function cancelarForm(){ const voltar = welcomeOn; closeForm(); if (voltar) openWelcome(); }
+// Fechar sem querer (tocar fora, arrastar a folha para baixo, o voltar do Android) não perde o que foi digitado num
+// formulário: pergunta antes. O "Cancelar" do formulário fecha direto.
+async function fecharFolha(){
+  const mudou = F && F.inicio && Object.keys(F.touched).some(k => String(F.vals[k] ?? '') !== String(F.inicio[k] ?? ''));
+  if (mudou && !await ask('Descartar o que foi digitado?', 'Descartar', true)) return;
+  closeForm();
+}
 function closeForm(){
   settingsOpen = false;
   if (explorarOrigem && explorarOrigem.raiz !== undefined) explorarOrigem = null;

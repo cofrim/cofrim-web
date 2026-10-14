@@ -20,13 +20,23 @@ function previsoesDoMes(m){
 }
 // Lançamentos que contam: gastos da categoria do dia 1 até o dia final, pela data da aba Gastos (diaDe: fixos pelo
 // vencimento, parcelas pelo dia delas, crédito pela data da compra).
-const prevLanc = it => expensesOf(it.m).filter(x => x.cat === it.cat && diaDe(x, it.m) <= it.dia);
+// Previsões gerais, sem separar por categoria (no lugar da categoria, cat = a chave): todos os gastos do mês ou tudo o que
+// foi pago no cartão de crédito (de qualquer categoria e cartão, parcelas incluídas). [ícone, nome, cor], como as categorias.
+const PREV_GERAIS = {_tudo:['receipt', 'Todos os gastos (geral)', '#64748b'], _credito:['card', 'Cartão de crédito', '#7c3aed']};
+const prevCasa = (cat, x) => cat === '_tudo' || (cat === '_credito' ? x.pay === 'credito' : x.cat === cat);
+const prevLanc = it => expensesOf(it.m).filter(x => prevCasa(it.cat, x) && diaDe(x, it.m) <= it.dia);
 const prevGasto = it => round2(sum(prevLanc(it), x => x.value));
 // Ainda vale o previsto? Mês futuro, sim; mês passado, não; no mês atual, até o dia final (inclusive).
 const prevAtiva = (it, hoje = today()) => it.m > hoje[0] || (it.m === hoje[0] && hoje[1] <= it.dia);
 // Quanto as previsões somam ao total PROJETADO de gastos do mês: só o que falta gastar do previsto, enquanto a previsão
 // vale (o já gasto está nos totais e não conta duas vezes). Não mexe no saldo real das contas nem nos gastos feitos.
-const reservaPrevisoes = (m, hoje = today()) => round2(sum(previsoesDoMes(m), it => prevAtiva(it, hoje) ? Math.max(0, it.value - prevGasto(it)) : 0));
+// A geral e a do cartão cobrem gastos das categorias: em vez de somar, vale o maior entre a geral, a do cartão e a soma
+// das de categoria (sem elas, fica como antes: a soma das de categoria).
+const reservaPrevisoes = (m, hoje = today()) => {
+  const falta = {_tudo:0, _credito:0, cat:0};
+  for (const it of previsoesDoMes(m)) if (prevAtiva(it, hoje)) falta[PREV_GERAIS[it.cat] ? it.cat : 'cat'] += Math.max(0, it.value - prevGasto(it));
+  return round2(Math.max(falta._tudo, falta._credito, falta.cat));
+};
 const totalOutPrev = ym => round2(totalOut(ym) + reservaPrevisoes(ym));
 // Do mês atual até m: o que as previsões tiram do saldo das contas no fim de m (projetado).
 const reservaAte = m => { let t = 0; for (let k = curYM; k <= m; k = addMonths(k, 1)) t += reservaPrevisoes(k); return round2(t); };
@@ -55,10 +65,11 @@ function prevAvisosNovos(hoje = today()){
       for (const p of Object.values(PREV_MARCA)) vistos[k + p] = 1;
       if (!pontos.includes('fim')) continue;
       const [y, mo] = m.split('-').map(Number);
+      const mes = monthName(m), gasto = fmtTexto(g), prev = fmtTexto(it.value); // o mês no texto: o aviso pode chegar no mês seguinte
       novos.push({t:new Date(y, mo - 1, it.dia, 23, 59).getTime(), tipo:dif > 0 ? 'aviso' : 'sucesso', dest,
-        txt:dif < 0 ? `Previsão de ${nome} encerrada: você gastou ${fmtTexto(g)} de ${fmtTexto(it.value)}. Sobraram ${fmtTexto(-dif)}, e o valor do mês foi atualizado.`
-          : dif > 0 ? `Previsão de ${nome} encerrada: você gastou ${fmtTexto(g)}, ${fmtTexto(dif)} acima do previsto. O valor do mês foi atualizado.`
-          : `Previsão de ${nome} encerrada: você gastou exatamente o previsto.`});
+        txt:dif < 0 ? `Previsão de ${nome} (${mes}) encerrada: você gastou ${gasto} de ${prev}. Sobraram ${fmtTexto(-dif)}, e o valor do mês foi atualizado.`
+          : dif > 0 ? `Previsão de ${nome} (${mes}) encerrada: você gastou ${gasto}, ${fmtTexto(dif)} acima do previsto. O valor do mês foi atualizado.`
+          : `Previsão de ${nome} (${mes}) encerrada: você gastou exatamente o previsto.`});
     } else if (m === hoje[0]){
       const pct = g / it.value * 100;
       const alcancados = pontosAlcancados(pct);

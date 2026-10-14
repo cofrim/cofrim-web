@@ -35,7 +35,11 @@ function parseRss(xml, source){
     if (src && title.endsWith(' - ' + src)) title = title.slice(0, -src.length - 3); // o Google repete a fonte no título
     if (link.includes('bing.com/news/apiclick')) try { link = new URL(link).searchParams.get('url') || link; } catch(e){} // endereço real da matéria
     if (img.includes('bing.com/th')) img += '&w=160&h=160&c=7'; // miniatura quadrada
-    return {title, link, date:Date.parse(get('pubDate')) || 0, source:src, img:img.replace(/^http:/, 'https:')};
+    // Fotos só do Bing: a CSP (img-src) só deixa a tela pedir imagens a ele e às miniaturas dos temas (outro site seria
+    // um caminho para dados saírem do app).
+    img = img.replace(/^http:/, 'https:');
+    if (!/^https:\/\/([\w-]+\.)*bing\.(com|net)\//.test(img)) img = '';
+    return {title, link, date:Date.parse(get('pubDate')) || 0, source:src, img};
   }).filter(n => n.title && /^https?:\/\//.test(n.link));
 }
 async function loadNews(k, force){

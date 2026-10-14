@@ -58,8 +58,9 @@ const commitRecurring = col => (v, id, newId) => {
   const old = db[col].find(x => x.id === id);
   if (scope === 'from' && old.fixed === true && rec.fixed === true && from > old.start && (!old.end || from <= old.end)){
     const pm = old.pm || [];
-    db[col].push(touch({...old, ...rec, id:uid(), start:from, pm:pm.filter(m => m >= from), edi:Date.now()}));
-    Object.assign(touch(old), {end:addMonths(from, -1), pm:pm.filter(m => m < from)});
+    const pd = old.pd || {}, pdDe = f => Object.fromEntries(Object.entries(pd).filter(([m]) => f(m)));
+    db[col].push(touch({...old, ...rec, id:uid(), start:from, pm:pm.filter(m => m >= from), pd:pdDe(m => m >= from), edi:Date.now()}));
+    Object.assign(touch(old), {end:addMonths(from, -1), pm:pm.filter(m => m < from), pd:pdDe(m => m < from)});
   } else { Object.assign(touch(old), rec); if (rec.rep === undefined) delete old.rep; }
 };
 // Campos de venda/provento: lançar nos Ganhos e em qual conta o dinheiro cai.
@@ -87,9 +88,11 @@ function repeatFill(i){
   syncForm();
   document.getElementById('f_value').focus();
 }
+// Mês de um lançamento novo: o que está na tela (o Resumo tem o seu, state.rmes; Gastos e Ganhos usam state.month).
+const mesNovo = () => state.tab === 'resumo' ? resumoMes() : state.month;
 const FORMS = {
   // Campos com more:true ficam atrás de "Mais opções" num lançamento novo (lançamento rápido); big = valor em destaque.
-  incomes: { title:'ganho', defaults:() => ({cat:'salario', fixed:'1', start:curYM}), fields:() => formVale ? [
+  incomes: { title:'ganho', defaults:() => ({cat:'salario', fixed:'1', start:mesNovo()}), fields:() => formVale ? [
     {k:'value', label:'Valor do crédito', type:'money', big:true},
     {k:'cat', label:'Qual vale', type:'select', options:() => Object.entries(VALES)},
     EMP_FIELD,
@@ -111,13 +114,18 @@ const FORMS = {
     {k:'end', label:'Até (opcional)', type:'month', optional:true, showIf:v => v.fixed, more:true},
     ...SCOPE_FIELDS],
     load(v){ v.scope = 'from'; v.from = curYM; },
+    // Dia 29 a 31 num ganho que repete: nos meses mais curtos ele cai no último dia (diaGanho, em calculos.js).
+    hint:v => v.fixed && !v.regra && +v.day > 28 && +v.day <= 31
+      ? `Nos meses sem o dia ${+v.day}, cai no último dia do mês.` : '',
     summary:v => [v.bank, diaGanhoTexto(v), repResumo(v), v.start && v.start !== curYM && cap(monthName(v.start))].filter(Boolean).join(' · '),
     onChange(k, v, isNew, touched){ if (formVale && isNew && k === 'cat' && !touched.emp) v.emp = valeEmp(v.cat); },
     check(v){ if (!v.desc || formVale) v.desc = (CAT_GANHO[v.cat] || [0, 'Ganho'])[1]; return repCheck(v) || diaGanhoCheck(v); },
     commit:commitRecurring('incomes')},
   // Gasto novo à vista ou parcelado (parc): parcelado vira uma compra parcelada em db.installments, a mesma da aba
   // Parceladas (ver commit), com o mês do gasto como mês da 1ª parcela.
-  expenses: { title:'gasto', defaults:() => catDefaults({cat:'alimentacao', fixed:'', start:state.month, parc:'', mode:'total'}), fields:() => formVale ? [
+  // Gasto novo no mês atual já vem com o dia de hoje (usado na fatura do cartão e na ordem da lista).
+  expenses: { title:'gasto', defaults:() => catDefaults({cat:'alimentacao', fixed:'', start:mesNovo(), parc:'', mode:'total',
+    day:mesNovo() === curYM ? String(now.getDate()) : ''}), fields:() => formVale ? [
     {k:'value', label:'Valor', type:'money', big:true},
     {k:'pay', label:'Qual vale', type:'select', options:() => Object.entries(VALES)},
     EMP_FIELD,
@@ -130,7 +138,9 @@ const FORMS = {
     {k:'mode', label:'Informar', type:'select', showIf:parcelado, options:[['total', 'Valor total da compra'], ['parcela', 'Valor de cada parcela']]},
     {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')},
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Mercado', optional:true},
-    ...WHERE_FIELDS().map(f => ({...f, more:true})),
+    // Pago com um vale: no lugar do banco, a empresa do vale (com o logotipo); o gasto vai para a parte dos vales.
+    ...WHERE_FIELDS().reverse().map(f => ({...f, more:true, ...(f.k === 'bank' ? {showIf:v => !VALES[v.pay]} : {})})),
+    {...EMP_FIELD, more:true, showIf:v => !!VALES[v.pay]},
     {k:'tags', label:'Etiquetas (opcional, separadas por vírgula)', type:'text', ph:'Ex.: viagem SP', optional:true, more:true, showIf:aVista,
       sug:() => [...new Set(db.expenses.flatMap(tagsOf))]},
     {k:'who', label:'Dividir com (nome da pessoa, opcional)', type:'text', ph:'Ex.: Ana', optional:true, more:true, showIf:aVista,
@@ -156,7 +166,8 @@ const FORMS = {
     // Ao trocar a categoria num gasto novo, banco e forma de pagamento vêm do último gasto dessa categoria.
     onChange(k, v, isNew, touched){
       if (formVale){ if (isNew && k === 'pay' && !touched.emp) v.emp = valeEmp(v.pay); return; }
-      if (isNew && k === 'cat' && !touched.bank && !touched.pay) catDefaults(v); },
+      if (isNew && k === 'cat' && !touched.bank && !touched.pay) catDefaults(v);
+      if (k === 'pay' && VALES[v.pay] && !touched.emp) v.emp = valeEmp(v.pay); },
     hint:v => { if (!parcelado(v)) return ''; const n = parseInt(v.n), x = parseMoney(v.value), t = v.mode === 'parcela' ? x * n : x;
       return t > 0 && n > 0 ? `${n}x de ${fmt(t / n)} · total ${fmt(t)}` : ''; },
     // Parcelado: o comprovante não aparece (as parceladas não guardam foto).
@@ -169,10 +180,14 @@ const FORMS = {
       if (formVale){ if (!F.id){ v.cat = v.pay === 'vt' ? 'transporte' : 'alimentacao'; v.fixed = false; } if (!v.desc) v.desc = VALES[v.pay];
         return dayOk(v, 'day', 'O dia'); }
       if (!v.desc) v.desc = (CAT_GASTO[v.cat] || [0, 'Gasto'])[1];
+      if (VALES[v.pay]) v.bank = ''; else v.emp = ''; // no vale vale a empresa; fora dele, o banco
+      if (v.fixed && !F.id && !F.touched.day) v.day = ''; // o dia de hoje sugerido vale só para o gasto avulso
       if (v.parc && v.n < 2) return 'Parcelado precisa de 2 parcelas ou mais.';
+      if (v.parc && v.n > 600) return 'No máximo 600 parcelas (50 anos).';
       if (v.who && v.share >= v.value) return 'A parte da outra pessoa precisa ser menor que o valor total.';
       if (!v.who) v.share = '';
       db.catMemo[plain(v.desc)] = v.cat; // lembra a categoria desta descrição para a importação de extratos
+      if (!v.fixed && !v.parc && v.day > daysIn(v.start)) return `O dia ${v.day} não existe em ${monthName(v.start)}.`;
       return repCheck(v) || dayOk(v, 'day', 'O dia da compra') || dayOk(v, 'due', 'O dia do vencimento');
     },
     commit(v, id, newId){
@@ -220,6 +235,7 @@ const FORMS = {
       const n = parseInt(v.n), p = parseInt(v.paid)||0, x = parseMoney(v.total), t = v.mode === 'parcela' ? x*n : x;
       return t > 0 && n > 0 ? `Total ${fmt(t)} · ${n}x de ${fmt(t/n)} · pago ${fmt(t/n*Math.min(p,n))} · falta ${fmt(t/n*Math.max(n-p,0))}` : ''; },
     check(v){
+      if (v.n > 600) return 'No máximo 600 parcelas (50 anos).';
       if (v.paid > v.n) return 'As parcelas pagas não podem passar do total de parcelas.';
       if (v.taxa !== '' && v.taxa > 20) return 'A taxa de juros deve ser de 0 a 20% ao mês.';
       if (v.mode === 'parcela') v.total = round2(v.total*v.n);
@@ -316,8 +332,8 @@ const FORMS = {
     }},
   accounts: { fullTitle:'Conta bancária', defaults:() => ({initial:moneyStr(0), since:curYM}), fields:[
     {k:'name', label:'Nome do banco ou da conta', type:'text', ph:'Ex.: Nubank', sug:bankSuggestions},
-    {k:'initial', label:'Saldo no início do mês abaixo', type:'money', zero:true},
-    {k:'since', label:'Acompanhar o saldo a partir de', type:'month'}],
+    {k:'since', label:'Acompanhar o saldo a partir de', type:'month'},
+    {k:'initial', label:'Saldo no início desse mês', type:'money', zero:true}],
     extra:() => '<div class="hint">O saldo soma os ganhos e desconta os gastos em que o campo de banco/conta tiver exatamente este nome. Lançamentos com dia depois de hoje ainda não contam, e compras no crédito só saem quando a fatura é paga (configure em Gastos → Faturas do cartão).</div>'},
   transfers: { fullTitle:'Transferência entre contas', defaults:() => ({month:curYM, from:(db.accounts[0] || {}).name, to:(db.accounts[1] || {}).name}),
     // Além das contas, a lista traz nomes já usados em transferências (ex.: "Investimentos", de vendas e proventos).
@@ -338,8 +354,13 @@ const FORMS = {
     hint:v => parseMoney(v.auto) > 0
       ? `Todo dia ${Math.min(28, Math.max(1, parseInt(v.autoDia) || 1))}, o app soma ${fmt(parseMoney(v.auto))} ao guardado, até chegar na meta.` : '',
     check:v => v.autoDia !== '' && v.autoDia != null && !(+v.autoDia >= 1 && +v.autoDia <= 28) ? 'O dia de guardar vai de 1 a 28.' : ''},
-  goalAdd: { fullTitle:'Guardar dinheiro na meta', noDelete:true, fields:[{k:'amount', label:'Valor a guardar agora', type:'money', big:true}],
-    commit(v, id){ const g = db.goals.find(x => x.id === id); g.saved = round2(g.saved + v.amount); touch(g); }},
+  // Guardar ou tirar dinheiro de uma meta (o que foi guardado nunca fica negativo).
+  goalAdd: { fullTitle:'Guardar ou retirar dinheiro da meta', noDelete:true, defaults:() => ({dir:'+'}),
+    fields:[{k:'dir', label:'O que fazer', type:'select', options:[['+', 'Guardar'], ['-', 'Retirar']]},
+      {k:'amount', label:v => v.dir === '-' ? 'Valor a retirar agora' : 'Valor a guardar agora', type:'money', big:true}],
+    check(v){ const g = F && db.goals.find(x => x.id === F.id);
+      if (v.dir === '-' && g && v.amount > g.saved) return `Na meta há ${fmt(g.saved)} guardados; não dá para retirar mais que isso.`; },
+    commit(v, id){ const g = db.goals.find(x => x.id === id); g.saved = round2(Math.max(0, g.saved + (v.dir === '-' ? -v.amount : v.amount))); touch(g); }},
   // Aporte avulso em um investimento de renda fixa (ações e moedas usam "+ Nova compra").
   invAdd: { fullTitle:'Fazer um aporte', noDelete:true, fields:[{k:'amount', label:'Valor do aporte', type:'money', big:true}],
     hint:v => { const inv = F && db.investments.find(x => x.id === F.id), a = parseMoney(v.amount);
@@ -372,7 +393,8 @@ const FORMS = {
   // Previsão de gasto numa categoria (ver previsoesDoMes): prevCtx diz o mês e, numa que se repete, se a mudança vale só
   // para este mês ('este') ou para este e os próximos ('prox').
   previsoes: { title:'previsão', fem:true, noDelete:true, fields:() => [
-    {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')},
+    {k:'cat', label:'Categoria', type:'select', options:() => [...Object.entries(PREV_GERAIS).map(([k, c]) => [k, c[1]]),
+      ...opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')]},
     {k:'value', label:'Valor previsto', type:'money', big:true},
     {k:'dia', label:'Até o dia (conta do dia 1 até este dia)', type:'int', optional:true},
     ...(prevCtx.modo === 'este' ? [] : [{k:'rep', label:'Repetir todo mês', type:'select', optional:true,
@@ -383,7 +405,7 @@ const FORMS = {
       if (outra){ prevJaExiste(outra); return false; }
     },
     commit(v, id, novoId){ prevSalvar(v, id, novoId); },
-    extra:() => '<div class="hint">Sem dia, vale até o último dia do mês. Os gastos da categoria até esse dia enchem a barra; o que faltar do previsto já entra no saldo previsto do mês.</div>'},
+    extra:() => '<div class="hint">Sem dia, vale até o último dia do mês. Os gastos da categoria (ou todos os gastos, ou tudo no cartão de crédito, nas opções gerais) até esse dia enchem a barra; o que faltar do previsto já entra no saldo previsto do mês.</div>'},
   // Alerta de preço de uma ação ou moeda (id = o investimento). Vazio desliga.
   priceAlert: { fullTitle:'Alerta de preço', noDelete:true, fields:[
     {k:'alertUp', label:'Avisar quando passar de (R$)', type:'num', optional:true},
@@ -398,7 +420,7 @@ const FORMS = {
   catEdit: { noDelete:true, fields:[
     {k:'name', label:'Nome', type:'text', ph:'Ex.: Pets'},
     {k:'icon', label:'Ícone', type:'icons'},
-    {k:'color', label:'Cor (aparece com a opção "Uma cor por categoria")', type:'colors', optional:true}],
+    {k:'color', label:'Cor (aparece com os ícones coloridos, em Configurações › Categorias)', type:'colors', optional:true}],
     check(v){ const [type, key] = F.id.split(':'); if (catMesmoNome(type, v.name, key)) return catRepetida; },
     commit(v, id){ const [type, key] = id.split(':'); catSalvar(type, key, v); },
     after:() => openCats()},
@@ -417,7 +439,8 @@ let formTipo = ''; // parcelas: '' (compra parcelada), 'financiamento' ou 'empre
 // Gasto novo parcelado (campo parc do formulário de gasto) ou à vista.
 const parcelado = v => v.parc === '1' && !(F && F.id), aVista = v => !parcelado(v);
 const semAbat = () => !(F && F.id && (db.installments.find(x => x.id === F.id) || {}).seg);
-const EMP_FIELD = {k:'emp', label:'Empresa do vale', type:'select', optional:true, options:() => [['', 'Não informar'], ...VALE_EMPRESAS.map(e => [e, e])]};
+const EMP_FIELD = {k:'emp', label:'Empresa do vale', type:'select', optional:true, banco:true, // banco: com o logotipo da empresa
+  options:() => [['', 'Não informar'], ...VALE_EMPRESAS.map(e => [e, e])]};
 // Novo lançamento num vale: lado = 'gastos' ou 'ganhos'; k = qual vale. A empresa usada por último já vem escolhida.
 function novoVale(lado, k){
   if (lado === 'gastos') openForm('expenses', null, {vale:true, vals:{pay:k, emp:valeEmp(k), fixed:'', start:state.month}});
@@ -436,7 +459,7 @@ function addNew(){
     [['', 'Compra parcelada'], ['financiamento', 'Financiamento'], ['emprestimo', 'Empréstimo']], null, t => openForm('installments', null, {tipo:t}));
   const col = {ganhos:'incomes', gastos:'expenses', invest:'investments'}[state.tab]; if (col) openForm(col);
 }
-const ARCH_MSG = 'Este lançamento está no arquivo de anos antigos e não pode ser editado. Para editar, traga os anos de volta em Configurações > Dados e ajustes.';
+const ARCH_MSG = 'Este lançamento está no arquivo de anos antigos e não pode ser editado. Para editar, traga os anos de volta em Configurações › Dados e ajustes.';
 function edit(col, id){
   event.stopPropagation();
   if (Date.now() - swipedAt < 400) return;
@@ -460,7 +483,7 @@ function showSheet(html){
   a11y(sheet);
   valoresCabem(sheet);
 }
-// Arrastar a alça (o topo) de uma folha para baixo fecha a folha.
+// Arrastar a alça (o topo) de uma folha para baixo fecha a folha (num formulário mexido, pergunta antes).
 let drag = null;
 document.addEventListener('touchstart', e => {
   const el = e.target.closest ? e.target.closest('.sheet.open') : null;
@@ -476,7 +499,7 @@ document.addEventListener('touchend', () => {
   if (!drag) return;
   const d = drag; drag = null;
   d.el.style.transition = ''; d.el.style.transform = '';
-  if (d.dy > 110){ if (d.el.id === 'picker') closePicker(); else closeForm(); }
+  if (d.dy > 110){ if (d.el.id === 'picker') closePicker(); else fecharFolha(); }
 }, {passive:true});
 
 // Campo de banco ou conta (texto com as sugestões de bancos, ou lista das contas): mostra o logotipo do banco.
@@ -527,6 +550,25 @@ const CAT_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59
   '#2563eb', '#b45309', '#64748b'];
 // Texto digitado num campo de dinheiro → valor com os centavos: só os números contam, os últimos são os centavos (dois
 // na maioria das moedas; nenhum no iene, três no dinar do Kuwait: moeda.casas).
+// Campo de dinheiro enquanto a pessoa digita: a máscara de centavos (centsMask) até ela digitar uma vírgula ou um ponto;
+// aí o que já estava vira a parte inteira e ela escreve livre (1, 2, vírgula, 5 → 12,5, e não 1,25). Colado com
+// separador ("1.234,5"), vale o número colado. Campo vazio volta à máscara.
+function valorDigitado(el, e){
+  const c = moeda.casas, v = el.value, fmtC = n => n.toLocaleString('pt-BR', {minimumFractionDigits:c, maximumFractionDigits:c});
+  if (!v.trim()){ delete el.dataset.livre; return ''; }
+  if (e.inputType === 'insertFromPaste' && /\d[.,]\d{1,2}\s*$/.test(v)){
+    delete el.dataset.livre;
+    const n = numEscrito(v.replace(/[^\d.,]/g, ''));
+    return n >= 0 ? fmtC(n) : '';
+  }
+  if (c && !el.dataset.livre && /[.,]/.test(e.data || '')){
+    el.dataset.livre = '1';
+    return (v.slice(0, -1).replace(/\D/g, '').replace(/^0+/, '') || '0') + ',';
+  }
+  if (!el.dataset.livre) return centsMask(v);
+  const [i, ...r] = v.replace(/\./g, ',').replace(/[^\d,]/g, '').split(',');
+  return (i.replace(/^0+(?=\d)/, '') || '0') + (r.length ? ',' + r.join('').slice(0, c) : '');
+}
 function centsMask(s){
   const d = String(s).replace(/\D/g, '').replace(/^0+/, '').slice(0, 13), c = moeda.casas;
   return d ? (+d / 10 ** c).toLocaleString('pt-BR', {minimumFractionDigits:c, maximumFractionDigits:c}) : '';

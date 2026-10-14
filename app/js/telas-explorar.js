@@ -77,7 +77,7 @@ function explorarBuscar(q){
   const t = plain(q.trim());
   res.hidden = !t; grupos.hidden = !!t;
   if (!t) return;
-  const tem = s => plain(s).includes(t);
+  const ps = t.split(/\s+/), tem = s => { const x = plain(s); return ps.every(p => x.includes(p)); }; // todas as palavras, em qualquer ordem
   const itens = explorarItens().filter(([, nome, , , palavras, , g]) => tem(`${nome} ${g} ${palavras}`));
   const guia = GUIA.flatMap(([, l], i) => l.map(([nome, onde, como], j) => ({i, j, nome, onde, peso:tem(nome) ? 0 : tem(onde) ? 1 : tem(como) ? 2 : 3})))
     .filter(x => x.peso < 3).sort((a, b) => a.peso - b.peso).slice(0, 8);

@@ -41,9 +41,11 @@ function reserve(){
 const isFin = p => !!PARC_TIPOS[p.tipo];
 // Etiqueta de uma parcela na lista do mês: "parcela 3/10" ou "abatimento".
 const parcTag = x => x.abat ? 'abatimento' : `parcela ${x.num}/${x.n}`;
-// Valor da parcela j: total/n; depois de um abatimento, seg diz o valor a partir de cada parcela (as já passadas não mudam).
+// Valor da parcela j: total/n em centavos, com a última fechando o total (100 em 3x: 33,33 + 33,33 + 33,34); depois de
+// um abatimento, seg diz o valor a partir de cada parcela (as já passadas não mudam).
 function parcVal(p, j){
-  let v = p.total / p.n;
+  const base = round2(p.total / p.n);
+  let v = j === p.n - 1 ? round2(p.total - base * (p.n - 1)) : base;
   for (const s of p.seg || []) if (s.de <= j) v = s.v;
   return v;
 }
@@ -132,4 +134,6 @@ const creditBanks = () => [...new Set([...db.expenses, ...db.installments].filte
 
 // Lembretes no celular (só no APK): monta a lista de avisos dos próximos meses e entrega ao lado nativo,
 // que agenda as notificações. db.prefs.remind = quantos dias antes avisar (0 = desligado).
-const hashId = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
+// Laço por índice (o for…of em texto grande era lento); um emoji (par de surrogates) conta só a 1ª metade, como antes.
+const hashId = s => { let h = 0; for (let i = 0; i < s.length; i++){ const c = s.charCodeAt(i); h = (h * 31 + c) | 0;
+  if (c >= 0xD800 && c < 0xDC00 && (s.charCodeAt(i + 1) & 0xFC00) === 0xDC00) i++; } return Math.abs(h); };

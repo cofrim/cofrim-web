@@ -75,10 +75,11 @@ function centralTela(){
     const d = centralDia(x.t), [ic, cor] = CENTRAL_TIPOS[x.tipo] || CENTRAL_TIPOS.info, nova = centralNovas.has(x.txt + '|' + d);
     if (d !== dia){ dia = d; html += `<label>${d === hoje ? 'Hoje' : d === ontem ? 'Ontem' : new Date(x.t).toLocaleDateString('pt-BR')}</label>`; }
     html += `<div class="item centralItem${nova ? ' nova' : ''}" data-cent="${i}" data-onclick="centralToque(${i})"><span class="centralIco" style="color:${cor}">${I(ic, 20)}</span><div class="mid">
-      <b class="quebra">${esc(x.txt)}</b><small>${centralQuando(x.t)}${x.ts.length > 1 ? ` · ${x.ts.length} vezes` : ''}${nova ? ' <em class="centralNova">Nova</em>' : ''}</small></div>${x.dest || x.ts.length > 1 ? `<span class="centralVai">${I('chev', 16)}</span>` : ''}</div>`;
+      <b class="quebra">${esc(x.txt)}</b><small>${centralQuando(x.t)}${x.ts.length > 1 ? ` · ${x.ts.length} vezes` : ''}${nova ? ' <em class="centralNova">Nova</em>' : ''}</small></div>${x.dest || x.ts.length > 1 ? `<span class="centralVai">${I('chev', 16)}</span>` : ''}
+      <button class="iconbtn u-apagado" data-onclick="event.stopPropagation();centralApagar(${i})" aria-label="Apagar">${I('close', 18)}</button></div>`;
   });
   showSheet(`<h3>${I('bell', 22)} Notificações</h3>
-    <div class="semTopo hint">${html ? 'Toque para abrir; arraste para o lado para apagar.' : 'Nenhuma notificação por aqui.'}</div>${html}
+    <div class="semTopo hint">${html ? 'Toque para abrir; arraste para o lado ou toque no × para apagar.' : 'Nenhuma notificação por aqui.'}</div>${html}
     <div class="btns foot">${centralItens.length ? '<button class="btn danger" data-onclick="centralLimpar()">Limpar</button>' : ''}<button class="btn primary" data-onclick="closeForm()">Fechar</button></div>`);
 }
 // Tocar: item repetido mostra cada vez que aconteceu; com destino, abre a tela dele.

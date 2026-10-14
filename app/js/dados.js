@@ -48,7 +48,7 @@ function logErr(onde, e){
 }
 addEventListener('error', e => logErr('erro na tela', (e.error && e.error.stack) || (e.message || '') + ' @' + (e.lineno || 0) + ':' + (e.colno || 0)));
 addEventListener('unhandledrejection', e => logErr('promessa', e.reason));
-const APP_VERSION = '2.80'; // manter igual ao versionName do build.gradle
+const APP_VERSION = '2.81'; // manter igual ao versionName do build.gradle
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const I = (name, size = 18) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 // Categorias: [ícone, nome, cor]
@@ -159,6 +159,12 @@ function fixDb(d){
   // (+5 min de folga de relógio, como na sincronização). Registro antigo fica sem as datas: nada é deduzido.
   const ehHora = t => typeof t === 'number' && t >= 1577836800000 && t <= Date.now() + 5 * 60e3;
   for (const c of COLS) for (const r of d[c]) for (const k of ['cri', 'edi']) if (k in r && !ehHora(r[k])) delete r[k];
+  // Conta fixa paga: dia em que foi marcada (pd: {AAAA-MM: 'AAAA-MM-DD'}), só dos meses que estão em pm.
+  for (const r of d.expenses) if ('pd' in r){
+    const pd = r.pd && typeof r.pd === 'object' && !Array.isArray(r.pd) ? Object.entries(r.pd).filter(([m, v]) => /^\d{4}-\d\d$/.test(m)
+      && typeof v === 'string' && /^\d{4}-\d\d-\d\d$/.test(v) && (r.pm || []).includes(m)) : [];
+    if (pd.length) r.pd = Object.fromEntries(pd); else delete r.pd;
+  }
   // Data em que cada nível de conquista foi conquistado: {"Anotador:2": hora em ms} (ver funCheck).
   if (!d.conq || typeof d.conq !== 'object' || Array.isArray(d.conq)) d.conq = {};
   for (const k of Object.keys(d.conq)) if (!/^[^:]{1,40}:\d{1,2}$/.test(k) || !ehHora(d.conq[k])) delete d.conq[k];
@@ -315,7 +321,10 @@ function idbPut(json, salva){
 // Ao abrir no navegador: se a cópia do IndexedDB for mais nova que a do localStorage (ele estava cheio), vale ela.
 function restoreFromIdb(){
   if (fileStore() || window.TESTE) return Promise.resolve(false);
-  return idbRead().then(t => ehCifrado(t) ? decifrarTexto(t) : t).then(json => {
+  // A mesma cópia gravada nos dois lugares (o caso comum) não precisa ser decifrada e lida de novo.
+  return idbRead().then(t => { let igual = false; try { igual = !!t && t === localStorage.getItem(KEY); } catch(e){}
+    return igual ? null : ehCifrado(t) ? decifrarTexto(t) : t; })
+  .then(json => {
     const d = json ? JSON.parse(json) : null;
     if (!d || !Array.isArray(d.expenses) || (d.mod || 0) <= (db.mod || 0)) return false;
     loadDb(d); rollover(); telaAtualizar(true);
@@ -414,6 +423,9 @@ function loadDb(d){
   db = fixDb(Object.assign({}, d, {rates:d.rates || db.rates}));
   dirty();
   applyCats(); ensurePrefs(); applyTheme();
+  // Dados que vieram de fora (conta, outro aparelho, cópia, importação): as conquistas deles já foram avisadas onde
+  // foram ganhas. typeof: divertido.js carrega depois deste arquivo.
+  if (typeof funConhecerGanhas === 'function') funConhecerGanhas();
 }
 // Versão web com os dados cifrados: abre (decifra) logo depois de todos os arquivos carregarem; a abertura do app
 // (inicio.js) espera por esperarDados. Se não der para decifrar (chave apagada junto com parte dos dados do site), o

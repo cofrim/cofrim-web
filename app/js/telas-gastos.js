@@ -80,7 +80,7 @@ function viewGastos(){
   <div class="btns"><button class="btn" data-onclick="shown(printReport)">${I('doc')}Relatório (PDF)</button></div>
   <div class="btns"><button class="btn" data-onclick="openSheetLink()">${I('doc')}${sheetId() ? 'Planilha do Google (ligada)' : 'Ligar uma planilha do Google'}</button></div>
   <div class="btns"><button class="btn" data-onclick="shown(exportPlanilha)">${I('download')}Exportar planilha de ${m.slice(0,4)} (Excel)</button></div>
-  <div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('gastos')">${I('trash')}Apagar gastos por dia, mês ou ano</button></div>`
+  <div class="btns u-mb12"><button class="cresce btn danger" data-onclick="openApagar('gastos')">${I('trash')}Apagar por dia, mês ou ano</button></div>`
   };
   return `${head('Gastos', 'gastos')}${gastosSeg()}
   ${navMes()}
@@ -110,11 +110,19 @@ function expListHtml(){
     ${k === 'avu' && g.length > state.limit ? `<button type="button" class="moreBtn" style="margin:0 0 12px" data-onclick="state.limit+=60;drawExpList()">Mostrar mais ${Math.min(60, g.length - state.limit)} de ${g.length - state.limit} restantes</button>` : ''}` : ''}`; }).join('')
     + (list.length < all.length ? `<div class="hint" style="text-align:center;margin-bottom:12px">${list.length} de ${all.length} lançamentos · ${fmt(sum(list, x => x.value))}</div>` : '');
 }
-// Uma linha da lista de lançamentos do mês m.
+// Data do gasto avulso na lista: o dia informado (dd/mm do mês) ou, sem ele, o dia em que foi lançado (guardado no id).
+const ddmm = d => d.slice(8, 10) + '/' + d.slice(5, 7);
+function expData(x, m){
+  if (x.day) return `<span class="tag">${String(x.day).padStart(2, '0')}/${m.slice(5)}</span>`;
+  const c = criadoEm(x);
+  return c ? `<span class="tag">lançado em ${ddmm(c.toLocaleDateString('sv'))}</span>` : '';
+}
+// Uma linha da lista de lançamentos do mês m. Gasto num vale com a empresa informada: o logotipo dela no lugar do ícone
+// da categoria.
 function expRow(x, m){ const c = CAT_GASTO[x.cat] || CAT_GASTO.outros, inst = x.kind === 'installment', bill = !inst && x.fixed && x.due,
-  paid = bill && isPaid(x, m); return `
-    <div class="item" ${inst ? '' : `data-sw="${x.id}" data-bill="${bill ? 1 : ''}"`} data-onclick="edit('${inst ? 'installments' : 'expenses'}','${x.id}')">${ico(c)}<div class="mid"><b>${esc(x.desc)}</b>
-    <small>${esc(c[1])}${whereLabel(x)}${x.emp ? `<span class="tag">${esc(x.emp)}</span>` : ''}${inst ? `<span class="tag">${parcTag(x)}${x.paid ? ' paga' : ''}</span>` : x.fixed ? `<span class="tag">${repete(x) ? repTexto(x) : x.fixed === 'y' ? 'anual' : isSub(x) ? 'assinatura' : 'fixo'}</span>` : x.day ? `<span class="tag">dia ${x.day}</span>` : ''}${bill ? `<span class="tag">${paid ? 'pago' : 'vence dia ' + dueDay(x, m)}</span>` : ''}${tagsOf(x).map(t => `<span class="tag">#${esc(t)}</span>`).join('')}${x.share ? `<span class="tag">dividido com ${esc(x.who)}${x.got ? ', recebido' : ''}</span>` : ''}${x.photo ? `<span class="tag">${I('doc', 11)} comprovante</span>` : ''}${byTag(x)}</small></div>
+  paid = bill && isPaid(x, m), emp = VALES[x.pay] && x.emp && x.emp !== 'Outra'; return `
+    <div class="item" ${inst ? '' : `data-sw="${x.id}" data-bill="${bill ? 1 : ''}"`} data-onclick="edit('${inst ? 'installments' : 'expenses'}','${x.id}')">${emp ? bancoSelo(x.emp) : ico(c)}<div class="mid"><b>${esc(x.desc)}</b>
+    <small>${esc(c[1])}${whereLabel(x)}${x.emp ? `<span class="tag">${esc(x.emp)}</span>` : ''}${inst ? `<span class="tag">${parcTag(x)}${x.paid ? ' paga' : ''}</span>` : x.fixed ? `<span class="tag">${repete(x) ? repTexto(x) : x.fixed === 'y' ? 'anual' : isSub(x) ? 'assinatura' : 'fixo'}</span>` : expData(x, m)}${bill ? `<span class="tag">${paid ? (x.pd && x.pd[m] ? `pago em ${ddmm(x.pd[m])}` : 'pago') : 'vence dia ' + dueDay(x, m)}</span>` : ''}${tagsOf(x).map(t => `<span class="tag">#${esc(t)}</span>`).join('')}${x.share ? `<span class="tag">dividido com ${esc(x.who)}${x.got ? ', recebido' : ''}</span>` : ''}${x.photo ? `<span class="tag">${I('doc', 11)} comprovante</span>` : ''}${byTag(x)}</small></div>
     <div class="val out">${fmt(x.value)}</div>${bill ? `<button class="iconbtn ${paid ? 'in' : 'muted'}" data-onclick="togglePaid('${x.id}','${m}')" aria-label="Marcar como pago">${I(paid ? 'checked' : 'unchecked', 24)}</button>` : ''}</div>`; }
 // Busca em todos os meses: ganhos, gastos e compras parceladas, pela descrição, etiqueta ou banco.
 let searchHits = [];
