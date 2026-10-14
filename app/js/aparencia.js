@@ -234,5 +234,5 @@ applyTheme();
 let now = new Date();
 let curYM = ymOf(now.getFullYear(), now.getMonth());
 const todayLabel = () => now.toLocaleDateString(LOCALES[lang()], {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-const state = {tab:visTabs()[0], year:now.getFullYear(), month:curYM, sel:'', q:'', fcat:'', fbank:'', fpay:'', ftag:'', limit:60, gsub:'mes',
+const state = {tab:visTabs()[0], year:now.getFullYear(), month:curYM, sel:'', q:'', fcat:'', fgrp:'', fbank:'', fpay:'', ftag:'', limit:60, gsub:'mes',
   isub:'todos', parcDet:''}; // gsub: parte da aba Gastos (do mês / parceladas / vales); isub: parte da aba Ganhos (todos / vales)

@@ -72,7 +72,8 @@ const PL_PAPEIS = [
   ['saida', /^(saida|saidas|despesa|despesas|debito|debitos|gasto|gastos|pago|pagamentos?)$/],
   ['pagamento', /forma de pagamento|^pagamento$|^forma$|^meio( de pagamento)?$/],
   ['parcela', /^(parcela|parcelas|parc|parcelamento)\.?$/], ['fixo', /^(fixo|fixa|recorrente|mensal)\??$/],
-  ['categoria', /^(categoria|categorias|grupo|classificacao|tipo de (gasto|despesa))$/], ['tipo', /^(tipo|natureza|d\/c|c\/d)$/],
+  ['grupo', /^(grupo|grupos|grupo de categorias|categoria principal)$/],
+  ['categoria', /^(categoria|categorias|subcategoria|classificacao|tipo de (gasto|despesa))$/], ['tipo', /^(tipo|natureza|d\/c|c\/d)$/],
   ['conta', /^(conta|cartao|banco|instituicao|conta\/cartao|cartao\/conta)$/], ['situacao', /^(status|situacao|pago\?|ok)$/],
   ['valor', /^(valor|valores|quantia|quanto|preco|montante|r\$|valor \(r\$\)|total da linha)$/],
   ['desc', /^(descricao|historico|item|lancamento|estabelecimento|o que|nome|produto|detalhe|detalhes|observacao|memo|titulo|gasto com)$/]];
@@ -118,16 +119,20 @@ const planQuase = (a, b) => { if (Math.abs(a.length - b.length) > 1 || Math.min(
 // Categoria do app para o texto da planilha, ou '' (vira "categoria nova" na revisão). tipo: 'gasto' ou 'ganho'.
 // soltas: vale também uma palavra do texto no nome da categoria ("Assinaturas" → "Contas e assinaturas"); para a
 // descrição não vale ("Financiamento Carro" não é "Manutenção do carro").
-function planCategoria(texto, tipo, soltas = true){
-  const t = plT(texto), C = tipo === 'ganho' ? CAT_GANHO : CAT_GASTO;
+// grupo: o texto da coluna Grupo (planilha exportada pelo app): com o mesmo nome em dois grupos, vale a desse grupo.
+function planCategoria(texto, tipo, soltas = true, grupo = ''){
+  const t = plT(texto), C = tipo === 'ganho' ? CAT_GANHO : CAT_GASTO, g = planGrupo(grupo, tipo);
   if (!t) return '';
   const chaves = Object.keys(C).filter(k => !C[k][3] && k !== 'emprestimo'), nome = k => plT(C[k][1]);
-  return chaves.find(k => nome(k) === t || k === t)
+  return (g && chaves.find(k => nome(k) === t && grupoDe(tipo, k) === g)) || chaves.find(k => nome(k) === t || k === t)
     || chaves.find(k => planQuase(nome(k), t))
     || chaves.find(k => PL_SINONIMOS[k] && PL_SINONIMOS[k].test(t))
     || (soltas && chaves.find(k => t.split(' ').filter(w => w.length >= 4).some(w => nome(k).split(/[^a-z0-9]+/).includes(w))))
     || '';
 }
+// Grupo do app com o nome do texto (sem acentos nem maiúsculas), ou ''.
+const planGrupo = (texto, tipo) => { const t = nomeComparar(texto);
+  return t ? Object.keys(GRUPOS_CAT[tipo]).find(g => nomeComparar(GRUPOS_CAT[tipo][g][1]) === t) || '' : ''; };
 // Forma de pagamento pelo texto, ou ''.
 const planPagamento = texto => { const t = plT(texto);
   return /credito|^cc$|^cartao$/.test(t) ? 'credito' : /debito/.test(t) ? 'debito' : /\bpix\b/.test(t) ? 'pix' : /dinheiro|especie|cash/.test(t) ? 'dinheiro'
@@ -152,7 +157,8 @@ function planCabecalhos(l){
     const nomes = [];
     for (; c < l.length && plTexto(l[c]); c++) nomes.push({c, texto:plTexto(l[c]), papel:planPapel(plTexto(l[c]))});
     const papeis = nomes.map(n => n.papel).filter(Boolean);
-    if (papeis.length >= 2 && papeis.some(p => ['valor', 'entrada', 'saida'].includes(p)) && papeis.some(p => ['desc', 'data', 'dia', 'categoria'].includes(p)))
+    if (papeis.length >= 2 && papeis.some(p => ['valor', 'entrada', 'saida'].includes(p))
+      && papeis.some(p => ['desc', 'data', 'dia', 'categoria', 'grupo'].includes(p)))
       out.push({c0:nomes[0].c, c1:nomes[nomes.length - 1].c, nomes});
   }
   return out;
@@ -270,7 +276,9 @@ function planAba(aba, i, anoArq, ajA, ajT, hoje){
     for (let r = h.r + 1; r < fim; r++){
       const l = linhas[r] || [];
       if (plVazia(l, h.c0, h.c1)){ pula('vazias'); continue; }
-      const dl = cel(l, 'desc'), descTxt = dl && dl.t !== 'n' ? String(dl.t === 'd' ? '' : dl.v).trim() : '', catTxt = plTexto(cel(l, 'categoria'));
+      const dl = cel(l, 'desc'), descTxt = dl && dl.t !== 'n' ? String(dl.t === 'd' ? '' : dl.v).trim() : '', grpCel = plTexto(cel(l, 'grupo'));
+      // Planilha só com a coluna Grupo (sem Categoria): ela faz o papel da categoria, como antes dos grupos.
+      const catTxt = plTexto(cel(l, 'categoria')) || grpCel, grpTxt = um('categoria') != null ? grpCel : '';
       // Valor: a coluna Valor, ou Entrada/Saída (a que estiver preenchida).
       const ve = um('entrada') != null ? planValor(l[um('entrada')]) : null, vs = um('saida') != null ? planValor(l[um('saida')]) : null;
       const vv = um('valor') != null ? planValor(l[um('valor')]) : null, valor = vv ?? (ve || vs || null);
@@ -300,7 +308,7 @@ function planAba(aba, i, anoArq, ajA, ajT, hoje){
       const pc = planParcCel(cel(l, 'parcela')), pd = !pc && planParcTexto(desc);
       const tipoCel = plT(plTexto(cel(l, 'tipo')));
       lidas.push({aba:i, tab:id, r, desc:(pd ? pd.resto : desc).slice(0, 80) || desc.slice(0, 80), valor, ve, vs, data, mes, dia:data ? +data.slice(8) : 0,
-        catTxt, payTxt:plTexto(cel(l, 'pagamento')), contaTxt:plTexto(cel(l, 'conta')), parc:pc || (pd ? {k:pd.k, n:pd.n} : null),
+        catTxt, grpTxt, payTxt:plTexto(cel(l, 'pagamento')), contaTxt:plTexto(cel(l, 'conta')), parc:pc || (pd ? {k:pd.k, n:pd.n} : null),
         fixo:planSim(cel(l, 'fixo')), secao,
         tipoCel:/receita|entrada|ganho|credito|^c$/.test(tipoCel) ? 'ganho' : /despesa|saida|gasto|debito|^d$/.test(tipoCel) ? 'gasto' : ''});
     }
@@ -314,7 +322,7 @@ function planAba(aba, i, anoArq, ajA, ajT, hoje){
       const pay = planPagamento(x.payTxt) || planPagamento(x.contaTxt) || (t.banco ? 'credito' : ''), bank = planBanco(x.contaTxt) || t.banco;
       lancs.push({id:'p' + lancs.length + '_' + i, aba:x.aba, tab:x.tab, r:x.r, desc:x.desc, valor:Math.round(Math.abs(x.valor) * 100) / 100,
         data:x.data, mes:x.mes,
-        dia:x.dia, tipo, catTxt:x.catTxt, cat:x.catTxt ? planCategoria(x.catTxt, tipo === 'ganho' ? 'ganho' : 'gasto')
+        dia:x.dia, tipo, catTxt:x.catTxt, grpTxt:x.grpTxt, cat:x.catTxt ? planCategoria(x.catTxt, tipo === 'ganho' ? 'ganho' : 'gasto', true, x.grpTxt)
           : tipo === 'ganho' ? planGanhoCat(x.desc) : planCategoria(x.desc, 'gasto', false) || guessCat(x.desc),
         pay, bank, parc:x.parc, fixo:x.fixo});
       t.n++;
@@ -349,18 +357,18 @@ function planItens(det, hoje = new Date().toLocaleDateString('sv')){
     for (const c of grupos(g, x => addMonths(x.mes, -(x.parc.k - 1)))){
       const start = addMonths(c[0].mes, -(c[0].parc.k - 1)), n = c[0].parc.n, valor = c[c.length - 1].valor;
       itens.push({tipo:'parcela', desc:c[0].desc, n, valor, total:Math.round(valor * n * 100) / 100, start, paid:Math.min(n, Math.max(0, monthDiff(ym, start))),
-        cat:c[0].cat, catTxt:c[0].catTxt, bank:c[0].bank, pay:c[0].pay || 'credito', lancs:c.map(x => x.id), mes:start, on:true});
+        cat:c[0].cat, catTxt:c[0].catTxt, grpTxt:c[0].grpTxt, bank:c[0].bank, pay:c[0].pay || 'credito', lancs:c.map(x => x.id), mes:start, on:true});
       c.forEach(x => usados.add(x.id));
     }
   }
   for (const g of grupos(lancs.filter(x => x.fixo && !usados.has(x.id)), x => `${chave(x)}|${x.tipo}`)){
     const meses = g.map(x => x.mes).sort(), ult = g.find(x => x.mes === meses[meses.length - 1]);
     itens.push({tipo:g[0].tipo === 'ganho' ? 'ganhoFixo' : 'fixo', desc:g[0].desc, valor:ult.valor, start:meses[0], end:fimDe(meses),
-      dia:ult.dia, cat:g[0].cat, catTxt:g[0].catTxt, bank:g[0].bank, pay:g[0].pay, lancs:g.map(x => x.id), mes:meses[0], on:true});
+      dia:ult.dia, cat:g[0].cat, catTxt:g[0].catTxt, grpTxt:g[0].grpTxt, bank:g[0].bank, pay:g[0].pay, lancs:g.map(x => x.id), mes:meses[0], on:true});
     g.forEach(x => usados.add(x.id));
   }
   for (const x of lancs.filter(x => !usados.has(x.id) || x.rep))
-    itens.push({tipo:x.tipo === 'ganho' ? 'ganho' : 'gasto', desc:x.desc, valor:x.valor, mes:x.mes, dia:x.dia, cat:x.cat, catTxt:x.catTxt,
+    itens.push({tipo:x.tipo === 'ganho' ? 'ganho' : 'gasto', desc:x.desc, valor:x.valor, mes:x.mes, dia:x.dia, cat:x.cat, catTxt:x.catTxt, grpTxt:x.grpTxt,
       bank:x.bank, pay:x.pay,
       lancs:[x.id], on:true, ...(x.rep ? {rep:true} : {})});
   // Repetições entre os avulsos: viram sugestão de fixo (desmarcada). Assinatura ou conta fixa: a regra da Explorar.
@@ -376,7 +384,7 @@ function planItens(det, hoje = new Date().toLocaleDateString('sv')){
     // Em alguns meses: aberto enquanto a próxima vez ainda não passou.
     const fim = !cada ? fimDe(meses) : proximoMes({fixed:'y', rep:cada, start:meses[0]}, meses[meses.length - 1]) >= ym ? '' : meses[meses.length - 1];
     sugs.push({tipo:ganho ? 'ganhoFixo' : 'fixo', desc:g[0].desc, valor:ult.valor, start:meses[0], end:fim, ...(cada ? {cada} : {}),
-      dia:ult.dia, cat:g[0].cat, catTxt:g[0].catTxt, bank:g[0].bank, pay:g[0].pay, itens:g, mes:meses[0], on:false,
+      dia:ult.dia, cat:g[0].cat, catTxt:g[0].catTxt, grpTxt:g[0].grpTxt, bank:g[0].bank, pay:g[0].pay, itens:g, mes:meses[0], on:false,
       sub:!ganho && !cada && isSub({fixed:true, desc:g[0].desc, cat:g[0].cat}) ? 'assinatura' : ganho ? '' : 'conta fixa'});
   }
   return {itens, sugs};
@@ -466,7 +474,7 @@ async function planLer(arquivos){
 // Chave de um item, para as escolhas da pessoa sobreviverem a refazer a detecção.
 const planChave = x => [x.tipo, plT(x.desc), x.mes || x.start, x.valor].join('|');
 const planGasto = x => ['gasto', 'parcela', 'fixo'].includes(x.tipo);
-const planCatK = x => (planGasto(x) ? 'g:' : 'r:') + plT(x.catTxt);
+const planCatK = x => (planGasto(x) ? 'g:' : 'r:') + plT(x.catTxt) + (x.grpTxt ? '|' + plT(x.grpTxt) : '');
 // Já está no app? Parcelada com o mesmo nome e prazo, fixo com o mesmo nome, ou o gasto/ganho igual (jaCadastrado, jaExiste).
 function planJa(x){
   const mesmo = l => l.some(e => plT(e.desc) === plT(x.desc));
@@ -492,17 +500,19 @@ function planRefazer(){
   }
   plan.itens.sort((a, b) => (a.mes || a.start).localeCompare(b.mes || b.start) || (a.dia || 0) - (b.dia || 0));
 }
-// Categorias da planilha que não existem no app: [{k, texto, gasto, n, cat}] (cat: a escolhida para ela, ou '').
+// Categorias da planilha que não existem no app: [{k, texto, gasto, n, cat, g}] (cat: a escolhida para ela, ou ''; g: o
+// grupo do app com o nome da coluna Grupo, onde ela entra se for criada).
 function planCatsNovas(){
   const m = new Map();
   for (const x of plan.itens) if (x.on && !x.cat && x.catTxt){
     const k = planCatK(x);
-    if (!m.has(k)) m.set(k, {k, texto:x.catTxt.trim(), gasto:planGasto(x), n:0, cat:plan.cats[k] || ''});
+    if (!m.has(k)) m.set(k, {k, texto:x.catTxt.trim(), gasto:planGasto(x), n:0, cat:plan.cats[k] || '',
+      g:planGrupo(x.grpTxt, planGasto(x) ? 'gasto' : 'ganho')});
     m.get(k).n++;
   }
   return [...m.values()];
 }
-const PL_PAPEL_NOME = {data:'Data', dia:'Dia', desc:'Descrição', valor:'Valor', entrada:'Entrada', saida:'Saída', categoria:'Categoria',
+const PL_PAPEL_NOME = {data:'Data', dia:'Dia', desc:'Descrição', valor:'Valor', entrada:'Entrada', saida:'Saída', grupo:'Grupo', categoria:'Categoria',
   pagamento:'Forma de pagamento', conta:'Conta ou cartão', parcela:'Parcela', fixo:'Fixo', tipo:'Ganho ou gasto',
   situacao:'Situação (ignorada)', '':'Ignorar'};
 const PL_TIPO_NOME = {gasto:'Gastos', ganho:'Ganhos', invest:'Investimentos (não importar)', '':'Pelo sinal do valor'};
@@ -610,7 +620,10 @@ function planCatItem(i){
   const x = plan.itens[i];
   pickList('Categoria', opts(planGasto(x) ? CAT_GASTO : CAT_GANHO), x.catFinal, v => { plan.catItem[planChave(x)] = v; planDeNovo(); });
 }
-function planCatCriar(i){ const c = planCatsNovas()[i]; novaCategoria(c.gasto ? 'gasto' : 'ganho', k => { plan.cats[c.k] = k; planDeNovo(); }, c.texto); }
+function planCatCriar(i){
+  const c = planCatsNovas()[i];
+  novaCategoria(c.gasto ? 'gasto' : 'ganho', k => { plan.cats[c.k] = k; planDeNovo(); }, c.texto, '', c.g);
+}
 function planCatOutros(i){ delete plan.cats[planCatsNovas()[i].k]; planDeNovo(); }
 function planCatLigar(i){
   const c = planCatsNovas()[i];

@@ -9,11 +9,12 @@ function viewGastos(){
   if (state.gsub === 'vale') return `${head('Gastos', 'gastos')}${gastosSeg()}${viewVales('gastos')}`;
   if (state.gsub === 'saude') return viewSaude();
   const m = state.month, list = expensesOf(m), tin = totalIn(m), tout = sum(list, x => x.value);
-  const budgets = budgetStatus(m), inv = invoices(m), cmp = compareMonths(m), resPrev = reservaPrevisoes(m); // previsões: só no saldo projetado
+  const budgets = budgetStatus(m), bGrupos = budgetGrupos(m), inv = invoices(m), cmp = compareMonths(m), resPrev = reservaPrevisoes(m); // previsões: só no saldo projetado
   const owed = owedList(); // de qualquer mês
   const uniq = f => [...new Set(list.map(f).filter(Boolean))];
   // Um filtro que não existe neste mês (ex.: depois de trocar de mês) é desfeito, para não esconder tudo sem aviso.
-  for (const [k, f] of [['fcat', x => x.cat], ['fbank', x => x.bank], ['fpay', x => x.pay]]) if (state[k] && !list.some(x => f(x) === state[k])) state[k] = '';
+  for (const [k, f] of [['fcat', x => x.cat], ['fgrp', x => grupoDe('gasto', x.cat)], ['fbank', x => x.bank], ['fpay', x => x.pay]])
+    if (state[k] && !list.some(x => f(x) === state[k])) state[k] = '';
   const tags = [...new Set(list.flatMap(tagsOf))];
   if (state.ftag && !tags.includes(state.ftag)) state.ftag = '';
   const sel = (key, label, options) => { filterOpts[key] = [['', 'Todos'], ...options]; const cur = options.find(o => o[0] === state[key]);
@@ -24,16 +25,28 @@ function viewGastos(){
   // O mesmo cartão de destaque das outras abas (Ganhos, Investir, Resumo): o total do mês em cima, o resto embaixo.
   mes: () => `<div class="hero"><small>Gastos em ${monthName(m)}</small>${bigNum(tout)}
     <div class="row"><div><small>Ganhos</small><b>${fmt(tin)}</b></div><div><small>Saldo</small><b>${fmt(tin - tout - resPrev)}</b></div><div><small>Lançamentos</small><b>${list.length}</b></div></div>${resPrev ? `<small class="prevInc">Saldo ${prevInclui(resPrev)}</small>` : ''}</div>`,
-  orcamento: () => `<h2>Orçamento do mês <button data-onclick="openForm('budgets', db.budgets)">${budgets.length ? 'Alterar' : 'Definir'}</button></h2>
-  ${budgets.length ? `<div class="card">${budgets.map(b => { const c = CAT_GASTO[b.cat] || CAT_GASTO.outros; return `
-    <div class="catrow"><div class="top"><span>${catName(c)}</span><b>${fmt(b.used)} de ${fmt(b.lim)}</b></div>${b.extra ? `<div class="hint u-mt2">inclui ${fmt(b.extra)} que sobraram do mês anterior</div>` : ''}
-    <div class="bar"><i style="width:${Math.min(b.pct, 100)}%;background:${budgetColor(b.pct)}"></i></div>
-    ${b.pct >= 80 ? `<div class="hint" style="margin-top:4px;color:${budgetColor(b.pct)}">${b.pct > 100 ? `Estourou em ${fmt(b.used - b.lim)}` : `${I('alert', 14)} ${Math.round(b.pct)}% do limite usado`}</div>` : ''}</div>`; }).join('')}</div>`
-  : vazioParte('Defina um limite mensal por categoria para acompanhar quanto já foi usado.', ['Definir orçamento', "openForm('budgets', db.budgets)"])}`,
-  comparativo: () => cmp.length ? `<h2>Comparativo por categoria</h2>
-  <div class="card">${cmp.map(r => { const c = CAT_GASTO[r.cat] || CAT_GASTO.outros, d = r.prev ? (r.cur - r.prev) / r.prev * 100 : null; return `
-    <div class="catrow"><div class="top"><span>${catName(c)}</span><b>${fmt(r.cur)}</b></div>
-    <div class="hint u-mt3">${monthName(addMonths(m, -1)).split(' ')[0]}: ${fmt(r.prev)}${d == null || !Math.round(d) ? '' : ` <b class="${d > 0 ? 'out' : 'in'}">${d > 0 ? '▲' : '▼'} ${Math.abs(Math.round(d))}%</b>`} · média de 6 meses: ${fmt(r.avg)}</div></div>`; }).join('')}</div>` : '',
+  orcamento: () => `<h2>Orçamento do mês <button data-onclick="abrirOrcamento()">${budgets.length || bGrupos.length ? 'Alterar' : 'Definir'}</button></h2>
+  ${budgets.length || bGrupos.length ? `<div class="duasVisoes">${bGrupos.length ? `<div class="card"><div class="grafTit">Por grupo</div>${bGrupos.map(b => {
+    const [ic, nome, cor] = grupoInfo('gasto', b.g); return orcLinha(catName([ic, nome], cor), b); }).join('')}</div>` : ''}
+    ${budgets.length ? `<div class="card"><div class="grafTit">Por subcategoria</div>${budgets.map(b => { const c = CAT_GASTO[b.cat] || CAT_GASTO.outros;
+      return orcLinha(catName(c) + `<em class="catGrp"> · ${esc(grupoInfo('gasto', grupoDe('gasto', b.cat))[1])}</em>`, b); }).join('')}</div>` : ''}</div>`
+  : vazioParte('Defina um limite mensal por categoria ou por grupo para acompanhar quanto já foi usado.', ['Definir orçamento', 'abrirOrcamento()'])}`,
+  // Comparativo em dois cartões: por subcategoria (com o grupo de cada uma) e por grupo (tocar abre as subcategorias).
+  comparativo: () => { if (!cmp.length) return '';
+    const ant = monthName(addMonths(m, -1)).split(' ')[0], aberto = state.grpAberto || {};
+    const linha = (nome, r, extra = '') => { const d = r.prev ? (r.cur - r.prev) / r.prev * 100 : null; return `
+      <div class="catrow"${extra}><div class="top"><span>${nome}</span><b>${fmt(r.cur)}</b></div>
+      <div class="hint u-mt3">${ant}: ${fmt(r.prev)}${d == null || !Math.round(d) ? '' : ` <b class="${d > 0 ? 'out' : 'in'}">${d > 0 ? '▲' : '▼'} ${Math.abs(Math.round(d))}%</b>`} · média de 6 meses: ${fmt(r.avg)}</div></div>`; };
+    const nomeCat = k => catName(CAT_GASTO[k] || CAT_GASTO.outros), gs = {};
+    for (const r of cmp){ const g = grupoDe('gasto', r.cat), t = gs[g] || (gs[g] = {g, cur:0, prev:0, avg:0, cats:[]});
+      t.cur += r.cur; t.prev += r.prev; t.avg += r.avg; t.cats.push(r); }
+    const grupos = Object.values(gs).sort((a, b) => b.cur - a.cur).map(t => { const [ic, nome, cor] = grupoInfo('gasto', t.g), on = aberto['cmp:' + t.g];
+      return linha(`${catName([ic, nome], cor)} ${I('chev', 13)}`, t, ` data-onclick="grpAbre('cmp:${esc(t.g)}')" role="button" aria-expanded="${!!on}"`)
+        + (on ? `<div class="grpSubs">${t.cats.map(r => linha(nomeCat(r.cat), r)).join('')}</div>` : ''); });
+    return `<h2>Comparativo por categoria</h2><div class="duasVisoes">
+    <div class="card"><div class="grafTit">Por subcategoria</div>${cmp.map(r => linha(nomeCat(r.cat)
+      + `<em class="catGrp"> · ${esc(grupoInfo('gasto', grupoDe('gasto', r.cat))[1])}</em>`, r)).join('')}</div>
+    <div class="card"><div class="grafTit">Por grupo</div>${grupos.join('')}</div></div>`; },
   receber: () => owed.length ? `<h2>A receber de gastos divididos</h2>
   <div class="card">${Object.entries(owed.reduce((g, {x}) => (g[x.who] = (g[x.who] || 0) + x.share, g), {})).map(([who, v]) => `<div class="hint" style="margin:0 0 6px">${esc(who)} te deve <b>${fmt(v)}</b></div>`).join('')}
     ${owed.map(({x, m: om}) => `<div class="semCursor item"><div class="mid"><b>${esc(x.desc)}</b><small>${esc(x.who)} · ${monthName(om)}</small></div>
@@ -68,7 +81,8 @@ function viewGastos(){
   <div class="card" style="padding:12px">
     <div class="search">${I('search')}<input id="q" type="text" placeholder="Buscar por descrição" value="${esc(state.q)}" autocomplete="off" data-oninput="state.q=this.value;this.nextElementSibling.hidden=!this.value;drawExpList()"><button type="button" class="iconbtn" ${state.q ? '' : 'hidden'} data-onclick="clearSearch()" aria-label="Limpar busca">${I('close')}</button></div>
     <div class="filters">
-      ${sel('fcat', 'Categoria', uniq(x => x.cat).map(k => [k, (CAT_GASTO[k] || CAT_GASTO.outros)[1]]))}
+      ${sel('fgrp', 'Grupo', Object.keys(GRUPOS_CAT.gasto).filter(g => list.some(x => grupoDe('gasto', x.cat) === g)).map(g => [g, GRUPOS_CAT.gasto[g][1]]))}
+      ${sel('fcat', 'Categoria', uniq(x => x.cat).filter(k => !state.fgrp || grupoDe('gasto', k) === state.fgrp).map(k => [k, CAT_GASTO[k] ? catRotulo('gasto', k) : CAT_GASTO.outros[1]]))}
       ${sel('fbank', 'Banco', uniq(x => x.bank).map(b => [b, b]))}
       ${sel('fpay', 'Pagamento', uniq(x => x.pay).map(p => [p, PAY[p] || p]))}
       ${tags.length ? sel('ftag', 'Etiqueta', tags.map(t => [t, '#' + t])) : ''}
@@ -92,10 +106,10 @@ function viewGastos(){
 // de busca não perder o foco.
 function expListHtml(){
   const m = state.month, all = expensesOf(m), q = plain(state.q.trim());
-  const list = all.filter(x => (!q || plain(x.desc + ' ' + (x.tags || '') + ' ' + (x.by || '')).includes(q)) && (!state.fcat || x.cat === state.fcat) && (!state.fbank || x.bank === state.fbank) && (!state.fpay || x.pay === state.fpay) && (!state.ftag || tagsOf(x).includes(state.ftag)));
+  const list = all.filter(x => (!q || plain(x.desc + ' ' + (x.tags || '') + ' ' + (x.by || '')).includes(q)) && (!state.fcat || x.cat === state.fcat) && (!state.fgrp || grupoDe('gasto', x.cat) === state.fgrp) && (!state.fbank || x.bank === state.fbank) && (!state.fpay || x.pay === state.fpay) && (!state.ftag || tagsOf(x).includes(state.ftag)));
   if (!all.length) return empty('receipt', 'Nenhum gasto em ' + monthName(m) + '.', ['+ Adicionar gasto', "openForm('expenses')"]);
   if (!list.length) return empty('search','Nenhum lançamento com esses filtros.');
-  const filt = q || state.fcat || state.fbank || state.fpay || state.ftag, open = state.gopen || (state.gopen = {});
+  const filt = q || state.fcat || state.fgrp || state.fbank || state.fpay || state.ftag, open = state.gopen || (state.gopen = {});
   // Dentro de cada grupo, pela data: mais recente ou mais antigo primeiro (db.prefs.ordem); os sem dia ficam no fim.
   // Quando dois não têm dia (contas fixas sem vencimento, parcelas), vale o mês em que começaram e, por fim, quando
   // foram lançados: assim o botão sempre inverte a lista, mesmo num mês só de contas fixas.
@@ -153,8 +167,22 @@ function drawSearch(){
         <div class="val ${col === 'incomes' ? 'in' : 'out'}">${fmt(col === 'installments' ? x.total : x.value)}</div></div>`).join('');
 }
 function openHit(i){ const h = searchHits[i]; if (h.col === 'expenses' && !h.x.fixed) state.month = h.x.start; openForm(h.col, h.x); }
+// Linha do orçamento (de uma categoria ou de um grupo): usado de limite, a sobra do mês anterior, a barra e o aviso a
+// partir de 80%.
+function orcLinha(nome, b){ return `<div class="catrow"><div class="top"><span>${nome}</span><b>${fmt(b.used)} de ${fmt(b.lim)}</b></div>
+    ${b.extra ? `<div class="hint u-mt2">inclui ${fmt(b.extra)} que sobraram do mês anterior</div>` : ''}
+    <div class="bar"><i style="width:${Math.min(b.pct, 100)}%;background:${budgetColor(b.pct)}"></i></div>
+    ${b.pct >= 80 ? `<div class="hint" style="margin-top:4px;color:${budgetColor(b.pct)}">${b.pct > 100 ? `Estourou em ${fmt(b.used - b.lim)}`
+      : `${I('alert', 14)} ${Math.round(b.pct)}% do limite usado`}</div>` : ''}</div>`; }
+// Formulário do orçamento com os limites dos grupos (campos g_<grupo>) e das categorias.
+function abrirOrcamento(){
+  openForm('budgets', {...db.budgets, ...Object.fromEntries(Object.entries(db.budgetsG).map(([g, v]) => ['g_' + g, v]))});
+}
 const filterOpts = {};
-function pickFilter(key, label){ pickList(label, filterOpts[key], state[key], v => { state[key] = v; render(); }, false, key === 'fbank' && bancoMini); }
+// Trocar o grupo desfaz a categoria escolhida (a lista de categorias passa a ser a do grupo).
+function pickFilter(key, label){
+  pickList(label, filterOpts[key], state[key], v => { state[key] = v; if (key === 'fgrp') state.fcat = ''; render(); }, false, key === 'fbank' && bancoMini);
+}
 function clearSearch(){ const i = document.getElementById('q'); state.q = i.value = ''; i.nextElementSibling.hidden = true; drawExpList(); i.focus(); }
 function drawExpList(){ const el = document.getElementById('expList'); if (el) el.innerHTML = expListHtml(); }
 

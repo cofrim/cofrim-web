@@ -149,16 +149,30 @@ function donut(parts, total, rotulo = 'Total'){
     <text x="21" y="24.2" text-anchor="middle" font-size="3.6" font-weight="700" fill="var(--text)">${hideVals ? MASK : comMoeda(total, {notation:'compact', maximumFractionDigits:1})}</text></svg>`;
 }
 
-// Cartão com a rosca de gastos por categoria: total no centro e, ao lado, as cinco maiores categorias (o resto vira
-// "Demais categorias", para não confundir com a categoria Outros) com valor e percentual. lista = [[categoria, valor], ...]; rotulo = o que vai no centro (mês ou ano).
-function roscaCats(lista, rotulo, vazio){
-  const cs = [...lista].sort((a, b) => b[1] - a[1]), tot = sum(cs, c => c[1]), top = cs.slice(0, 5), resto = sum(cs.slice(5), c => c[1]);
+// Gastos por categoria em dois cartões lado a lado (cartaoCats): por subcategoria, a rosca com as cinco maiores (o resto
+// vira "Demais categorias", para não confundir com a categoria Outros), cada uma com o grupo dela embaixo e no
+// tom da cor do grupo; por grupo, a rosca dos grupos, e tocar num grupo abre as subcategorias dele (state.grpAberto).
+// lista = [[categoria, valor], ...]; rotulo = o que vai no centro (mês ou ano); id separa os cartões abertos de cada tela.
+function cartaoCats(lista, rotulo, vazio, id){
+  const cs = [...lista].filter(c => c[1] > 0).sort((a, b) => b[1] - a[1]), tot = sum(cs, c => c[1]);
   if (!cs.length) return `<div class="hint u-vazio">${vazio}</div>`;
-  const cor = (k, i) => (CAT_GASTO[k] || CAT_GASTO.outros)[2] || shade(i, top.length);
-  const linhas = [...top.map(([k, v], i) => [cor(k, i), (CAT_GASTO[k] || CAT_GASTO.outros)[1], v]), ...(resto ? [['var(--muted)', 'Demais categorias', resto]] : [])];
-  return `<div class="card rosca">${donut(linhas.map(([c, , v]) => [c, v]), tot, rotulo)}
-    <div>${linhas.map(([c, nome, v]) => `<div class="leg duas"><i class="dot" style="background:${esc(c)}"></i><span>${esc(nome)}<small>${fmtCurto(v)}</small></span><b>${Math.round(v / tot * 100)}%</b></div>`).join('')}</div></div>`;
+  const top = cs.slice(0, 5), resto = sum(cs.slice(5), c => c[1]), cor = coresPorGrupo('gasto', cs.map(c => c[0]));
+  const grupoDo = k => grupoInfo('gasto', grupoDe('gasto', k))[1], pct = v => Math.round(v / tot * 100);
+  const leg = (c, nome, sub, v) => `<div class="leg duas"><i class="dot" style="background:${esc(c)}"></i><span>${nome}<small>${sub}</small></span><b>${pct(v)}%</b></div>`;
+  const subs = top.map(([k, v]) => leg(cor[k], esc((CAT_GASTO[k] || CAT_GASTO.outros)[1]), `${esc(grupoDo(k))} · ${fmtCurto(v)}`, v))
+    .concat(resto ? [leg('var(--muted)', 'Demais categorias', fmtCurto(resto), resto)] : []);
+  const gs = somaPorGrupo('gasto', cs), aberto = state.grpAberto || (state.grpAberto = {});
+  const grupos = gs.map(([g, v, cats]) => { const [ic, nome, gcor] = grupoInfo('gasto', g), on = aberto[id + g];
+    return `<button type="button" class="leg duas grpLeg${on ? ' on' : ''}" data-onclick="grpAbre('${id}${esc(g)}')" aria-expanded="${!!on}">`
+      + `<i class="dot" style="background:${esc(gcor)}"></i><span>${esc(nome)}<small>${fmtCurto(v)}</small></span><b>${pct(v)}%</b>${I('chev', 14)}</button>`
+      + (on ? `<div class="grpSubs">${cats.map(([k, cv]) => leg(cor[k], esc((CAT_GASTO[k] || CAT_GASTO.outros)[1]), fmtCurto(cv), cv)).join('')}</div>` : ''); });
+  return `<div class="duasVisoes"><div class="card rosca2"><div class="grafTit">Por subcategoria</div><div class="rosca">`
+    + `${donut(cs.slice(0, 5).map(([k, v]) => [cor[k], v]).concat(resto ? [['var(--muted)', resto]] : []), tot, rotulo)}<div>${subs.join('')}</div></div></div>`
+    + `<div class="card rosca2"><div class="grafTit">Por grupo</div><div class="rosca">${donut(gs.map(([g, v]) => [grupoInfo('gasto', g)[2], v]), tot, rotulo)}`
+    + `<div>${grupos.join('')}</div></div></div></div>`;
 }
+// Abre ou fecha um grupo num cartão "por grupo" (cartaoCats, comparativo).
+function grpAbre(k){ const a = state.grpAberto || (state.grpAberto = {}); a[k] = !a[k]; render(); }
 
 const mesCurto = ym => trText(monthName(ym)).split(' ')[0].slice(0, 3) + '.'; // no idioma do app (set. / Sep.)
 function viewResumo(){
@@ -179,7 +193,7 @@ function viewResumo(){
     <div class="catrow"><div class="top"><span>${esc(k)}</span><b>${fmt(v)}</b></div>
     <div class="bar"><i style="width:${v/tout*100}%"></i></div></div>`).join('')}</div>`;
   const invNow = sum(db.investments, x => x.value);
-  const bills = upcomingBills(), over = budgetStatus(curYM).filter(b => b.pct >= 80), odd = unusual();
+  const bills = upcomingBills(), over = budgetStatus(curYM).filter(b => b.pct >= 80), overG = budgetGrupos(curYM).filter(b => b.pct >= 80), odd = unusual();
   const si = months.indexOf(state.sel); // mês tocado no gráfico
   const goals = db.goals, open = db.installments.filter(p => p.paid < p.n), inv = invoices(rm);
   // Blocos do Resumo. Quais aparecem e em que ordem vem de db.prefs.resumo (ver RESUMO e openResumoEdit).
@@ -200,7 +214,7 @@ function viewResumo(){
       ${tin || tout ? `<span class="selo">${tf(tin - tout < 0 ? 'faltou {}' : 'sobrou {}', fmtCurto(Math.abs(tin - tout)))}</span>` : ''}</div></div>`; },
   // Gastos por categoria do mês escolhido: rosca com o total no centro e as maiores categorias ao lado.
   rosca: () => { const g = {}; expensesOf(rm).forEach(e => g[e.cat] = (g[e.cat] || 0) + e.value);
-    return `<h2>Gastos por categoria em ${nomeM} <button data-onclick="goMonth('${rm}')">Ver gastos</button></h2>${roscaCats(Object.entries(g), cap(nomeM), `Nenhum gasto em ${monthName(rm)}.`)}`; },
+    return `<h2>Gastos por categoria em ${nomeM} <button data-onclick="goMonth('${rm}')">Ver gastos</button></h2>${cartaoCats(Object.entries(g), cap(nomeM), `Nenhum gasto em ${monthName(rm)}.`, 'rm:')}`; },
   // Calendário do mês atual: cada dia fica mais escuro quanto mais se gastou nele. Tocar num dia mostra o que saiu.
   dias: () => { const por = gastosPorDia(rm), max = Math.max(...por.slice(1).map(d => d.v)), n = daysIn(rm), [ay, am] = rm.split('-').map(Number),
     vazio = new Date(ay, am - 1, 1).getDay();
@@ -216,8 +230,9 @@ function viewResumo(){
     <div class="semCursor item"><div class="mid"><b>${esc(x.desc)}</b>
       <small class="${diff < 0 ? 'out' : diff <= 2 ? 'warn' : ''}">${diff < 0 ? `venceu há ${-diff} dia${diff < -1 ? 's' : ''}` : diff === 0 ? 'vence hoje' : `vence em ${diff} dia${diff > 1 ? 's' : ''}`} · dia ${dueDay(x, curYM)}</small></div>
       <div class="val">${fmt(x.value)}</div><button class="btn" style="flex:none;padding:8px 10px" data-onclick="togglePaid('${x.id}','${curYM}')">${I('check', 15)}Pago</button></div>`).join('')}</div>` : ''}
-  ${over.length ? `<div class="card"><b><span class="warn">${I('alert')}</span> Orçamento de ${monthName(curYM)}</b>${over.map(b => { const c = CAT_GASTO[b.cat] || CAT_GASTO.outros; return `
-    <div class="hint" style="color:${budgetColor(b.pct)}">${esc(c[1])}:${Math.round(b.pct)}% usado (${fmt(b.used)} de ${fmt(b.lim)})</div>`; }).join('')}</div>` : ''}${oddHtml(odd)}`,
+  ${over.length || overG.length ? `<div class="card"><b><span class="warn">${I('alert')}</span> Orçamento de ${monthName(curYM)}</b>${[
+    ...overG.map(b => [tf('Grupo {}', grupoInfo('gasto', b.g)[1]), b]), ...over.map(b => [(CAT_GASTO[b.cat] || CAT_GASTO.outros)[1], b])].map(([nome, b]) => `
+    <div class="hint" style="color:${budgetColor(b.pct)}">${esc(nome)}:${Math.round(b.pct)}% usado (${fmt(b.used)} de ${fmt(b.lim)})</div>`).join('')}</div>` : ''}${oddHtml(odd)}`,
   planejar: () => planHtml(),
   saldo: () => `<div class="hero"><small>Saldo de ${y}</small>${bigNum(tin - tout)}
     <div class="row cores"><div><small>Ganho total</small><b class="hIn">${fmt(tin)}</b></div><div><small>Gasto total</small><b class="hOut">${fmt(tout)}</b></div></div></div>`,
@@ -256,7 +271,7 @@ function viewResumo(){
     <div class="card stat u-clicavel" data-onclick="go('invest')"><small>Investido hoje ›</small><b>${fmt(invNow)}</b></div>
   </div>`,
   // Gastos por categoria do ano: a mesma rosca do mês.
-  categorias: () => `<h2>Gastos por categoria em ${y}</h2>${roscaCats(Object.entries(cats), y, 'Nenhum gasto cadastrado neste ano.')}`,
+  categorias: () => `<h2>Gastos por categoria em ${y}</h2>${cartaoCats(Object.entries(cats), y, 'Nenhum gasto cadastrado neste ano.', 'ra:')}`,
   bancos: () => catList.length ? `<h2>Gastos por banco em ${y}</h2>${breakdown(banks)}` : '',
   pagamentos: () => catList.length ? `<h2>Gastos por forma de pagamento em ${y}</h2>${breakdown(pays)}` : '',
   // Previsão: mês atual e os três seguintes. "Sobra" = ganhos − gastos previstos do mês; com contas cadastradas,

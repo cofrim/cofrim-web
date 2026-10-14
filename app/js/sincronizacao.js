@@ -372,14 +372,18 @@ function mergeDb(a, b){
   }
   // Empate sem nenhuma alteração deste lado (aparelho novo, com o Resumo enxuto de primeira abertura): valem as da conta.
   const cfg = (b.cfgMod || 0) > (a.cfgMod || 0) || (!a.cfgMod && a.prefs && a.prefs.resumoEnxuto && b.prefs && Array.isArray(b.prefs.resumo)) ? b : a;
-  Object.assign(out, {prefs:cfg.prefs, budgets:cfg.budgets, cardClose:cfg.cardClose, cardDue:cfg.cardDue, cardAcc:cfg.cardAcc,
-    cardLimit:cfg.cardLimit, archUntil:cfg.archUntil || '', cats:cfg.cats, cfgMod:cfg.cfgMod});
+  Object.assign(out, {prefs:cfg.prefs, budgets:cfg.budgets, budgetsG:cfg.budgetsG, cardClose:cfg.cardClose, cardDue:cfg.cardDue, cardAcc:cfg.cardAcc,
+    cardLimit:cfg.cardLimit, archUntil:cfg.archUntil || '', cats:cfg.cats, grupos:cfg.grupos, cfgMod:cfg.cfgMod});
   // Categorias criadas no outro lado não somem só porque este mexeu numa configuração depois (o tema, por exemplo): as
   // próprias (fora as de fábrica) que só existem no lado perdedor entram também, menos as excluídas (tomb "cat:tipo:chave").
   const outro = cfg === a ? b : a;
   out.cats = {gasto:{...(cfg.cats || {}).gasto}, ganho:{...(cfg.cats || {}).ganho}};
   for (const t of ['gasto', 'ganho']) for (const [k, v] of Object.entries(((outro.cats || {})[t]) || {}))
     if (!out.cats[t][k] && !BASE_CATS[t][k] && !tomb['cat:' + t + ':' + k]) out.cats[t][k] = v;
+  // Grupos: do mesmo jeito (os criados só no outro lado entram, menos os excluídos: tomb "grp:tipo:chave").
+  out.grupos = {gasto:{...((cfg.grupos || {}).gasto)}, ganho:{...((cfg.grupos || {}).ganho)}};
+  for (const t of ['gasto', 'ganho']) for (const [k, v] of Object.entries(((outro.grupos || {})[t]) || {}))
+    if (!out.grupos[t][k] && !GRUPOS_BASE[t][k] && !tomb['grp:' + t + ':' + k]) out.grupos[t][k] = v;
   out.conq = {...b.conq}; // datas das conquistas: todas as dos dois lados, a mais antiga de cada nível
   for (const [k, t] of Object.entries(a.conq || {})) out.conq[k] = Math.min(t, out.conq[k] || t);
   // Importações de planilha: as dos dois lados; da mesma, a alterada por último (desfeita ou restaurada).
@@ -407,8 +411,8 @@ function semExcluidosVelhos(a, b, desde){
   for (const c of COLS){ const la = new Set(b[c].map(r => r.id)); out[c] = a[c].filter(r => la.has(r.id) || (r.u || 0) > desde); }
   return out;
 }
-const SYNCED = [...COLS, 'tomb', 'prefs', 'budgets', 'cardClose', 'cardDue', 'cardAcc', 'cardLimit', 'archUntil', 'cats', 'catMemo', 'yieldLog',
-  'netLog', 'membros', 'sugs'];
+const SYNCED = [...COLS, 'tomb', 'prefs', 'budgets', 'budgetsG', 'cardClose', 'cardDue', 'cardAcc', 'cardLimit', 'archUntil', 'cats', 'grupos',
+  'catMemo', 'yieldLog', 'netLog', 'membros', 'sugs'];
 const canon = d => JSON.stringify(SYNCED.map(k => d[k]),
   (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([x],[y]) => x < y ? -1 : 1)) : v);
 

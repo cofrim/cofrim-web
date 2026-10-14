@@ -203,9 +203,8 @@ function openConq(f){
 // orelhas (atrás da cabeça), cabeca (no lugar do rosto redondo), focinho (no lugar do focinho de porco; ' ' = sem),
 // sob (por cima da cabeça, por baixo dos olhos), sobre (por cima de tudo), pes (no lugar das patas; ' ' = sem),
 // semRabo, semFenda (a fenda de cofrinho) e semBrilho. Os olhos (em 43,55 e 77,55) e a boca mudam com o humor em todos.
-// Sem tema especial, o porquinho rosa clássico (não segue a cor do app, para continuar parecendo um porco).
+// Sem tema especial (e nos temas sem desenho, até a imagem deles chegar), o personagem padrão em imagem (pigSvg).
 const MASCOTES = {
-  '':['#ffc6d9', '#f58fb3', '#ec7aa3', '#c2527c', '#ff5f95', '#4a2338', '#b8456f', {}],
   // Robô: cabeça quadrada, antena, parafusos, grade no lugar do focinho e visor verde.
   hacker:['#4ade80', '#16a34a', '#15803d', '#052e16', '#bbf7d0', '#03120a', '#052e16', {semFenda:true, semRabo:true,
     orelhas:'<path d="M60 30V15" stroke="#16a34a" stroke-width="3.500"/><circle cx="60" cy="11" r="5" fill="#bbf7d0"/><rect x="15" y="52" width="10" height="20" rx="4" fill="#15803d"/><rect x="95" y="52" width="10" height="20" rx="4" fill="#15803d"/>',
@@ -316,8 +315,9 @@ const MASCOTES = {
     sobre:'<path d="M53 0h14l3 24H50z" fill="#dc2626"/><path d="M50.500 7h19M50 14h20" stroke="#991b1b" stroke-width="1.600"/><path d="M27 42q33-15 66 0v6q-33-13-66 0z" fill="#b45309"/><path d="M27 45q33-14 66 0" stroke="#fbbf24" stroke-width="2" fill="none"/>'}]
 };
 Object.assign(MASCOTES, MASCOTES_NOVOS); // os dos temas por categoria (js/temas.js)
-// Mascote visto de frente; mood: 'feliz', 'ok' ou 'triste'. tema: de qual tema (padrão: o que está em uso).
-function pigSvg(mood, tema = db.prefs.skin){
+// Mascote visto de frente; mood: 'feliz', 'ok' ou 'triste'. tema: de qual tema (padrão: o que está em uso). cor: sem
+// tema, a cor do personagem padrão (padrão: a do app).
+function pigSvg(mood, tema = db.prefs.skin, cor = db.prefs.color){
   // Personagem do tema em imagem (js/temas-baixar.js), quando já está no aparelho: a imagem inteira (nunca cortada) na
   // mesma caixa, com o "chão" sobre a sombra, uma respiração no ritmo do tema e, se ele flutua, a sombra que acompanha.
   const ti = tema && temaImg(tema, mood === 'feliz' || mood === 'triste' ? mood : 'ok');
@@ -326,14 +326,14 @@ function pigSvg(mood, tema = db.prefs.skin){
     return `<svg class="${cls}" viewBox="0 0 120 110" width="104" height="95" style="--resp:${resp}s" aria-hidden="true">
     <ellipse class="chao" cx="60" cy="104" rx="30" ry="4" fill="#000" opacity=".16"/>
     <g class="corpo"><g class="resp"><image href="${ti}" x="8" y="3" width="104" height="104" preserveAspectRatio="xMidYMid meet"/></g></g></svg>`; }
-  // Personagem padrão em imagem (js/mascote-padrao.js), quando existir: mesma caixa de 120 x 110, a mesma sombra e a
-  // mesma moeda; a imagem fica dentro de g.corpo para receber as animações de humor do app.css.
-  const img = !tema && mascotePadraoImg(mood);
-  if (img) return `<svg class="pig ${mood}" viewBox="0 0 120 110" width="104" height="95" aria-hidden="true">
+  // Personagem padrão (js/mascote-padrao.js), na cor do app; também nos temas sem desenho em código enquanto a imagem
+  // deles não chega. Mesma caixa de 120 x 110, a mesma sombra e a mesma moeda; a imagem inteira (quadrada, com os pés a
+  // 97% da altura) fica com os pés sobre a sombra, dentro de g.corpo para receber as animações de humor do app.css.
+  if (!MASCOTES[tema]) return `<svg class="pig ${mood}" viewBox="0 0 120 110" width="104" height="95" aria-hidden="true">
     <ellipse cx="60" cy="104" rx="30" ry="4" fill="#000" opacity=".16"/>
     <g class="moeda"><circle cx="60" cy="10" r="7.5" fill="#fbbf24" stroke="#d97706" stroke-width="1.5"/><path d="M60 6.5v7" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></g>
-    <g class="corpo"><image href="${img}" x="12" y="14" width="96" height="91" preserveAspectRatio="xMidYMax meet"/></g></svg>`;
-  const [claro, medio, forte, fenda, bochecha, escuro, boca, p] = MASCOTES[tema] || MASCOTES[''];
+    <g class="corpo"><image href="${mascotePadraoImg(mood, cor)}" x="12" y="8" width="96" height="96" preserveAspectRatio="xMidYMid meet"/></g></svg>`;
+  const [claro, medio, forte, fenda, bochecha, escuro, boca, p] = MASCOTES[tema];
   const triste = mood === 'triste', feliz = mood === 'feliz', g = 'pigG' + (tema || '');
   const olho = x => `<circle cx="${x}" cy="55" r="5" fill="${escuro}"/><circle cx="${x + 1.8}" cy="53.2" r="1.7" fill="#fff"/>`;
   const olhos = feliz ? `<path d="M38 57q5-7 10 0M72 57q5-7 10 0" stroke="${escuro}" stroke-width="3" fill="none" stroke-linecap="round"/>` : olho(43) + olho(77);

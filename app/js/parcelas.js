@@ -3,15 +3,25 @@
 // Saiu de js/dados.js (só mudou de arquivo); carregado logo depois dele no index.html.
 
 // ---------- Orçamento, contas a vencer e fatura do cartão ----------
-// Orçamento: db.budgets = {categoria: limite mensal}. Aviso a partir de 80% do limite.
+// Orçamento: db.budgets = {categoria: limite mensal} e db.budgetsG = {grupo de gastos: limite mensal}, que soma os
+// gastos de todas as categorias do grupo. Aviso a partir de 80% do limite.
 // Com db.prefs.rollBudget, o que sobrou do limite no mês anterior soma ao limite deste mês (base = limite simples).
-function budgetStatus(ym){
-  const spentOf = m => { const s = {}; expensesOf(m).forEach(e => s[e.cat] = (s[e.cat] || 0) + e.value); return s; };
+// chave(categoria): de quem é o gasto (a própria categoria ou o grupo dela); campo: 'cat' ou 'g' no resultado.
+function limitesStatus(ym, lims, chave, campo){
+  const spentOf = m => { const s = {}; expensesOf(m).forEach(e => { const k = chave(e.cat); s[k] = (s[k] || 0) + e.value; }); return s; };
   const spent = spentOf(ym), prev = db.prefs.rollBudget ? spentOf(addMonths(ym, -1)) : null;
-  return Object.entries(db.budgets).filter(([,lim]) => lim > 0).map(([cat, base]) => {
-    const extra = prev ? Math.max(0, base - (prev[cat] || 0)) : 0, lim = base + extra;
-    return {cat, lim, base, extra, used:spent[cat] || 0, pct:(spent[cat] || 0) / lim * 100};
+  return Object.entries(lims).filter(([,lim]) => lim > 0).map(([k, base]) => {
+    const extra = prev ? Math.max(0, base - (prev[k] || 0)) : 0, lim = base + extra;
+    return {[campo]:k, lim, base, extra, used:spent[k] || 0, pct:(spent[k] || 0) / lim * 100};
   });
+}
+const budgetStatus = ym => limitesStatus(ym, db.budgets, k => k, 'cat');
+const budgetGrupos = ym => limitesStatus(ym, db.budgetsG, k => grupoDe('gasto', k), 'g').filter(b => GRUPOS_CAT.gasto[b.g]);
+// Todos os limites do mês sem contar um gasto duas vezes: os dos grupos e os das categorias fora de um grupo com limite
+// (para somar o orçamento usado e a nota da saúde financeira).
+function orcamentoGeral(ym){
+  const gs = budgetGrupos(ym), comG = new Set(gs.map(b => b.g));
+  return [...gs, ...budgetStatus(ym).filter(b => !comG.has(grupoDe('gasto', b.cat)))];
 }
 // Gastos avulsos fora do padrão: categorias em que o mês atual passou 30% (e pelo menos R$ 50) da média dos 6 meses anteriores.
 // Fixos e parcelas ficam de fora: são esperados.

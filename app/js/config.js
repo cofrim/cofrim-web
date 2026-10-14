@@ -131,7 +131,7 @@ function openSettings(sec){
       <div class="chips u-m0">${Object.entries(CAT_GASTO).filter(([k]) => k !== 'emprestimo' && (p.notifyCats[k] === false || db.expenses.some(x => x.cat === k && x.fixed))).map(([k,c]) => { const on = p.notifyCats[k] !== false; return `<button style="${on ? 'background:var(--brand);color:' + (theme.dark ? '#0b1020' : '#fff') : 'opacity:.6;text-decoration:line-through'}" data-onclick="toggleNotifyCat('${k}')">${I(c[0], 14)} ${esc(c[1])}</button>`; }).join('')}</div>
     </div>
     <div class="hint">Avisa nos dias marcados e no vencimento, às 9h.</div>${temNativo('bateria') ? `${batLivre ? '' : `<div class="btns"><button class="btn" data-onclick="nativo('bateria')">Tirar o app da economia de bateria</button></div>`}
-    ${[['notifyOrc', 'Orçamento das categorias'], ['notifyCartao', 'Limite do cartão'], ['notifyMeta', 'Metas'], ['notifyPrev', 'Previsões de gastos']].map(([k, t]) => `
+    ${[['notifyOrc', 'Orçamento das categorias e dos grupos'], ['notifyCartao', 'Limite do cartão'], ['notifyMeta', 'Metas'], ['notifyPrev', 'Previsões de gastos']].map(([k, t]) => `
     <label>${t}</label>
     <div class="semTopo btns">${[[true,'Ligado'],[false,'Desligado']].map(([v,r]) => `<button class="btn ${!!(p[k] ?? p.notify) === v ? 'primary' : ''}"
       data-onclick="setNotifyTipo('${k}',${v})">${r}</button>`).join('')}</div>`).join('')}
@@ -141,7 +141,7 @@ function openSettings(sec){
     <div class="hint">Se atrasarem, escolha "Não otimizar" para o Cofrim.</div>` : ''}`],
   ['avisos', 'bell', 'Avisos de valores', 'Quando avisar: de 50% a passou', `
     <div class="semTopo hint">Escolha em que pontos o app avisa (no sino e, no Android com os lembretes ligados, no celular). Pode marcar mais de um.</div>
-    ${[['prev', 'Previsões de gastos', PREV_PONTOS, prevPontos()], ['orc', 'Orçamento de cada categoria', PONTOS, pontosDe('orc')],
+    ${[['prev', 'Previsões de gastos', PREV_PONTOS, prevPontos()], ['orc', 'Orçamento de cada categoria e grupo', PONTOS, pontosDe('orc')],
       ['cartao', 'Limite do cartão (quanto já está comprometido)', PONTOS, pontosDe('cartao')], ['meta', 'Metas (quanto já foi guardado)', PONTOS, pontosDe('meta')]]
       .map(([tipo, t, lista, marcados]) => `<label>${t}</label>
     <div class="semTopo btns pontos">${Object.entries(lista).map(([k, r]) =>
@@ -482,14 +482,10 @@ const ICON_NAMES = {home:'Casa', bed:'Cama', key:'Chave', wrench:'Ferramenta', b
   coins:'Moedas', coin:'Moeda', cash:'Dinheiro', card:'Cartão', wallet:'Carteira', piggy:'Cofrinho', percent:'Porcentagem', trend:'Gráfico', chart:'Barras',
   tag:'Etiqueta', box:'Caixa', target:'Alvo', trophy:'Troféu', diamond:'Diamante', shield:'Escudo', umbrella:'Guarda-chuva', lock:'Cadeado',
   cloud:'Nuvem', sparkle:'Brilho'};
-const CAT_OF = {gasto:CAT_GASTO, ganho:CAT_GANHO};
-// Grupos das categorias de gasto de fábrica, para a tela de categorias não virar uma lista só.
-const CAT_GROUPS = {'Casa':['moradia','casa','luz','internet','contas'], 'Alimentação':['alimentacao','mercado','restaurante','cafe','bares'],
-  'Transporte':['transporte','combustivel','estacionamento','conducao','oficina','viagem'], 'Saúde e cuidados':['saude','farmacia','academia','beleza'],
-  'Lazer':['lazer','cinema','shows','jogos'], 'Compras':['compras','roupas','eletronicos','presentes'], 'Família':['educacao','pets','filhos'],
-  'Finanças e outros':['seguros','impostos','doacoes','emprestimo','outros']};
-const catGroup = k => Object.keys(CAT_GROUPS).find(g => CAT_GROUPS[g].includes(k));
-const catsOpen = new Set(['Suas categorias']);
+// Tela de categorias: gastos e ganhos, cada um com os seus grupos (js/grupos.js); cada grupo abre as categorias dele,
+// com "Nova categoria" (já no grupo) e "Editar grupo" (nome, ícone, cor, excluir: js/grupos-tela.js). A categoria muda de
+// grupo pelo Editar dela. catsOpen guarda os grupos abertos ("tipo:grupo").
+const catsOpen = new Set();
 function openCats(){
   settingsOpen = false; F = null;
   const row = (type, k, c) => `
@@ -497,44 +493,43 @@ function openCats(){
       <button class="btn" style="flex:none;padding:8px 12px" data-onclick="editCat('${type}','${k}')">Editar</button>
       ${BASE_CATS[type][k] ? '' : `<button class="iconbtn out" data-onclick="deleteCat('${type}','${k}')" aria-label="Excluir categoria">${I('close', 20)}</button>`}
       ${k === 'outros' ? '' : `<button class="iconbtn ${c[3] ? 'muted' : 'in'}" data-onclick="toggleCat('${type}','${k}')" aria-label="${c[3] ? 'Mostrar' : 'Esconder'}">${I(c[3] ? 'unchecked' : 'checked', 24)}</button>`}</div>`;
-  const novo = type => `<div class="semTopo btns catNova"><button class="btn" data-onclick="editCat('${type}','')">${I('plus', 16)}Nova categoria de ${type}</button></div>`;
-  const groups = {};
-  for (const [k, c] of Object.entries(CAT_GASTO)) (groups[catGroup(k) || 'Suas categorias'] = groups[catGroup(k) || 'Suas categorias'] || []).push([k, c]);
-  const ordem = ['Suas categorias', ...Object.keys(CAT_GROUPS)].filter(g => groups[g]);
+  const grupo = (type, g, c) => { const ks = catsDoGrupo(type, g), id = type + ':' + g; return `
+    <details class="grp" ${catsOpen.has(id) ? 'open' : ''} data-ontoggle="catsOpen[this.open ? 'add' : 'delete'](this.dataset.g)" data-g="${id}">
+      <summary><span class="grpIco" style="color:${c[2]}">${I(c[0], 18)}</span>${esc(c[1])}<small>${ks.length}</small>${I('chev')}</summary>
+      ${ks.length ? ks.map(k => row(type, k, CAT_OF[type][k])).join('') : '<div class="hint">Nenhuma categoria neste grupo.</div>'}
+      <div class="btns grpAcoes"><button class="btn" data-onclick="editCat('${type}','','${g}')">${I('plus', 16)}Nova categoria</button>
+        <button class="btn" data-onclick="grupoEditor('${type}','${g}')">Editar grupo</button></div></details>`; };
+  const secao = type => `<label>${type === 'gasto' ? 'Gastos' : 'Ganhos'}</label>
+    <div class="semTopo btns catNova"><button class="btn" data-onclick="grupoEditor('${type}')">${I('plus', 16)}Novo grupo</button></div>
+    ${Object.entries(GRUPOS_CAT[type]).map(([g, c]) => grupo(type, g, c)).join('')}
+    <div class="btns"><button class="btn" data-onclick="gruposRestaurarPedir('${type}')">${I('refresh', 16)}Restaurar grupos padrão</button></div>`;
   showSheet(`<h3>Categorias</h3>
-    <div class="semTopo hint">Toque em um grupo para abrir. Categoria escondida some das listas de escolha, mas os lançamentos antigos continuam com ela. As que você criou podem ser excluídas (X): os lançamentos passam para a de fábrica com o mesmo nome ou para "Outros".</div>
-    <label>Gastos</label>${novo('gasto')}
-    ${ordem.map((g, i) => `<details class="grp" ${catsOpen.has(g) ? 'open' : ''} data-ontoggle="catsOpen[this.open ? 'add' : 'delete'](this.dataset.g)" data-g="${g}"><summary>${g}<small>${groups[g].length}</small>${I('chev')}</summary>${groups[g].map(([k, c]) => row('gasto', k, c)).join('')}</details>`).join('')}
-    <label>Ganhos</label>${novo('ganho')}
-    <details class="grp" ${catsOpen.has('Ganhos') ? 'open' : ''} data-ontoggle="catsOpen[this.open ? 'add' : 'delete']('Ganhos')"><summary>Categorias de ganho<small>${Object.keys(CAT_GANHO).length}</small>${I('chev')}</summary>${Object.entries(CAT_GANHO).map(([k, c]) => row('ganho', k, c)).join('')}</details>
+    <div class="semTopo hint">As categorias ficam em grupos (ex.: Lazer reúne Bares, Cinema e Viagens), para ver o total de cada grupo. Toque em um grupo para abrir. Categoria escondida some das listas de escolha, mas os lançamentos antigos continuam com ela. As que você criou podem ser excluídas (X): os lançamentos passam para a de fábrica com o mesmo nome ou para "Outros".</div>
+    ${secao('gasto')}${secao('ganho')}
     <div class="btns foot"><button class="btn primary" data-onclick="openSettings('categorias')">Voltar</button></div>`);
 }
-// Grava uma categoria (nova com k = '', ou já existente) e refaz as listas; devolve a chave. Usada pela tela de
-// categorias (formulário catEdit) e pela criação rápida (novaCategoria).
+// Grava uma categoria (nova com k = '', ou já existente; v.g = o grupo) e refaz as listas; devolve a chave. Usada pela
+// tela de categorias (formulário catEdit) e pela criação rápida (novaCategoria).
 function catSalvar(type, k, v){
   k = k || 'c' + uid();
-  db.cats[type][k] = catLimpa(Object.assign(db.cats[type][k] || {}, {name:v.name, icon:v.icon, color:v.color}));
+  db.cats[type][k] = catLimpa(Object.assign(db.cats[type][k] || {}, {name:v.name, icon:v.icon, color:v.color}, v.g ? {g:v.g} : {}));
   db.cfgMod = Date.now(); applyCats();
   return k;
 }
-// Outra categoria do tipo com o mesmo nome (sem contar maiúscula e espaço nas pontas; escondidas também), além da k. Ao criar,
-// usa-se a que já existe; ao editar, o nome repetido é recusado (catRepetida).
-function catMesmoNome(type, nome, k = ''){
-  return Object.keys(CAT_OF[type]).find(c => c !== k && plainName(CAT_OF[type][c][1]) === plainName(nome));
-}
-const catRepetida = 'Já existe uma categoria com esse nome.';
-// Criar uma categoria sem sair do que se está fazendo: abre por cima (na camada dos seletores), pede nome, ícone e cor
-// e chama aoCriar(chave). Nome igual ao de uma categoria que já existe: usa essa (e a mostra, se estava escondida).
-// Usada pelos formulários (formCatNova) e pelo Importar planilha (nome: o da planilha, já escrito). Com edita (chave de
-// uma categoria), a mesma janela edita essa categoria, já com o nome, o ícone e a cor dela (segurar a categoria no
-// formulário, catSegurar).
-let catNovaDe = null; // {type, aoCriar, icon, color, edita}
-function novaCategoria(type, aoCriar, nome = '', edita = ''){
+// Criar uma categoria sem sair do que se está fazendo: abre por cima (na camada dos seletores), pede nome, grupo, ícone e
+// cor e chama aoCriar(chave). Nome igual ao de uma categoria do mesmo grupo: usa essa (e a mostra, se estava escondida);
+// em outro grupo, o mesmo nome pode. Usada pelos formulários (formCatNova), pela janela do grupo e pelo Importar planilha
+// (nome: o da planilha, já escrito). Com edita (chave de uma categoria), a mesma janela edita essa categoria, já com o
+// nome, o grupo, o ícone e a cor dela (segurar a categoria no formulário, catSegurar). grupo: o grupo já escolhido.
+let catNovaDe = null; // {type, aoCriar, icon, color, edita, g}
+function novaCategoria(type, aoCriar, nome = '', edita = '', grupo = ''){
   const c = edita && CAT_OF[type][edita];
-  catNovaDe = {type, aoCriar, icon:c ? c[0] : 'tag', color:c ? c[2] : '#64748b', edita};
+  catNovaDe = {type, aoCriar, icon:c ? c[0] : 'tag', color:c ? c[2] : '#64748b', edita, g:c ? grupoDe(type, edita) : GRUPOS_CAT[type][grupo] ? grupo : 'outros'};
   if (c) nome = c[1];
   showPicker(`<h3>${c ? 'Editar categoria' : 'Nova categoria de ' + type}</h3>
     <label for="cnNome">Nome</label><input id="cnNome" type="text" maxlength="40" placeholder="Ex.: Pets" autocomplete="off" value="${esc(nome)}">
+    <label>Grupo</label><div class="chips grpEscolhe">${Object.entries(GRUPOS_CAT[type]).map(([g, gc]) => `<button type="button"
+      class="${g === catNovaDe.g ? 'on' : ''}" data-g="${g}" data-onclick="catNovaEscolhe(this,'g')"><span style="color:${gc[2]}">${I(gc[0], 15)}</span>${esc(gc[1])}</button>`).join('')}</div>
     <label>Ícone</label><div class="iconGrid">${Object.entries(ICON_NAMES).map(([k, n]) => `<button type="button"
       class="${k === catNovaDe.icon ? 'on' : ''}" data-i="${k}" aria-label="${n}" title="${n}"
       data-onclick="catNovaEscolhe(this,'icon')">${I(k, 23)}</button>`).join('')}</div>
@@ -546,45 +541,39 @@ function novaCategoria(type, aoCriar, nome = '', edita = ''){
       <button class="btn primary" data-onclick="catNovaCriar()">${c ? 'Salvar' : 'Criar'}</button></div>`);
 }
 function catNovaEscolhe(b, campo){
-  catNovaDe[campo] = campo === 'icon' ? b.dataset.i : b.dataset.c;
+  catNovaDe[campo] = campo === 'icon' ? b.dataset.i : campo === 'g' ? b.dataset.g : b.dataset.c;
   b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
 }
 function catNovaCriar(){
   const nome = document.getElementById('cnNome').value.trim().slice(0, 40);
-  if (!nome) return void (document.getElementById('cnErr').textContent = 'Escreva o nome da categoria.');
-  const {type, aoCriar, icon, color, edita} = catNovaDe, C = CAT_OF[type];
-  if (edita && catMesmoNome(type, nome, edita)) return void (document.getElementById('cnErr').textContent = catRepetida);
-  if (edita){ catSalvar(type, edita, {name:nome, icon, color}); save(); closePicker(); catNovaDe = null; return aoCriar(edita); }
-  let k = catMesmoNome(type, nome);
-  if (k && C[k][3]){ db.cats[type][k] = Object.assign(db.cats[type][k] || {}, {hidden:false}); db.cfgMod = Date.now(); applyCats(); }
-  if (!k) k = catSalvar(type, '', {name:nome, icon, color});
+  const {type, aoCriar, icon, color, edita, g} = catNovaDe, C = CAT_OF[type];
+  const igual = !edita && catsDoGrupo(type, g).find(k => nomeComparar(C[k][1]) === nomeComparar(nome));
+  const erro = igual ? '' : catNomeErro(type, nome, g, edita);
+  if (erro) return void (document.getElementById('cnErr').textContent = erro);
+  let k = edita || igual;
+  if (igual && C[k][3]){ db.cats[type][k] = Object.assign(db.cats[type][k] || {}, {hidden:false}); db.cfgMod = Date.now(); applyCats(); }
+  if (!igual) k = catSalvar(type, edita, {name:nome, icon, color, g});
   save(); closePicker(); catNovaDe = null;
   aoCriar(k);
 }
-function editCat(type, k){
+// Categoria nas Configurações (formulário catEdit): nova (k = '', no grupo g) ou já existente; o Grupo a move de grupo.
+let catEditTipo = 'gasto';
+function editCat(type, k, g = ''){
   const c = CAT_OF[type][k];
+  catEditTipo = type;
   openForm('catEdit', null,
     {id:type + ':' + k, title:c ? 'Editar categoria' : 'Nova categoria de ' + type,
-    vals:c ? {name:c[1], icon:c[0], color:c[2]} : {icon:'tag', color:'#64748b'}});
+    vals:c ? {name:c[1], icon:c[0], color:c[2], g:grupoDe(type, k)} : {icon:'tag', color:'#64748b', g:GRUPOS_CAT[type][g] ? g : 'outros'}});
 }
-// Exclui uma categoria criada pelo usuário. Os lançamentos dela vão para a de fábrica de mesmo nome, ou para "Outros".
-// depois(alvo): o que fazer em seguida (a tela de categorias, ou o formulário que estava aberto: catSegurar).
+// Exclui uma categoria criada pelo usuário. Os lançamentos dela vão para a de fábrica de mesmo nome, ou para "Outros"
+// (catApagarDados, em grupos.js). depois(alvo): o que fazer em seguida (a tela de categorias, ou o formulário que estava
+// aberto: catSegurar).
 async function deleteCat(type, k, depois = openCats){
-  const nome = plainName(CAT_OF[type][k][1]);
-  const alvo = Object.keys(BASE_CATS[type]).find(b => plainName((db.cats[type][b] || {}).name || BASE_CATS[type][b][1]) === nome) || 'outros';
-  const nomeAlvo = (db.cats[type][alvo] || {}).name || BASE_CATS[type][alvo][1];
-  const usados = (type === 'gasto' ? ['expenses', 'installments'] : ['incomes']).flatMap(c => db[c]).filter(x => x.cat === k);
+  const alvo = catDestino(type, k), nomeAlvo = CAT_OF[type][alvo][1], usados = catLancamentos(type, k);
   if (!await ask(`Excluir a categoria "${CAT_OF[type][k][1]}"?` + (usados.length ? `\n${usados.length} lançamento(s) passam para "${nomeAlvo}".` : ''),
     'Excluir', true)) return;
-  for (const x of usados){ x.cat = alvo; touch(x); }
-  if (type === 'gasto'){
-    if (db.budgets[k]){ db.budgets[alvo] = (db.budgets[alvo] || 0) + db.budgets[k]; delete db.budgets[k]; }
-    delete db.prefs.notifyCats[k];
-    for (const d in db.catMemo) if (db.catMemo[d] === k) db.catMemo[d] = alvo;
-  }
-  delete db.cats[type][k];
-  db.tomb['cat:' + type + ':' + k] = Date.now(); // a exclusão vale nos outros aparelhos (ver mergeDb)
-  db.cfgMod = Date.now(); applyCats(); save(); render(); depois(alvo);
+  catApagarDados(type, k, alvo);
+  save(); render(); depois(alvo);
   toast('Categoria excluída.', {dest:{k:'cfg', s:'categorias'}});
 }
 function toggleCat(type, k){

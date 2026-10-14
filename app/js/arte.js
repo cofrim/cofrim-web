@@ -40,25 +40,31 @@ const TEMA_FUNDO = {
   vikings:'<path d="M6 36q22-18 46-5t50-9" stroke="#5eead4" stroke-width="5" fill="none" opacity=".5" stroke-linecap="round"/><path d="M4 100l25-35 14 18 18-30 17 27 10-12 18 32z" fill="#fff" opacity=".2"/>',
   espartano:'<path d="M12 26h8v-7h8v7h8v-7h8v7h8v-7h8v7h8v-7h8v7h8v-7h8" stroke="#fbbf24" stroke-width="2.600" fill="none" opacity=".65"/><path d="M12 92h8v-7h8v7h8v-7h8v7h8v-7h8v7h8v-7h8v7h8v-7h8" stroke="#fbbf24" stroke-width="2.600" fill="none" opacity=".65"/>'
 };
-// O mascote de um tema, para pôr dentro de outro desenho (posição e largura dadas). A moeda só fica se pedida.
-function mascoteEm(tema, humor, x, y, w, moeda){
-  let s = pigSvg(humor, tema).replace(/class="pig \w+" /, '').replace('width="104" height="95"',
+// O mascote de um tema, para pôr dentro de outro desenho (posição e largura dadas). A moeda só fica se pedida. cor: a do
+// personagem padrão (sem tema; padrão: a do app).
+function mascoteEm(tema, humor, x, y, w, moeda, cor){
+  let s = pigSvg(humor, tema, cor).replace(/class="pig \w+" /, '').replace('width="104" height="95"',
     `x="${x}" y="${y}" width="${w}" height="${Math.round(w * 110 / 120 * 10) / 10}"`);
   return moeda ? s : s.replace(/<g class="moeda">.*?<\/g>/, '');
 }
+// Personagem grande e centrado no ícone: um halo destaca o personagem (sem moeda nem sombra de chão) e, no canto, a
+// marca do Cofrim (o C com a moeda) numa plaquinha escura com contorno da cor do fundo. tema: '' = o personagem padrão,
+// na cor corP.
+function iconePersonagem(cor, tema, escuro, corP){
+  const id = 'is' + cor + (tema ? '' : 'p'), m = mascoteEm(tema, 'feliz', 19.500, 20, 69, false, corP);
+  return `<circle cx="54" cy="54" r="31" fill="#fff" opacity=".13"/>`
+  + `<defs><filter id="${id}" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.500" stdDeviation="2.200" flood-color="#000" flood-opacity=".28"/></filter></defs>`
+  + `<g filter="url(#${id})">${m.replace(/<ellipse cx="60" cy="104" rx="30" ry="4"[^>]*>/, '')}</g>`
+  + `<rect x="62.500" y="62.500" width="17" height="17" rx="5.500" fill="${escuro}" stroke="${(ICONES[cor] || ICONES.indigo)[2]}" stroke-width="2.600"/>`
+  + '<path d="M74 68.400A4.400 4.400 0 1 0 74 73.600" fill="none" stroke="#faf9f4" stroke-width="2.300" stroke-linecap="round"/><circle cx="75.600" cy="71" r="2" fill="#f1cf7e"/>';
+}
 // Miolo do ícone (sem o fundo).
 function iconeMiolo(cor, desenho){
-  if (desenho === 'p') return mascoteEm('', 'ok', 24, 25, 60);
-  // Do tema: um desenho só, grande e centrado. O cenário fica bem de leve atrás, um halo destaca o personagem (sem
-  // moeda nem sombra de chão) e, no canto, a marca do Cofrim (o C com a moeda) numa plaquinha com contorno da cor do fundo.
-  if (desenho === 't' && SKINS[cor]){
-    const escuro = SKINS[cor][1] ? SKINS[cor][5] : SKINS[cor][2];
-    return `<g opacity=".3">${TEMA_FUNDO[cor] || ''}</g><circle cx="54" cy="54" r="31" fill="#fff" opacity=".13"/>`
-      + `<defs><filter id="is${cor}" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.500" stdDeviation="2.200" flood-color="#000" flood-opacity=".28"/></filter></defs>`
-      + `<g filter="url(#is${cor})">${mascoteEm(cor, 'feliz', 19.500, 20, 69).replace(/<ellipse cx="60" cy="104" rx="30" ry="4"[^>]*>/, '')}</g>`
-      + `<rect x="62.500" y="62.500" width="17" height="17" rx="5.500" fill="${escuro}" stroke="${ICONES[cor][2]}" stroke-width="2.600"/>`
-      + '<path d="M74 68.400A4.400 4.400 0 1 0 74 73.600" fill="none" stroke="#faf9f4" stroke-width="2.300" stroke-linecap="round"/><circle cx="75.600" cy="71" r="2" fill="#f1cf7e"/>';
-  }
+  const escuro = SKINS[cor] ? (SKINS[cor][1] ? SKINS[cor][5] : SKINS[cor][2]) : '#1e1b2e';
+  // Porquinho: o personagem padrão na cor do ícone (nos temas, o roxo da marca).
+  if (desenho === 'p') return iconePersonagem(cor, '', escuro, COLORS[cor] ? cor : 'indigo');
+  // Do tema: o personagem do tema, com o cenário bem de leve atrás.
+  if (desenho === 't' && SKINS[cor]) return `<g opacity=".3">${TEMA_FUNDO[cor] || ''}</g>` + iconePersonagem(cor, cor, escuro);
   return (ICON_DESENHOS[desenho] || ICON_DESENHOS.b)[1];
 }
 // Ícone do Cofrim (desenho 'b' nas doze cores): o C com a moeda. Na cor índigo (a padrão), sobre o roxo da marca, como

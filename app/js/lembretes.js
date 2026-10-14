@@ -146,7 +146,7 @@ function widgetLines(){
     contas:() => db.accounts.length && ['Saldo nas contas', fmt(sum(db.accounts, a => accountBalance(a))), ''],
     invest:() => db.investments.length && ['Investido', fmt(sum(db.investments, x => x.value)), ''],
     fatura:() => { const v = sum(invoices(curYM), i => i[1]); return v > 0 && ['Faturas do cartão', fmt(v), 'out']; },
-    orcamento:() => { const b = budgetStatus(curYM), lim = sum(b, x => x.lim);
+    orcamento:() => { const b = orcamentoGeral(curYM), lim = sum(b, x => x.lim);
       return lim > 0 && ['Orçamento usado', Math.round(sum(b, x => x.used) / lim * 100) + '%', '']; },
     vales:() => temVales() && ['Saldo dos vales', fmt(sum(Object.keys(VALES), k => valeSaldo(k))), ''],
     parcelas:() => { const v = sum(expensesOf(curYM).filter(x => x.kind === 'installment'), x => x.value);

@@ -93,46 +93,143 @@ function syncForm(skip){
   document.querySelectorAll('.iconGrid button').forEach(b => b.classList.toggle('on', b.dataset.i === F.vals.icon));
   document.querySelectorAll('.colorGrid button').forEach(b => b.classList.toggle('on', b.dataset.c === F.vals.color));
 }
-// Categoria: em vez da lista suspensa, um botão por categoria (o <select> continua existindo, escondido).
-// Com muitas categorias, aparecem as mais usadas primeiro e o resto fica atrás de "Mais categorias"; com todas à mostra,
-// "Menos categorias" volta às mais usadas. As opções gerais das previsões (PREV_GERAIS) ficam sempre à mostra.
+// Categoria: em vez da lista suspensa, botões (o <select> continua existindo, escondido, com as opções do campo).
+// Nos ganhos, gastos, parceladas e previsões (campo com grupos: 'gasto' ou 'ganho'), a escolha é por grupo (drawCatGrupos).
+// Nos outros (investimentos, qual vale), um botão por opção.
 function drawCatPick(){
   const cp = document.getElementById('catPick');
   if (!cp) return;
-  const M = F.col === 'incomes' ? CAT_GANHO : F.col === 'investments' ? CAT_INV : CAT_GASTO, LIM = 11, used = {};
-  for (const x of F.col === 'incomes' ? db.incomes : F.col === 'investments' ? db.investments : db.expenses.concat(db.installments)) used[x.cat] = (used[x.cat] || 0) + 1;
-  let list = [...document.getElementById('f_cat').options].map(o => [o.value, o.text]);
-  const muitas = list.length > LIM + 1, cut = muitas && !F.allCats;
-  if (cut){ const top = [...list].sort((a, b) => (used[b[0]] || 0) - (used[a[0]] || 0)).slice(0, LIM).map(o => o[0]);
-    list = list.filter(o => top.includes(o[0]) || o[0] === F.vals.cat || PREV_GERAIS[o[0]]); }
-  const ico = v => (M[v] || PREV_GERAIS[v] || ['tag'])[0];
-  cp.innerHTML = list.map(([v, t]) => `<button type="button" class="${v === F.vals.cat ? 'on' : ''}" data-v="${esc(v)}" data-onclick="pickCat(this.dataset.v)">${I(ico(v), 17)}${esc(t)}</button>`).join('') +
-    (cut ? `<button type="button" class="more" data-onclick="F.allCats=true;drawCatPick()">Mais categorias…</button>`
-      : muitas ? `<button type="button" class="more" data-onclick="F.allCats=false;drawCatPick()">Menos categorias</button>` : '') +
-    (M === CAT_INV ? '' : `<button type="button" class="more" data-onclick="novaCategoria('${M === CAT_GANHO ? 'ganho' : 'gasto'}',formCatNova)">`
-      + `${I('plus', 17)}Nova categoria</button>`);
-  catSeguraNo(cp, M === CAT_INV ? '' : M === CAT_GANHO ? 'ganho' : 'gasto');
+  const f = F.fields.find(x => x.k === 'cat');
+  if (f.grupos) return drawCatGrupos(cp, f.grupos);
+  const M = F.col === 'investments' ? CAT_INV : CAT_GASTO;
+  cp.innerHTML = [...document.getElementById('f_cat').options].map(({value:v, text:t}) => `<button type="button" class="${v === F.vals.cat ? 'on' : ''}" `
+    + `data-v="${esc(v)}" data-onclick="pickCat(this.dataset.v)">${I((M[v] || ['tag'])[0], 17)}${esc(t)}</button>`).join('');
+}
+// Escolha por grupo: a categoria escolhida em "Grupo › Categoria" (tocar abre o grupo dela), as opções gerais das
+// previsões (PREV_GERAIS), as recentes, a busca e a grade dos grupos (tocar abre a janela do grupo, catGrupoAbre; segurar
+// edita o grupo). Segurar uma categoria (escolhida, recente ou da busca) abre Editar e Excluir (catSegurar). O campo de
+// busca é feito uma vez só, para não perder o foco ao redesenhar o resto.
+function drawCatGrupos(cp, type){
+  const C = CAT_OF[type], cur = F.vals.cat, pode = catPodem(), G = GRUPOS_CAT[type];
+  F.catOk = !!(C[cur] && !C[cur][3]);
+  if (!cp.dataset.grupos){
+    cp.dataset.grupos = type; cp.classList.add('catGrupos');
+    cp.innerHTML = `<div id="catTopo"></div><div class="search catBusca">${I('search')}<input id="catBusca" type="search" `
+      + `placeholder="Buscar categoria" autocomplete="off" data-oninput="catBuscar(this.value)"></div><div id="catGrade"></div>`;
+    seguraNo(cp, b => b.dataset.g ? grupoEditor(type, b.dataset.g, formCatRefaz) : catSegurar(type, b.dataset.v));
+  }
+  const chip = k => `<button type="button" class="${k === cur ? 'on' : ''}" data-v="${esc(k)}" data-onclick="catBuscaEscolhe(this.dataset.v)">`
+    + `${I((C[k] || PREV_GERAIS[k])[0], 17)}${C[k] ? catNomeHtml(type, k) : esc(PREV_GERAIS[k][1])}</button>`;
+  const gerais = Object.keys(PREV_GERAIS).filter(k => pode.has(k)), rec = catRecentes(type, pode);
+  const g = C[cur] && grupoDe(type, cur), gc = g && grupoInfo(type, g);
+  document.getElementById('catTopo').innerHTML = (gc ? `<button type="button" class="catSel" data-v="${esc(cur)}" data-g-abre="${esc(g)}" `
+      + `data-onclick="catGrupoAbre(this.dataset.gAbre)"><span class="grpIco" style="background:${gc[2]}">${I(C[cur][0], 17)}</span>`
+      + `<span>${catNomeHtml(type, cur)}</span><small>Trocar</small></button>`
+    : PREV_GERAIS[cur] ? `<div class="catSel">${I(PREV_GERAIS[cur][0], 17)}<span>${esc(PREV_GERAIS[cur][1])}</span></div>` : '')
+    + (gerais.length ? `<div class="catPick">${gerais.map(chip).join('')}</div>` : '')
+    + (rec.length ? `<div class="catRot">Recentes</div><div class="catPick">${rec.map(chip).join('')}</div>` : '');
+  const q = nomeComparar(F.catBusca || '').split(/\s+/).filter(Boolean);
+  if (q.length){
+    const achou = Object.keys(C).filter(k => pode.has(k) && (!C[k][3] || k === cur) && q.every(p => catBuscaTexto(type, k).includes(p)));
+    document.getElementById('catGrade').innerHTML = achou.length ? `<div class="catPick">${achou.map(chip).join('')}</div>`
+      : `<div class="hint">Nenhuma categoria encontrada.</div><div class="catPick"><button type="button" class="more" data-onclick="catBuscaCria()">${I('plus', 17)}`
+        + `Criar a categoria "${esc(F.catBusca.trim())}"</button></div>`;
+    return;
+  }
+  const grupos = Object.entries(G).map(([k, c]) => `<button type="button" class="${k === g ? 'on' : ''}" data-g="${esc(k)}" `
+    + `data-onclick="catGrupoAbre(this.dataset.g)"><span class="grpIco" style="background:${c[2]}">${I(c[0], 20)}</span><small>${esc(c[1])}</small></button>`);
+  const novo = `<button type="button" class="novo" data-onclick="formGrupoNovo()"><span class="grpIco">${I('plus', 20)}</span><small>Novo grupo</small></button>`;
+  document.getElementById('catGrade').innerHTML = `<div class="catRot">Grupos</div><div class="grpGrade">${grupos.join('')}${novo}</div>`;
+}
+const catPodem = () => new Set([...document.getElementById('f_cat').options].map(o => o.value));
+// "Grupo › Categoria" com cada nome num texto próprio (a tradução troca um de cada vez).
+const catNomeHtml = (type, k) => `${esc(grupoInfo(type, grupoDe(type, k))[1])}<span class="catSep"> › </span>${esc(CAT_OF[type][k][1])}`;
+// Texto em que a busca procura: "Grupo Categoria" sem acentos, em português e, com o app em outro idioma, traduzido.
+function catBuscaTexto(type, k){
+  const nomes = [grupoInfo(type, grupoDe(type, k))[1], CAT_OF[type][k][1]];
+  return nomeComparar(nomes.join(' ') + (lang() === 'pt' ? '' : ' ' + nomes.map(trText).join(' ')));
+}
+// Categorias usadas por último (até 6, sem repetir): do lançamento criado ou editado mais recentemente para o mais
+// antigo (sem essas datas, a ordem em que estão guardados). Só as que existem, não estão escondidas e cabem no campo.
+function catRecentes(type, pode){
+  const C = CAT_OF[type], r = [];
+  const L = (type === 'ganho' ? db.incomes : db.expenses.concat(db.installments)).map((x, i) => [Math.max(x.cri || 0, x.u || 0), i, x.cat]);
+  L.sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+  for (const [, , k] of L) if (!r.includes(k) && pode.has(k) && C[k] && !C[k][3] && r.push(k) >= 6) break;
+  return r;
+}
+function catBuscar(q){ if (!F) return; F.catBusca = q; drawCatPick(); }
+// Escolha pela busca, pelas recentes ou pelas gerais: escolhe e limpa a busca.
+function catBuscaEscolhe(k){
+  if (!F) return;
+  const b = document.getElementById('catBusca');
+  if (b) b.value = '';
+  F.catBusca = '';
+  pickCat(k);
+}
+// Busca sem resultado: cria a categoria com o texto digitado, escolhendo o grupo (novaCategoria) e já a escolhe.
+function catBuscaCria(){
+  if (!F) return;
+  novaCategoria(F.fields.find(x => x.k === 'cat').grupos, k => { F.catBusca = ''; document.getElementById('catBusca').value = ''; formCatNova(k); },
+    (F.catBusca || '').trim());
+}
+// Janela de um grupo, por cima do formulário: as categorias dele (tocar escolhe e fecha; segurar abre Editar e Excluir),
+// "Nova categoria neste grupo" e "Editar grupo". Fecha no Fechar, no voltar ou tocando fora, sem perder o formulário.
+function catGrupoAbre(g){
+  if (!F) return;
+  const type = F.fields.find(x => x.k === 'cat').grupos, C = CAT_OF[type], cur = F.vals.cat, pode = catPodem();
+  if (!GRUPOS_CAT[type][g]) return;
+  const [ico, nome, cor] = GRUPOS_CAT[type][g], ks = catsDoGrupo(type, g).filter(k => pode.has(k) && (!C[k][3] || k === cur));
+  showPicker(`<h3 class="grpTit"><span class="grpIco" style="background:${cor}">${I(ico, 18)}</span>${esc(nome)}</h3>
+    ${ks.length ? `<div class="pickList" id="catGrpLista">${ks.map(k => `<button type="button" class="${k === cur ? 'on' : ''}" data-v="${esc(k)}"
+      data-onclick="catGrupoEscolhe(this.dataset.v)"><span>${I(C[k][0], 18)} ${esc(C[k][1])}</span>${k === cur ? I('check') : ''}</button>`).join('')}</div>`
+      : '<div class="hint">Nenhuma categoria neste grupo ainda.</div>'}
+    <div class="btns col"><button class="btn" data-g="${esc(g)}" data-onclick="novaCategoria('${type}',formCatNova,'','',this.dataset.g)">`
+      + `${I('plus', 16)}Nova categoria neste grupo</button></div>
+    <div class="btns foot"><button class="btn" data-g="${esc(g)}" data-onclick="grupoEditor('${type}',this.dataset.g,formCatRefaz)">Editar grupo</button>
+      <button class="btn primary" data-onclick="closePicker()">Fechar</button></div>`);
+  const l = document.getElementById('catGrpLista');
+  if (l) seguraNo(l, b => catSegurar(type, b.dataset.v));
+}
+function catGrupoEscolhe(k){ closePicker(); catBuscaEscolhe(k); }
+// Novo grupo sem sair do formulário: ao criar, abre a janela dele (para pôr categorias).
+function formGrupoNovo(){
+  if (F) grupoEditor(F.fields.find(x => x.k === 'cat').grupos, '', g => { formCatRefaz(); catGrupoAbre(g); });
+}
+// Refaz as opções do campo de categoria (as categorias mudaram); a escolhida, se escondida, continua como opção.
+function catOpcoes(){
+  const f = F.fields.find(x => x.k === 'cat'), el = document.getElementById('f_cat'), cur = F.vals.cat, C = f.grupos && CAT_OF[f.grupos];
+  el.innerHTML = '';
+  for (const [v, t] of typeof f.options === 'function' ? f.options() : f.options) el.add(new Option(t, v));
+  if (C && C[cur] && el.querySelector(`option[value="${CSS.escape(cur)}"]`) === null) el.add(new Option(C[cur][1], cur));
 }
 // Categoria criada pelo "+ Nova categoria" (novaCategoria): refaz a lista do campo e a escolhe; o resto do formulário fica.
 function formCatNova(k){
   if (!F) return;
-  const f = F.fields.find(x => x.k === 'cat'), el = document.getElementById('f_cat');
-  el.innerHTML = '';
-  for (const [v, t] of typeof f.options === 'function' ? f.options() : f.options) el.add(new Option(t, v));
-  pickCat(k);
+  catOpcoes(); pickCat(k);
 }
-// Segurar uma categoria (meio segundo; no PC, o botão direito) abre Editar e Excluir por cima do formulário, sem perder
-// o que já foi preenchido. O toque que segue o segurar não escolhe a categoria.
+// Depois de editar ou excluir uma categoria ou um grupo com o formulário aberto: refaz as opções e mantém a escolhida
+// (com o grupo novo, se ela mudou de grupo); se ela foi apagada, limpa a escolha e avisa.
+function formCatRefaz(){
+  if (!F) return;
+  const f = F.fields.find(x => x.k === 'cat'), C = f.grupos && CAT_OF[f.grupos], cur = F.vals.cat, sumiu = F.catOk && C && !(C[cur] && !C[cur][3]);
+  catOpcoes();
+  if (!sumiu) return pickCat(cur);
+  pickCat('');
+  toast('A categoria escolhida foi apagada. Escolha outra.');
+}
+// Segurar um botão (meio segundo; no PC, o botão direito) chama aoSegurar(botão), por cima do formulário, sem perder o
+// que já foi preenchido. O toque que segue o segurar não vale como toque. Botões de categoria (data-v) e de grupo (data-g).
 let catSegurou = 0;
-function catSeguraNo(cp, type){
+function seguraNo(el, aoSegurar){
   let t = 0, x0 = 0, y0 = 0;
-  const solta = () => clearTimeout(t), botao = e => type && e.target.closest('[data-v]');
-  const segura = b => { solta(); if (Date.now() - catSegurou > 800) catSegurar(type, b.dataset.v); catSegurou = Date.now(); };
-  cp.onpointerdown = e => { const b = botao(e); solta(); if (b){ x0 = e.clientX; y0 = e.clientY; t = setTimeout(() => segura(b), 500); } };
-  cp.onpointermove = e => { if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) > 10) solta(); };
-  cp.onpointerup = cp.onpointercancel = cp.onpointerleave = solta;
-  cp.oncontextmenu = e => { const b = botao(e); if (b){ e.preventDefault(); segura(b); } };
-  cp.onclick = e => { if (Date.now() - catSegurou < 700) e.stopPropagation(); };
+  const solta = () => clearTimeout(t), botao = e => e.target.closest('[data-v],[data-g]');
+  const segura = b => { solta(); if (Date.now() - catSegurou > 800) aoSegurar(b); catSegurou = Date.now(); };
+  el.onpointerdown = e => { const b = botao(e); solta(); if (b){ x0 = e.clientX; y0 = e.clientY; t = setTimeout(() => segura(b), 500); } };
+  el.onpointermove = e => { if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) > 10) solta(); };
+  el.onpointerup = el.onpointercancel = el.onpointerleave = solta;
+  el.oncontextmenu = e => { const b = botao(e); if (b){ e.preventDefault(); segura(b); } };
+  el.onclick = e => { if (Date.now() - catSegurou < 700) e.stopPropagation(); };
 }
 function catSegurar(type, k){
   const c = CAT_OF[type][k];
@@ -146,11 +243,8 @@ function catSegurar(type, k){
 }
 function catSeguraExclui(type, k){
   closePicker();
-  const era = F && F.vals.cat;
-  deleteCat(type, k, alvo => F && formCatNova(era === k ? alvo : era));
+  deleteCat(type, k, formCatRefaz);
 }
-// Depois de editar uma categoria: refaz as opções do formulário aberto e deixa escolhida a que já estava.
-function formCatRefaz(){ if (F) formCatNova(F.vals.cat); }
 function pickCat(v){ if (!F) return; const el = document.getElementById('f_cat'); el.value = v; el.onchange(); }
 function pickIcon(k, v){ const el = document.getElementById('f_' + k); el.value = v; el.oninput(); }
 // O que mudou entre duas versões de um lançamento, em texto ("valor R$ 10,00 → R$ 12,00"). '' se nada relevante mudou.

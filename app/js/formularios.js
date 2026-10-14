@@ -102,7 +102,7 @@ const FORMS = {
     {k:'end', label:'Até (opcional)', type:'month', optional:true, showIf:v => v.fixed, more:true},
     ...SCOPE_FIELDS] : [
     {k:'value', label:'Valor', type:'money', big:true},
-    {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GANHO)},
+    {k:'cat', label:'Categoria', type:'select', grupos:'ganho', options:() => opts(CAT_GANHO)},
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Salário', optional:true},
     {k:'fixed', label:'Tipo', type:'select',
       options:[['1','Fixo — repete todo mês'],['y','Anual — uma vez por ano (13º, bônus…)'], ...TIPO_REP, ['','Avulso — só em um mês']]},
@@ -119,7 +119,7 @@ const FORMS = {
       ? `Nos meses sem o dia ${+v.day}, cai no último dia do mês.` : '',
     summary:v => [v.bank, diaGanhoTexto(v), repResumo(v), v.start && v.start !== curYM && cap(monthName(v.start))].filter(Boolean).join(' · '),
     onChange(k, v, isNew, touched){ if (formVale && isNew && k === 'cat' && !touched.emp) v.emp = valeEmp(v.cat); },
-    check(v){ if (!v.desc || formVale) v.desc = (CAT_GANHO[v.cat] || [0, 'Ganho'])[1]; return repCheck(v) || diaGanhoCheck(v); },
+    check(v){ if (!v.desc || formVale) v.desc = (CAT_GANHO[v.cat] || [0, 'Ganho'])[1]; empLimpa(v); return repCheck(v) || diaGanhoCheck(v); },
     commit:commitRecurring('incomes')},
   // Gasto novo à vista ou parcelado (parc): parcelado vira uma compra parcelada em db.installments, a mesma da aba
   // Parceladas (ver commit), com o mês do gasto como mês da 1ª parcela.
@@ -136,11 +136,11 @@ const FORMS = {
     {k:'parc', label:'Pagamento', type:'select', optional:true, showIf:v => !(F && F.id) && !v.fixed, options:[['', 'À vista'], ['1', 'Parcelado']]},
     {k:'n', label:'Número de parcelas', type:'int', showIf:parcelado},
     {k:'mode', label:'Informar', type:'select', showIf:parcelado, options:[['total', 'Valor total da compra'], ['parcela', 'Valor de cada parcela']]},
-    {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')},
+    {k:'cat', label:'Categoria', type:'select', grupos:'gasto', options:() => opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')},
     {k:'desc', label:'Descrição (opcional)', type:'text', ph:'Ex.: Mercado', optional:true},
     // Pago com um vale: no lugar do banco, a empresa do vale (com o logotipo); o gasto vai para a parte dos vales.
     ...WHERE_FIELDS().reverse().map(f => ({...f, more:true, ...(f.k === 'bank' ? {showIf:v => !VALES[v.pay]} : {})})),
-    {...EMP_FIELD, more:true, showIf:v => !!VALES[v.pay]},
+    {...EMP_FIELD, more:true, showIf:v => !!VALES[v.pay] && v.pay !== 'vt'},
     {k:'tags', label:'Etiquetas (opcional, separadas por vírgula)', type:'text', ph:'Ex.: viagem SP', optional:true, more:true, showIf:aVista,
       sug:() => [...new Set(db.expenses.flatMap(tagsOf))]},
     {k:'who', label:'Dividir com (nome da pessoa, opcional)', type:'text', ph:'Ex.: Ana', optional:true, more:true, showIf:aVista,
@@ -177,10 +177,10 @@ const FORMS = {
       v.start && v.start !== curYM && cap(monthName(v.start))].filter(Boolean).join(' · '),
     check(v){
       // Gasto no vale: sem categoria, banco ou conta no formulário; a categoria sai do tipo do vale (num novo).
-      if (formVale){ if (!F.id){ v.cat = v.pay === 'vt' ? 'transporte' : 'alimentacao'; v.fixed = false; } if (!v.desc) v.desc = VALES[v.pay];
+      if (formVale){ if (!F.id){ v.cat = v.pay === 'vt' ? 'transporte' : 'alimentacao'; v.fixed = false; } if (!v.desc) v.desc = VALES[v.pay]; empLimpa(v);
         return dayOk(v, 'day', 'O dia'); }
       if (!v.desc) v.desc = (CAT_GASTO[v.cat] || [0, 'Gasto'])[1];
-      if (VALES[v.pay]) v.bank = ''; else v.emp = ''; // no vale vale a empresa; fora dele, o banco
+      if (VALES[v.pay]) v.bank = ''; empLimpa(v); // no vale vale a empresa; fora dele, o banco
       if (v.fixed && !F.id && !F.touched.day) v.day = ''; // o dia de hoje sugerido vale só para o gasto avulso
       if (v.parc && v.n < 2) return 'Parcelado precisa de 2 parcelas ou mais.';
       if (v.parc && v.n > 600) return 'No máximo 600 parcelas (50 anos).';
@@ -210,7 +210,7 @@ const FORMS = {
       {k:'credor', label:'Credor (banco ou financeira, opcional)', type:'text', ph:'Ex.: Caixa', optional:true, sug:bankSuggestions},
       {k:'conta', label:'Conta de débito', type:'select', optional:true, banco:true,
         options:() => [['', 'Não informar'], ...db.accounts.map(a => [a.name, a.name])]}] : []),
-    {k:'cat', label:'Categoria', type:'select', options:() => opts(CAT_GASTO)},
+    {k:'cat', label:'Categoria', type:'select', grupos:'gasto', options:() => opts(CAT_GASTO)},
     ...(formTipo ? [] : WHERE_FIELDS()),
     {k:'n', label:'Número de parcelas', type:'int', showIf:semAbat},
     {k:'mode', label:'Informar', type:'select', showIf:semAbat,
@@ -366,12 +366,22 @@ const FORMS = {
     hint:v => { const inv = F && db.investments.find(x => x.id === F.id), a = parseMoney(v.amount);
       return inv && a > 0 ? `${inv.name}: de ${fmt(inv.value)} para ${fmt(inv.value + a)}` : ''; },
     commit(v, id){ const inv = db.investments.find(x => x.id === id); inv.value = round2(inv.value + v.amount); touch(inv); }},
-  budgets: { fullTitle:'Orçamento mensal por categoria',
-    fields:() => Object.entries(CAT_GASTO).map(([k,c]) => ({k, label:c[1] + ' — limite por mês', type:'money', optional:true})),
-    commit(v){ db.budgets = Object.fromEntries(Object.entries(v).filter(([,lim]) => lim > 0)); db.cfgMod = Date.now(); },
+  // Orçamento: por grupo de gastos, o limite do grupo inteiro (campo g_<grupo>, em db.budgetsG) e, embaixo, o de cada
+  // categoria dele (em db.budgets). Abre por abrirOrcamento, que junta os dois.
+  budgets: { fullTitle:'Orçamento mensal por grupo e categoria',
+    fields:() => Object.entries(GRUPOS_CAT.gasto).flatMap(([g, gc]) => [
+      {k:'g_' + g, label:`Grupo ${gc[1]} (todas as categorias) — limite por mês`, type:'money', optional:true},
+      ...catsDoGrupo('gasto', g).map(k => ({k, label:CAT_GASTO[k][1] + ' — limite por mês', type:'money', optional:true}))]),
+    commit(v){
+      const lims = Object.entries(v).filter(([, lim]) => lim > 0);
+      db.budgets = Object.fromEntries(lims.filter(([k]) => !k.startsWith('g_')));
+      db.budgetsG = Object.fromEntries(lims.filter(([k]) => k.startsWith('g_')).map(([k, lim]) => [k.slice(2), lim]));
+      db.cfgMod = Date.now(); },
     extra:() => `<label>O que sobrar do limite passa para o mês seguinte?</label>
       <div class="optPick" id="rollPick"><button type="button" data-v="1" class="${db.prefs.rollBudget ? 'on' : ''}" data-onclick="setRoll(true)">Sim</button><button type="button" data-v="" class="${db.prefs.rollBudget ? '' : 'on'}" data-onclick="setRoll(false)">Não</button></div>
-      <div class="hint">Com "Sim", se você gastar menos que o limite de uma categoria, a diferença soma ao limite dela no mês seguinte.</div>`},
+      <div class="hint">Com "Sim", se você gastar menos que o limite de uma categoria ou de um grupo, a diferença soma ao limite dele no mês seguinte.</div>
+      <div class="hint">O limite de um grupo soma os gastos de todas as categorias dele e avisa como o das categorias
+        (Configurações › Avisos de valores).</div>`},
   // Cartões: para cada banco com compras no crédito, dia de fechamento (b), dia de pagamento (d) e conta que paga (a).
   cardClose: { fullTitle:'Cartões de crédito',
     fields:() => creditBanks().flatMap((b,i) => [
@@ -393,7 +403,7 @@ const FORMS = {
   // Previsão de gasto numa categoria (ver previsoesDoMes): prevCtx diz o mês e, numa que se repete, se a mudança vale só
   // para este mês ('este') ou para este e os próximos ('prox').
   previsoes: { title:'previsão', fem:true, noDelete:true, fields:() => [
-    {k:'cat', label:'Categoria', type:'select', options:() => [...Object.entries(PREV_GERAIS).map(([k, c]) => [k, c[1]]),
+    {k:'cat', label:'Categoria', type:'select', grupos:'gasto', options:() => [...Object.entries(PREV_GERAIS).map(([k, c]) => [k, c[1]]),
       ...opts(CAT_GASTO).filter(o => o[0] !== 'emprestimo')]},
     {k:'value', label:'Valor previsto', type:'money', big:true},
     {k:'dia', label:'Até o dia (conta do dia 1 até este dia)', type:'int', optional:true},
@@ -417,11 +427,12 @@ const FORMS = {
       Object.assign(touch(inv), {alertUp:v.alertUp || '', alertDown:v.alertDown || '', alertHit:''}); },
     extra:() => '<div class="hint">Com o app aberto, o preço é conferido a cada atualização das cotações. Com ele fechado, o celular confere mais ou menos de hora em hora e avisa por notificação (precisa das notificações ligadas e de internet). Não é um aviso em tempo real.</div>'},
   // Categoria (id do formulário = "tipo:chave"; chave vazia = categoria nova).
-  catEdit: { noDelete:true, fields:[
+  catEdit: { noDelete:true, fields:() => [
     {k:'name', label:'Nome', type:'text', ph:'Ex.: Pets'},
+    {k:'g', label:'Grupo', type:'select', options:() => Object.entries(GRUPOS_CAT[catEditTipo]).map(([g, c]) => [g, c[1]])},
     {k:'icon', label:'Ícone', type:'icons'},
     {k:'color', label:'Cor (aparece com os ícones coloridos, em Configurações › Categorias)', type:'colors', optional:true}],
-    check(v){ const [type, key] = F.id.split(':'); if (catMesmoNome(type, v.name, key)) return catRepetida; },
+    check(v){ const [type, key] = F.id.split(':'); return catNomeErro(type, v.name, v.g, key); },
     commit(v, id){ const [type, key] = id.split(':'); catSalvar(type, key, v); },
     after:() => openCats()},
   rates: { fullTitle:'Taxas de referência', fields:[
@@ -439,8 +450,13 @@ let formTipo = ''; // parcelas: '' (compra parcelada), 'financiamento' ou 'empre
 // Gasto novo parcelado (campo parc do formulário de gasto) ou à vista.
 const parcelado = v => v.parc === '1' && !(F && F.id), aVista = v => !parcelado(v);
 const semAbat = () => !(F && F.id && (db.installments.find(x => x.id === F.id) || {}).seg);
-const EMP_FIELD = {k:'emp', label:'Empresa do vale', type:'select', optional:true, banco:true, // banco: com o logotipo da empresa
-  options:() => [['', 'Não informar'], ...VALE_EMPRESAS.map(e => [e, e])]};
+// Empresa do vale: como o banco, campo de texto com as empresas em botões, com o logotipo (banco:true). O vale-transporte
+// não tem empresa: o campo some (valeDoForm = qual vale: cat no ganho, pay no gasto).
+const valeDoForm = v => F && F.col === 'incomes' ? v.cat : v.pay;
+const EMP_FIELD = {k:'emp', label:'Empresa do vale (opcional)', type:'text', ph:'Ex.: Alelo', optional:true, banco:true,
+  sug:() => VALE_EMPRESAS.filter(e => e !== 'Outra'), showIf:v => valeDoForm(v) !== 'vt'};
+// Empresa gravada: texto aparado, até 40 letras; nada no vale-transporte nem fora de um vale.
+const empLimpa = v => { v.emp = VALES[valeDoForm(v)] && valeDoForm(v) !== 'vt' ? String(v.emp || '').trim().slice(0, 40) : ''; };
 // Novo lançamento num vale: lado = 'gastos' ou 'ganhos'; k = qual vale. A empresa usada por último já vem escolhida.
 function novoVale(lado, k){
   if (lado === 'gastos') openForm('expenses', null, {vale:true, vals:{pay:k, emp:valeEmp(k), fixed:'', start:state.month}});

@@ -100,7 +100,7 @@ function trSufixo(pt, antes, l){
 }
 // O que a pessoa digitou (lançamentos, contas, metas, cartões, categorias próprias…) e os nomes das categorias: partes
 // da frase que não são traduzidas (as categorias do app são, sozinhas). Refeito quando os dados mudam.
-const TR_CODIGOS = /^(id|pid|cat|pay|kind|start|end|month|mes|date|since|regra|ajuste|modo|mode|col|d|ate|autoYM|autoProx|index|tipo|emp|sub|accYM|u|ver|cor|icon|color|lang)$/;
+const TR_CODIGOS = /^(id|pid|cat|pay|kind|start|end|month|mes|date|since|regra|ajuste|modo|mode|col|d|ate|autoYM|autoProx|index|tipo|emp|sub|accYM|u|ver|cor|icon|color|lang|g)$/;
 function trUsuario(c){
   const marca = [db, db.mod, db.expenses.length, db.incomes.length, myName()].join();
   if (c.usu && c.usuDb === db && c.usuMarca === marca) return c.usu;

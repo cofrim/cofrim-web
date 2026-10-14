@@ -597,12 +597,12 @@ const CSV_FORMULA = /^[=+\-@\t\r]/;
 const csvCell = v => typeof v === 'number' ? v.toFixed(2).replace('.', ',') : '"' + (CSV_FORMULA.test(String(v)) ? "'" : '') + String(v).replace(/"/g, '""') + '"';
 // Planilha (CSV) com todos os ganhos e gastos do ano da aba Gastos; abre no Excel e no Google Planilhas.
 function exportCsv(){
-  const y = state.month.slice(0, 4), rows = [['Mês', 'Tipo', 'Descrição', 'Categoria', 'Banco', 'Forma de pagamento', 'Detalhe', 'Valor']];
+  const y = state.month.slice(0, 4), rows = [['Mês', 'Tipo', 'Descrição', 'Grupo', 'Categoria', 'Banco', 'Forma de pagamento', 'Detalhe', 'Valor']];
   for (let i = 0; i < 12; i++){
     const m = ymOf(+y, i);
-    for (const x of incomesAll(m)) rows.push([m, 'Ganho', x.desc, (CAT_GANHO[x.cat] || CAT_GANHO.outros)[1], '', '',
+    for (const x of incomesAll(m)) rows.push([m, 'Ganho', x.desc, grupoInfo('ganho', grupoDe('ganho', x.cat))[1], (CAT_GANHO[x.cat] || CAT_GANHO.outros)[1], '', '',
       tipoLanc(x), x.value]);
-    for (const x of expensesAll(m)) rows.push([m, 'Gasto', x.desc, (CAT_GASTO[x.cat] || CAT_GASTO.outros)[1], x.bank || '', PAY[x.pay] || '',
+    for (const x of expensesAll(m)) rows.push([m, 'Gasto', x.desc, grupoInfo('gasto', grupoDe('gasto', x.cat))[1], (CAT_GASTO[x.cat] || CAT_GASTO.outros)[1], x.bank || '', PAY[x.pay] || '',
       tipoLanc(x), x.value]);
   }
   const csv = '﻿' + rows.map(r => r.map(v => csvCell(celTr(v))).join(';')).join('\r\n'), name = `financas-${y}.csv`; // no idioma do app

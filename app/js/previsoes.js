@@ -98,7 +98,7 @@ function avisoPonto(vistos, tipo, chave, pct, texto, dest, tipoSino = 'aviso'){
   const txt = texto(topo); centralAdd(txt, tipoSino, 0, dest);
   if (temNativo('notificar') && podeNotificar(tipo)) nativo('notificar', AVISO_TITULO[tipo], txt);
 }
-// Avisos de valor: orçamento de cada categoria e limite de cada cartão (no mês atual) e quanto já foi guardado nas metas.
+// Avisos de valor: orçamento de cada categoria e de cada grupo e limite de cada cartão (no mês atual) e quanto já foi guardado nas metas.
 function avisosDeValor(hoje = today()){
   const vistos = prevAvisosLer(), m = hoje[0], de = (x, y) => `${fmtTexto(x)} de ${fmtTexto(y)}`;
   for (const b of budgetStatus(m)){
@@ -106,6 +106,13 @@ function avisosDeValor(hoje = today()){
     avisoPonto(vistos, 'orc', 'orc:' + m + ':' + b.cat + ':', b.pct, p => p === 'passou' ? `Orçamento de ${nome} estourou: ${de(b.used, b.lim)}.`
       : p === 'chegou' ? `Orçamento de ${nome}: chegou no limite (${fmtTexto(b.lim)}).`
       : `Orçamento de ${nome}: ${Math.round(b.pct)}% do limite usado (${de(b.used, b.lim)}).`, {k:'orc', m});
+  }
+  // Limite de um grupo inteiro (db.budgetsG): os mesmos pontos do orçamento das categorias, no sino e no celular.
+  for (const b of budgetGrupos(m)){
+    const nome = grupoInfo('gasto', b.g)[1];
+    avisoPonto(vistos, 'orc', 'orcg:' + m + ':' + b.g + ':', b.pct, p => p === 'passou' ? `Orçamento do grupo ${nome} estourou: ${de(b.used, b.lim)}.`
+      : p === 'chegou' ? `Orçamento do grupo ${nome}: chegou no limite (${fmtTexto(b.lim)}).`
+      : `Orçamento do grupo ${nome}: ${Math.round(b.pct)}% do limite usado (${de(b.used, b.lim)}).`, {k:'orc', m});
   }
   for (const [banco, lim] of Object.entries(db.cardLimit || {})) if (lim > 0){
     const u = cardUsed(banco), pct = u / lim * 100;

@@ -21,7 +21,7 @@ const ACAO_GLOBAIS = {
   newsTab:[() => newsTab, v => { newsTab = v; }], nameGreet:[() => nameGreet, v => { nameGreet = v; }],
   openResumoEdit:[() => openResumoEdit], sairChat:[() => sairChat], opts:[() => opts], save:[() => save], newsPh:[() => newsPh],
   payoffOpts:[() => payoffOpts], shareLeave:[() => shareLeave], shareJoin:[() => shareJoin], sheetCreate:[() => sheetCreate],
-  tell:[() => tell], demoBloqueia:[() => demoBloqueia]
+  tell:[() => tell], demoBloqueia:[() => demoBloqueia], grupoEd:[() => grupoEd]
 };
 const ACAO_PROIBIDO = new Set(['constructor', '__proto__', 'prototype', 'eval', 'Function']);
 

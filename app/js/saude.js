@@ -57,12 +57,13 @@ function calcSaude(ym){
       taxaInv != null && taxaInv < 10 && (mesesInv == null || escala(taxaInv, 0, 10) <= escala(mesesInv, 0, 12)) ? `Você investe ${numBR(taxaInv)}% da renda por mês` : mesesInv != null ? `Seus investimentos cobrem ${numBR(mesesInv)} ${mesesInv === 1 ? 'mês' : 'meses'} de gastos` : `Você investe ${numBR(taxaInv || 0)}% da renda por mês`,
       'Depois da reserva, invista todo mês uma parte fixa da renda (10% é um bom começo), de preferência no dia em que o dinheiro entra.',
       'Cadastre seus investimentos e o aporte mensal (aba Investir).');
-    // Orçamento: categorias com orçamento dentro do limite no mês.
-    const orc = budgetStatus(ym), dentro = orc.length ? orc.filter(b => b.pct <= 100).length / orc.length * 100 : null;
+    // Orçamento: categorias e grupos com limite dentro dele no mês (sem contar um gasto duas vezes, orcamentoGeral).
+    const orc = orcamentoGeral(ym), dentro = orc.length ? orc.filter(b => b.pct <= 100).length / orc.length * 100 : null;
     comp('orcamento', 'Orçamento', 13, dentro == null ? null : Math.round(dentro),
       dentro == null ? '' : `${numBR(dentro, 0)}% dos orçamentos dentro do limite.`,
       dentro == null ? '' : `${numBR(dentro, 0)}% dos orçamentos ficaram dentro do limite`,
-      'Reveja as categorias que estouraram: ajuste o limite ou corte um pouco nelas.', 'Defina um orçamento por categoria (Gastos › Orçamento do mês).');
+      'Reveja as categorias que estouraram: ajuste o limite ou corte um pouco nelas.',
+      'Defina um orçamento por categoria ou por grupo (Gastos › Orçamento do mês).');
     // Regularidade: dias do mês (até hoje) com pelo menos um lançamento.
     const lanc = [...incomesOf(ym), ...expensesOf(ym)], ate = ym === curYM ? now.getDate() : ym < curYM ? daysIn(ym) : 0;
     const dias = new Set(lanc.map(x => diaDe(x, ym)).filter(d => d >= 1 && d <= ate)), reg = lanc.length && ate ? dias.size / ate * 100 : null;

@@ -48,7 +48,7 @@ function logErr(onde, e){
 }
 addEventListener('error', e => logErr('erro na tela', (e.error && e.error.stack) || (e.message || '') + ' @' + (e.lineno || 0) + ':' + (e.colno || 0)));
 addEventListener('unhandledrejection', e => logErr('promessa', e.reason));
-const APP_VERSION = '2.81'; // manter igual ao versionName do build.gradle
+const APP_VERSION = '2.90'; // manter igual ao versionName do build.gradle
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const I = (name, size = 18) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 // Categorias: [ícone, nome, cor]
@@ -80,6 +80,28 @@ const CAT_INV = {
   cripto:['coin','Cripto','#eab308'],
   previdencia:['umbrella','Previdência','#8b5cf6'], outros:['diamond','Outros','#64748b']
 };
+const CAT_OF = {gasto:CAT_GASTO, ganho:CAT_GANHO};
+// Grupos de categorias (categorias principais, um nível só acima das categorias), separados para gastos e ganhos:
+// [ícone, nome, cor, categorias de fábrica do grupo]. Os de fábrica podem ser renomeados, ter outro ícone ou cor e ser
+// excluídos, como os criados pela pessoa (db.grupos; ver applyCats); "outros" sempre existe e recebe o que fica sem grupo.
+const GRUPOS_BASE = {
+  gasto:{
+    moradia:['home', 'Moradia', '#6366f1', ['moradia', 'casa', 'luz']],
+    alimentacao:['food', 'Alimentação', '#f59e0b', ['alimentacao', 'mercado', 'restaurante', 'cafe']],
+    transporte:['car', 'Transporte', '#0ea5e9', ['transporte', 'combustivel', 'estacionamento', 'conducao', 'oficina']],
+    lazer:['star', 'Lazer', '#ec4899', ['lazer', 'bares', 'cinema', 'shows', 'jogos', 'viagem']],
+    saude:['health', 'Saúde', '#ef4444', ['saude', 'farmacia', 'academia', 'beleza']],
+    educacao:['book', 'Educação', '#8b5cf6', ['educacao', 'filhos']],
+    compras:['bag', 'Compras', '#14b8a6', ['compras', 'roupas', 'eletronicos', 'presentes', 'pets']],
+    contas:['bolt', 'Contas e serviços', '#eab308', ['contas', 'internet', 'seguros', 'impostos']],
+    outros:['box', 'Outros', '#64748b', ['doacoes', 'emprestimo', 'outros']]},
+  ganho:{
+    trabalho:['briefcase', 'Trabalho', '#059669', ['salario', 'freelance', 'vendas', 'va', 'vr', 'vt']],
+    investimentos:['trend', 'Investimentos', '#8b5cf6', ['rendimentos']],
+    outros:['wallet', 'Outros', '#64748b', ['outros']]}};
+// Grupos em uso, refeitos por applyCats: GRUPOS_CAT[tipo] = {chave:[ícone, nome, cor]} (na ordem: os de fábrica, os criados,
+// "Outros" por último) e CAT_GRUPO[tipo] = {chave da categoria: chave do grupo}.
+const GRUPOS_CAT = {gasto:{}, ganho:{}}, CAT_GRUPO = {gasto:{}, ganho:{}};
 // Tipos de parcelamento além da compra parcelada (campo tipo em db.installments; ver Financiamentos mais abaixo).
 const PARC_TIPOS = {financiamento:'Financiamento', emprestimo:'Empréstimo'};
 const PAY = {credito:'Crédito', debito:'Débito', pix:'Pix', dinheiro:'Dinheiro', boleto:'Boleto', va:'Vale-alimentação', vr:'Vale-refeição',
@@ -146,9 +168,20 @@ const sugsJuntar = (a, b) => sugsLimpas({limpas:Math.max((a && a.limpas) || 0, (
   lista:[...((b && b.lista) || []), ...((a && a.lista) || [])]});
 function fixDb(d){
   for (const c of COLS) if (!Array.isArray(d[c])) d[c] = [];
-  for (const k of ['tomb', 'budgets', 'cardClose', 'cardDue', 'cardAcc', 'cardLimit', 'yieldLog', 'netLog', 'catMemo', 'cats',
+  for (const k of ['tomb', 'budgets', 'budgetsG', 'cardClose', 'cardDue', 'cardAcc', 'cardLimit', 'yieldLog', 'netLog', 'catMemo', 'cats',
     'membros']) if (!d[k] || typeof d[k] !== 'object') d[k] = {};
   for (const t of ['gasto', 'ganho']) if (!d.cats[t] || typeof d.cats[t] !== 'object') d.cats[t] = {};
+  // Grupos de categorias (ver GRUPOS_BASE): {gasto:{chave:{name, icon, color, del}}, ganho:{…}}. Backup antigo, sem eles:
+  // as categorias ficam nos grupos de fábrica ou em "Outros" (applyCats).
+  if (!d.grupos || typeof d.grupos !== 'object' || Array.isArray(d.grupos)) d.grupos = {};
+  for (const t of ['gasto', 'ganho']){
+    const g = d.grupos[t] && typeof d.grupos[t] === 'object' && !Array.isArray(d.grupos[t]) ? d.grupos[t] : {};
+    d.grupos[t] = {};
+    for (const [k, v] of Object.entries(g)){
+      if (!/^[\w-]{1,40}$/.test(k) || !v || typeof v !== 'object') continue;
+      d.grupos[t][k] = v.del ? {del:true} : catLimpa({name:String(v.name || '').trim().slice(0, 40) || 'Grupo', icon:v.icon, color:v.color});
+    }
+  }
   // Os dados chegam também da planilha da conta compartilhada e de backups importados, que qualquer um pode editar.
   // Ids e chaves de categoria entram em data-onclick="...('id')" nas telas: ficam só com letras, números, _ e -.
   // Categorias: ícone conhecido, cor #rrggbb e nome de até 40 letras (sem tirar caracteres: "Bares & Restaurantes").
@@ -178,6 +211,7 @@ function fixDb(d){
     const cs = d.cats[t];
     for (const k of Object.keys(cs)){
       const c = cs[k] && typeof cs[k] === 'object' ? catLimpa(cs[k]) : {}, nk = limpaId(k);
+      if ('g' in c && !(typeof c.g === 'string' && /^[\w-]{1,40}$/.test(c.g))) delete c.g; // grupo: só a chave
       if (nk !== k) delete cs[k];
       if (nk) cs[nk] = c;
     }
@@ -362,12 +396,40 @@ function applyCats(){
       const base = target[k] || ['tag', c.name, '#64748b'];
       target[k] = [c.icon || base[0], c.name || base[1], c.color || base[2], !!c.hidden];
     }
-    // Categoria criada pelo usuário com o mesmo nome de uma de fábrica (ex.: "Pets"): fica só a do usuário.
-    const proprias = Object.keys(db.cats[type]).filter(k => !BASE_CATS[type][k]).map(k => plainName(target[k][1]));
-    for (const k of Object.keys(BASE_CATS[type])) if (!db.cats[type][k] && proprias.includes(plainName(target[k][1]))) delete target[k];
     // "Outros" vai para o fim, depois das criadas pela pessoa: as listas e a tela de categorias seguem esta ordem.
     if (target.outros){ const o = target.outros; delete target.outros; target.outros = o; }
+    gruposAplicar(type, target);
   }
+}
+// Grupos de um tipo: os de fábrica (menos os excluídos, del) com as mudanças de db.grupos, depois os criados pela pessoa,
+// "Outros" por último. Cada categoria fica no grupo dela (g, em db.cats) se ele existe; senão, no grupo de fábrica dela;
+// senão (criada pela pessoa sem grupo, backup antigo, grupo excluído), em "Outros".
+function gruposAplicar(type, cats){
+  const G = GRUPOS_CAT[type], mud = db.grupos[type], base = GRUPOS_BASE[type];
+  for (const k in G) delete G[k];
+  for (const [k, b] of Object.entries(base)){
+    const m = mud[k] || {};
+    if (!m.del) G[k] = [m.icon || b[0], m.name || b[1], m.color || b[2]];
+  }
+  for (const [k, g] of Object.entries(mud)) if (!base[k] && !g.del) G[k] = [g.icon || 'tag', g.name || 'Grupo', g.color || '#64748b'];
+  if (!G.outros) G.outros = base.outros.slice(0, 3); // "Outros" não se exclui
+  const o = G.outros; delete G.outros; G.outros = o;
+  const fab = {};
+  for (const [gk, b] of Object.entries(base)) for (const c of b[3]) fab[c] = gk;
+  const CG = CAT_GRUPO[type];
+  for (const k in CG) delete CG[k];
+  // Categoria criada antes dos grupos (sem g) com o nome de uma de fábrica: entra no grupo dela, como a que a substitui.
+  const fabNome = {};
+  for (const k of Object.keys(BASE_CATS[type])) if (cats[k]) fabNome[plainName(cats[k][1])] = fab[k];
+  for (const k of Object.keys(cats)){
+    const g = (db.cats[type][k] || {}).g, padrao = BASE_CATS[type][k] ? fab[k] : fabNome[plainName(cats[k][1])];
+    CG[k] = G[g] ? g : G[padrao] ? padrao : 'outros';
+  }
+  // Categoria criada pelo usuário com o mesmo nome de uma de fábrica do mesmo grupo (ex.: "Pets"): fica só a do usuário.
+  // Em grupos diferentes, as duas ficam ("Lazer › Presentes" e "Compras › Presentes").
+  const proprias = new Set(Object.keys(db.cats[type]).filter(k => !BASE_CATS[type][k] && cats[k]).map(k => CG[k] + ':' + plainName(cats[k][1])));
+  for (const k of Object.keys(BASE_CATS[type]))
+    if (!db.cats[type][k] && proprias.has(CG[k] + ':' + plainName(cats[k][1]))){ delete cats[k]; delete CG[k]; }
 }
 applyCats();
 // touch = false para gravações que não são alteração do usuário (abrir o app, atualizar taxas e cotações).
