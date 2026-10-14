@@ -3789,6 +3789,8 @@ TR_TEXTOS.en = {
 "O ganho ou gasto novo abre sem categoria escolhida. Se você salvar sem escolher, ele vai para Outros, que agora é fixa: não se edita nem se exclui.":"A new income or expense opens with no category chosen. If you save without choosing, it goes to Other, which is now fixed: it can't be edited or deleted.",
 "Ícone e cor do seu jeito":"Icon and color your way",
 "Ao criar ou editar uma categoria ou um grupo, \"Escolher ícone\" abre uma janela com todos os ícones e as cores, inclusive uma cor personalizada, que você ajusta no tom e na claridade.":"When creating or editing a category or a group, \"Choose icon\" opens a window with all the icons and colors, including a custom color you adjust by hue and brightness.",
+"Lançamento mais arrumado":"Tidier entry form",
+"No ganho e no gasto, a busca de categorias ganhou espaço em relação ao Pagamento, como entre os outros campos.":"In income and expenses, the category search now has the same space from Payment as the other fields.",
 "Editar grupo":"Edit group",
 "{}Novo grupo":"{}New group",
 "{}Restaurar grupos padrão":"{}Restore default groups",

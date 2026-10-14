@@ -3789,6 +3789,8 @@ TR_TEXTOS.es = {
 "O ganho ou gasto novo abre sem categoria escolhida. Se você salvar sem escolher, ele vai para Outros, que agora é fixa: não se edita nem se exclui.":"El ingreso o gasto nuevo se abre sin categoría elegida. Si guardas sin elegir, va a Otros, que ahora es fija: no se edita ni se elimina.",
 "Ícone e cor do seu jeito":"Ícono y color a tu manera",
 "Ao criar ou editar uma categoria ou um grupo, \"Escolher ícone\" abre uma janela com todos os ícones e as cores, inclusive uma cor personalizada, que você ajusta no tom e na claridade.":"Al crear o editar una categoría o un grupo, \"Elegir ícono\" abre una ventana con todos los íconos y los colores, incluso un color personalizado que ajustas en el tono y la claridad.",
+"Lançamento mais arrumado":"Registro más ordenado",
+"No ganho e no gasto, a busca de categorias ganhou espaço em relação ao Pagamento, como entre os outros campos.":"En el ingreso y en el gasto, la búsqueda de categorías ganó espacio respecto al Pago, como entre los otros campos.",
 "Editar grupo":"Editar grupo",
 "{}Novo grupo":"{}Nuevo grupo",
 "{}Restaurar grupos padrão":"{}Restaurar grupos predeterminados",

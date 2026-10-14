@@ -410,7 +410,7 @@ h1 span{display:flex;gap:2px}
 .grpOk{position:absolute;top:-5px;right:-7px;width:20px;height:20px;border-radius:50%;background:#16a34a;border:2px solid var(--card);display:grid;place-items:center}
 .catGrupos .grpOk .ic{color:#fff;width:12px;height:12px}
 .catSel .grpIco{width:30px;height:30px}
-.catBusca{margin-top:0}
+.catBusca{margin-top:16px} /* o espaço que o título do campo (escondido) daria, como entre os outros campos */
 #catAchou>*{margin-top:8px}
 .grpMais{margin-top:8px}
 .grpGrade{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
